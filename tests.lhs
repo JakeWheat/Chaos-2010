@@ -342,7 +342,8 @@ start with a few helper functions
 
 avoid writing out the full key press names:
 
-> cursorShorthand m = L.check L.assert $ fromJust $ lookup m
+> cursorShorthand :: String -> String
+> cursorShorthand m = safeLookup "cursor shorthand" m
 >                      [("d", "Down"),
 >                       ("l", "Left"),
 >                       ("u", "Up"),
@@ -2296,10 +2297,7 @@ on each square
 >   let keyPositionList = parseDiagram diagram
 >   in flip concatMap keyPositionList
 >               (\(k,x,y) ->
->                    let ps = if hasKey k key
->                               then L.check L.assert $ fromJust $ lookup k key
->                               else error $
->                                      "Board diagram key is missing " ++ [k]
+>                    let ps = safeLookup "board diagram parse" k key
 >                    in map (\p -> (p,x,y)) ps)
 >
 

@@ -3,6 +3,8 @@
 >               time,
 >               updateLookup,
 >               hasKey,
+>               safeLookup,
+>               safeMLookup,
 >               for,
 >               uncurry3,
 >               uncurry5,
@@ -21,6 +23,7 @@
 > import Control.Exception
 > import qualified Data.ByteString.Lazy as B
 > import qualified Data.ByteString as Bs
+> import qualified Data.Map as M
 
 > applyMany :: [(a -> b)] -> a -> [b]
 > applyMany fns val =
@@ -46,6 +49,18 @@
 
 > hasKey :: Eq k => k -> [(k,v)] -> Bool
 > hasKey k lkp = any (\(k',v) ->  k == k') lkp
+
+> safeLookup :: (Show a, Eq a) => String -> a -> [(a, b)] -> b
+> safeLookup errMsg key lkp =
+>     case lookup key lkp of
+>       Just x -> x
+>       Nothing -> error $ errMsg ++ " missing key: " ++ (show key)
+
+> safeMLookup :: (Show k, Ord k) => String -> k -> M.Map k a -> a
+> safeMLookup errMsg key lkp =
+>     case M.lookup key lkp of
+>       Just x -> x
+>       Nothing -> error $ errMsg ++ " missing key: " ++ (show key)
 
 > time f = do
 >   st <- getClockTime

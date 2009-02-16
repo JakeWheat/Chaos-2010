@@ -518,7 +518,7 @@ stuff
 
 >         cf <- liftIO getFrames
 >         let drawAt x y sp sf as = do
->                 let p = fromJust $ M.lookup sp spriteMap
+>                 let p = safeMLookup "board widget draw" sp spriteMap
 >                 let (_,_,img) = p
 >                 let f = ((cf - sf) `div` as) `mod` length img
 >                 setSourceSurface (img !! f) (toXS x) (toYS y)
@@ -830,7 +830,7 @@ text box instead of redrawing them all
 
 >   wizardColours <- selectLookup conn "select wizard_name,colour\n\
 >                                      \from wizard_display_info"
->   let getWC wn = fromJust $ lookup wn wizardColours
+>   let getWC wn = fromMaybe "grey" $ lookup wn wizardColours
 
 >   let insertHistory h = do
 >         ibc $ h "id" ++ ". "
@@ -862,7 +862,7 @@ unfinished...
 >           "shrugged off" ->
 >               doPTag h >> ibc " shrugged off the attack"
 >           "game won" ->
->               doPTag h >> ibc " has won!"
+>               icw >> ibc " has won!"
 >           "game drawn" ->
 >               ibc "the game is a draw."
 >           _ -> ibc $ h "history_name" ++ " FIXME"
@@ -998,7 +998,7 @@ way to unhide them).
 >               textViewInsertWidgetAtCursor wm but
 >               textBufferInsertAtCursor buf "\n"
 >               toggleButtonSetActive but $ wi "state" /= "hidden"
->               let (ww,_) = fromJust $ lookup name widgetData
+>               let (ww,_) = safeLookup "window manager refresh" name widgetData
 
 setup the handler so that clicking the button toggles the window visibility
 
@@ -1036,7 +1036,8 @@ now we have our window manager refresh function, stick it into the
 lookup which contains the widget and refresh functions
 
 >     let widgetData' = updateLookup "window_manager"
->                         (fst $ fromJust $ lookup "window_manager" widgetData,
+>                         (fst $ safeLookup "window manager refresh widgets"
+>                                           "window_manager" widgetData,
 >                          refresh)
 >                         widgetData
 >

@@ -6,6 +6,7 @@
 > import Data.Maybe
 > import Data.List
 > import System.IO
+> import Utils
 
 
 > data Conf = Conf { tempDbName :: String,
@@ -24,7 +25,7 @@
 >     then error $ "Config file must contain exactly these keys: " ++
 >                  show expectedKeys ++ "\ngot " ++ show (M.keys m)
 >     else
->         let k = \k -> fromJust $ M.lookup k m
+>         let k = \k -> safeMLookup "get config" k m
 >         in return $ Conf (k "tempDbName")
 >                      (k "dbName")
 >                      (k "username")

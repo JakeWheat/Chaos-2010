@@ -1789,21 +1789,26 @@ create or replace function action_next_phase() returns void as $$
 declare
   c int;
 begin
+  if (exists (select 1 from game_completed_table)) then
+    return;
+  end if;
   --check for win or draw
   c := (select count(1) from wizards
          where not expired);
   if c = 1 then
     insert into action_history_mr
-      (history_name, current_wizard)
+      (history_name, wizard_name)
       values ('game won',
               (select wizard_name from wizards where not expired));
     insert into game_completed_table values (true);
+    return;
   elseif c = 0 then
     insert into action_history_mr
       (history_name)
       values ('game drawn',
               (select wizard_name from wizards where not expired));
     insert into game_completed_table values (true);
+    return;
   end if;
 
 

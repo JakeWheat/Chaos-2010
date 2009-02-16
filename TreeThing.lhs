@@ -29,6 +29,7 @@ todo: get this tree into speedbar
 > import System.Directory
 > import Control.Monad
 > import Control.Exception
+> import Utils
 
 > getSourceFiles = do
 >   entries <- getDirectoryContents "."
@@ -129,7 +130,7 @@ path from the root to that module
 >       r0 <- selectRelationValues conn
 >                 "select module_name, module_parent_name\n\
 >                 \from modules order by module_order"
->       let flookup k = fromJust . lookup k
+>       let flookup k = safeLookup "get module parents" k
 >           moduleMap = foldr addI [] r0
 >               where addI i l = l ++ [(i!!0, i!!1)]
 >           paths = map (\(c,p) -> (c,getPath c p)) moduleMap
