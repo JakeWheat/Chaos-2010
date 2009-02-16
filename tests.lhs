@@ -128,9 +128,7 @@ Run all the tests.
 >   conf <- getConfig
 >   withConn ("host=localhost dbname=" ++
 >             dbName conf ++ " user=" ++ username conf ++
->             " password=" ++ password conf) (\conn -> do
->   runTestTT $ TestList [
-
+>             " password=" ++ password conf) (\conn -> runTestTT $ TestList [
 >         testDatabaseStuff conn,
 >         testCursorMovement conn,
 >         testNextPhase conn,
@@ -170,8 +168,9 @@ Run all the tests.
 >         testImaginary conn,
 >         testShadowWoodAttack conn,
 >         testMount conn,
-
 >         testWizardWin conn
+
+-- >         testWizardDraw conn
 
 >         ])
 
@@ -189,7 +188,7 @@ functions whose name starts with 'check_code_'
 >   selectTuples conn "select object_name\n\
 >                     \from module_objects\n\
 >                     \where object_name ~ 'check_code_.*'\n\
->                     \and object_type='operator';"
+>                     \and object_type='operator';" []
 >                    (\t -> do
 >      v <- selectValue conn ("select " ++  t "object_name" ++ "()")
 >      r1 <- readIORef res
@@ -357,7 +356,7 @@ get the current cursor position from the database
 
 > readCursorPosition :: Connection -> IO (Int,Int)
 > readCursorPosition conn = do
->   r <- selectRelation conn "select x,y from cursor_position"
+>   r <- selectRelation conn "select x,y from cursor_position" []
 >   return (read $ head r "x", read $ head r "y")
 
 move the cursor to x,y, using key presses
@@ -431,7 +430,7 @@ to do all variations is 256 tests
 >                        else x: dropItemN xs (i - 1)
 
 > testNextPhaseWizardDead conn =
->   TestLabel "testNextPhaseWizardDead" $ TestCase $ do
+>   TestLabel "testNextPhaseWizardDead" $ TestCase $
 >   forM_ [0..7] (\j -> do
 >     startNewGame conn
 >     --kill wizard
@@ -451,7 +450,7 @@ to do all variations is 256 tests
 >         sendKeyPress conn "space")))
 
 > testNextPhaseTwoWizardsDead conn =
->   TestLabel "testNextPhaseTwoWizardsDead" $ TestCase $ do
+>   TestLabel "testNextPhaseTwoWizardsDead" $ TestCase $
 >   forM_ [0..7] (\j ->
 >     forM_ [(j + 1)..7] (\k -> do
 >       startNewGame conn
@@ -1085,7 +1084,7 @@ cast it and check the resulting board
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
 >   dbAlign <- selectRelation conn "select world_alignment\n\
->                                  \from world_alignment_table"
+>                                  \from world_alignment_table" []
 >   assertEqual "world alignment not law after casting law"
 >              1 (read $ head dbAlign "world_alignment")
 
@@ -1252,7 +1251,7 @@ fire ranged weapons
 >     v <- selectRelationValues conn
 >                              "select * from pieces_to_move\n\
 >                              \where ptype='golden_dragon' and\n\
->                              \  allegiance='Buddha'"
+>                              \  allegiance='Buddha'" []
 >     assertBool "piece not in ptm" (null v)
 
 > testMoveSubphases2 conn = TestLabel "testMoveSubphases2" $ TestCase $ do
@@ -1286,7 +1285,7 @@ fire ranged weapons
 >     v <- selectRelationValues conn
 >                              "select * from pieces_to_move\n\
 >                              \where ptype='golden_dragon' and\n\
->                              \  allegiance='Buddha'"
+>                              \  allegiance='Buddha'" []
 >     assertBool "piece not in ptm" (null v)
 > testMoveSubphases3 conn = TestLabel "testMoveSubphases3" $ TestCase $ do
 >     --test 3: move -> unselected
@@ -1317,7 +1316,7 @@ fire ranged weapons
 >     v <- selectRelationValues conn
 >                              "select * from pieces_to_move\n\
 >                              \where ptype='giant_rat' and\n\
->                              \  allegiance='Buddha'"
+>                              \  allegiance='Buddha'" []
 >     assertBool "piece not in ptm" (null v)
 > testMoveSubphases4 conn = TestLabel "testMoveSubphases4" $ TestCase $ do
 >     --test 4: attack -> unselected
@@ -1351,7 +1350,7 @@ fire ranged weapons
 >     v <- selectRelationValues conn
 >                              "select * from pieces_to_move\n\
 >                              \where ptype='bear' and\n\
->                              \  allegiance='Buddha'"
+>                              \  allegiance='Buddha'" []
 >     assertBool "piece not in ptm" (null v)
 
 > testWalkOneSquare conn = TestLabel "testWalkOneSquare" $ TestCase $ do
@@ -2091,6 +2090,42 @@ activate and target action views are empty.
 >                         \from client_valid_activate_actions;"
 >   assertEqual "now valid activate actions" 0 (read r)
 
+> testWizardDraw conn = TestLabel "testWizardDraw" $ TestCase $ do
+>   startNewGame conn
+>   setupBoard conn ("\n\
+>                   \1G 2           \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               ",
+>                   (wizardPiecesList ++
+>                   [('G', [PieceDescription "green_dragon" "Kong Fuzi" []])]))
+>   skipToPhase conn "move"
+>   sendKeyPress conn "space"
+>   moveCursorTo conn 1 0
+>   sendKeyPress conn "Return"
+>   moveCursorTo conn 0 0
+>   rigActionSuccess conn "attack" True
+>   sendKeyPress conn "Return"
+>   --now the dragon shoots it's own wizard to force the draw
+>   moveCursorTo conn 3 0
+>   rigActionSuccess conn "ranged_attack" True
+>   sendKeyPress conn "Return"
+>   sendKeyPress conn "space"
+>   r <- selectValue conn "select count(1) from action_history_mr\n\
+>                         \where history_name='game drawn';"
+>   assertEqual "game won history entry" 1 (read r)
+>   r <- selectValue conn "select count(1)\n\
+>                         \from client_valid_target_actions;"
+>   assertEqual "now valid target actions" 0 (read r)
+>   r <- selectValue conn "select count(1)\n\
+>                         \from client_valid_activate_actions;"
+>   assertEqual "now valid activate actions" 0 (read r)
 
 
 
@@ -2173,7 +2208,7 @@ as well.
 
 > readValidSquares :: Connection -> IO [(Int, Int)]
 > readValidSquares conn = do
->   v <- selectRelation conn "select x,y from current_wizard_spell_squares"
+>   v <- selectRelation conn "select x,y from current_wizard_spell_squares" []
 >   return $ map (\t -> (read $ t "x", read $ t "y")) v
 
 
@@ -2306,7 +2341,7 @@ now the code to read the board from the database and get it in the same format:
 > readBoard :: Connection -> IO BoardDescription
 > readBoard conn =
 >   selectRelation conn "select ptype,allegiance,x,y,undead\n\
->                       \from piece_details" >>=
+>                       \from piece_details" [] >>=
 >   convertBoardRel conn
 
 The variant for only the topmost pieces:
@@ -2314,7 +2349,7 @@ The variant for only the topmost pieces:
 > readPiecesOnTop :: Connection -> IO BoardDescription
 > readPiecesOnTop conn =
 >   selectRelation conn "select ptype,allegiance,x,y,undead\n\
->                           \from pieces_on_top_view" >>=
+>                           \from pieces_on_top_view" [] >>=
 >   convertBoardRel conn
 >
 
@@ -2351,12 +2386,12 @@ sword
 
 > readWizardUpgrades :: Connection -> IO [(String, [PieceTag])]
 > readWizardUpgrades conn = do
->   v <- selectRelation conn "select wizard_name, magic_armour from wizards"
+>   v <- selectRelation conn "select wizard_name, magic_armour from wizards" []
 >   let checkTag r t t' = if r t == "True"
 >                           then Just t'
 >                           else Nothing
 >   return $ for v (\vs -> (vs "wizard_name",
->                                catMaybes [checkTag vs "magic_armour" PArmour]))
+>                           catMaybes [checkTag vs "magic_armour" PArmour]))
 
 
 == check new game relvars
@@ -2390,22 +2425,22 @@ this test file.
 
 > checkRelvar :: Connection -> String -> [[String]] -> IO ()
 > checkRelvar conn relvarName value =
->   selectRelationValues conn ("select * from " ++ relvarName) >>=
+>   selectRelationValues conn ("select * from " ++ relvarName) [] >>=
 >   assertEqual ("relvar " ++ relvarName) value
 
 shorthands to check data in the database
 
 > checkSelectedPiece conn allegiance ptype = do
->   v <- selectRelation conn "select * from selected_piece"
+>   v <- selectRelation conn "select * from selected_piece" []
 >   assertEqual "selected piece" (allegiance,ptype)
 >               (head v "allegiance", head v "ptype")
 
 > checkMoveSubphase conn sp = do
->   ms <- selectRelation conn "select move_phase from selected_piece"
+>   ms <- selectRelation conn "select move_phase from selected_piece" []
 >   assertEqual "move subphase" sp (head ms "move_phase")
 
 > checkNoSelectedPiece conn = do
->   v <- selectRelation conn "select * from selected_piece"
+>   v <- selectRelation conn "select * from selected_piece" []
 >   assertBool "no selected piece" (null v)
 
 ================================================================================
@@ -2422,29 +2457,36 @@ setup a particular game before running some tests
 >   let targetBoard = parseBoardDiagram bd
 >   --just assume that present wizards are in the usual starting positions
 >   --fix this when needed
->   let nonWizardItems = filter (\x -> not (x `elem` wizardStartPos))
->                               targetBoard
+>   let (wizardItems, nonWizardItems) =
+>          partition (\(PieceDescription t _ _, _, _) -> t == "wizard")
+>          targetBoard
 >       isWizPresent name = any (\(PieceDescription _ n _, _, _) ->
->                                n == name) targetBoard
+>                                n == name) wizardItems
 >   -- remove missing wizards
->   forM_ [0..7] $ (\i -> do
->     when (not $ isWizPresent $ wizardNames !! i) $
+>   forM_ [0..7] (\i ->
+>     unless (isWizPresent $ wizardNames !! i) $
 >       callSp conn "kill_wizard" [wizardNames !! i])
+>   -- move present wizards
+>   forM_ wizardItems (\(PieceDescription _ name _, x, y) ->
+>     selectTuple conn "select x,y from pieces where ptype='wizard'\n\
+>                      \and allegiance=?" [name] (\t ->
+>       unless (read (t "x") == x && read (t "y") == y)
+>            (runSql conn "update pieces set x = ?, y = ?\n\
+>                        \where ptype='wizard' and allegiance=?" [name])))
 >   -- add extra pieces
->   let addObject (PieceDescription object allegiance tags, x, y) =
->         if allegiance == "dead"
->           then callSp conn "create_corpse"
->                       [object,
->                        (show x),
->                        (show y),
->                        show (PImaginary `elem` tags)]
->           else callSp conn "create_piece_internal"
->                       [object,
->                        allegiance,
->                        (show x),
->                        (show y),
->                        show (PImaginary `elem` tags)]
->   mapM_ addObject nonWizardItems
+>   forM_ nonWizardItems (\(PieceDescription ptype allegiance tags, x, y) ->
+>     if allegiance == "dead"
+>       then callSp conn "create_corpse"
+>                   [ptype,
+>                    (show x),
+>                    (show y),
+>                    show (PImaginary `elem` tags)]
+>       else callSp conn "create_piece_internal"
+>                   [ptype,
+>                    allegiance,
+>                    (show x),
+>                    (show y),
+>                    show (PImaginary `elem` tags)])
 >   return ()
 
 this overrides the next random test by name e.g. so we can test the
@@ -2490,10 +2532,10 @@ keep running next_phase until we get to the cast phase
 
 > readTurnPhase :: Connection -> IO String
 > readTurnPhase conn = do
->   r <- selectRelation conn "select turn_phase from turn_phase_table"
+>   r <- selectRelation conn "select turn_phase from turn_phase_table" []
 >   return $ head r "turn_phase"
 
 > readCurrentWizard :: Connection -> IO String
 > readCurrentWizard conn = do
->   r <- selectRelation conn "select current_wizard from current_wizard_table"
+>   r <- selectRelation conn "select current_wizard from current_wizard_table" []
 >   return $ head r "current_wizard"

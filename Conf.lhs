@@ -25,7 +25,7 @@
 >     then error $ "Config file must contain exactly these keys: " ++
 >                  show expectedKeys ++ "\ngot " ++ show (M.keys m)
 >     else
->         let k = \k -> safeMLookup "get config" k m
+>         let k key = safeMLookup "get config" key m
 >         in return $ Conf (k "tempDbName")
 >                      (k "dbName")
 >                      (k "username")

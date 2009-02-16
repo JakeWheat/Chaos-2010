@@ -48,19 +48,19 @@
 >     (k,v):filter (\(k',_) -> k' /= k) lkp
 
 > hasKey :: Eq k => k -> [(k,v)] -> Bool
-> hasKey k lkp = any (\(k',v) ->  k == k') lkp
+> hasKey k = any (\(k',v) ->  k == k')
 
 > safeLookup :: (Show a, Eq a) => String -> a -> [(a, b)] -> b
 > safeLookup errMsg key lkp =
 >     case lookup key lkp of
 >       Just x -> x
->       Nothing -> error $ errMsg ++ " missing key: " ++ (show key)
+>       Nothing -> error $ errMsg ++ " missing key: " ++ show key
 
 > safeMLookup :: (Show k, Ord k) => String -> k -> M.Map k a -> a
 > safeMLookup errMsg key lkp =
 >     case M.lookup key lkp of
 >       Just x -> x
->       Nothing -> error $ errMsg ++ " missing key: " ++ (show key)
+>       Nothing -> error $ errMsg ++ " missing key: " ++ show key
 
 > time f = do
 >   st <- getClockTime
@@ -98,7 +98,5 @@
 >                 _             -> 0
 
 > deleteIfExists fn = do
->    x <- doesFileExist fn
->    if x
->     then removeFile fn
->     else return ()
+>    doesFileExist fn >>=
+>      flip when (removeFile fn)

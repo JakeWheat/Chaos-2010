@@ -116,7 +116,7 @@ tables and constraints under the appropriate module
 todo: add internal objects under an additional branch for each module
 
 > getModuleTree :: IO [Tree [Char]]
-> getModuleTree = do
+> getModuleTree =
 >   catchSql (do
 >     conf <- getConfig
 >     withConn ("host=localhost dbname=" ++ dbName conf ++
@@ -129,8 +129,8 @@ path from the root to that module
 
 >       r0 <- selectRelationValues conn
 >                 "select module_name, module_parent_name\n\
->                 \from modules order by module_order"
->       let flookup k = safeLookup "get module parents" k
+>                 \from modules order by module_order" []
+>       let flookup = safeLookup "get module parents"
 >           moduleMap = foldr addI [] r0
 >               where addI i l = l ++ [(i!!0, i!!1)]
 >           paths = map (\(c,p) -> (c,getPath c p)) moduleMap
@@ -147,7 +147,7 @@ path from the root to that module
 >                 \from module_objects\n\
 >                 \natural inner join modules\n\
 >                 \natural inner join object_orders\n\
->                 \order by module_order desc,object_order desc,object_name"
+>                 \order by module_order desc,object_order desc,object_name" []
 >       let tree = foldr addNodeA [] r1
 >              where addNodeA i tree =
 >                        addNode tree $ flookup (i!!0) paths

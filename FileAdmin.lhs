@@ -28,7 +28,7 @@ todo: doesn't check all the sprite files are present
 >                    " user=" ++ Conf.username conf ++
 >                    " password=" ++ Conf.password conf)
 >     (\conn -> do
->        spriteNames <- selectSingleColumn conn "select sprite from sprites"
+>        spriteNames <- selectSingleColumn conn "select sprite from sprites" []
 >        maybeSpriteFiles <- findAllFiles "sprites"
 >        let matchesSprite sn fn = takeFileName fn =~
 >                                    ("^" ++ sn ++ "\\.[0-9]\\.png")
@@ -36,7 +36,7 @@ todo: doesn't check all the sprite files are present
 >        return $ concatMap filesForSprite spriteNames)
 >   maybeSpriteFiles <- findAllFiles "sprites"
 >   let orphans = maybeSpriteFiles \\ spriteFiles
->   if length orphans == 0
+>   if null orphans
 >     then putStrLn "OK: no unmatched pngs"
 >     else putStrLn $ "unmatched pngs:\n" ++
 >            intercalate "\n" orphans
@@ -68,7 +68,7 @@ todo: doesn't check all the sprite files are present
 >   x <- getDirectoryContents "."
 >   return $ filter isSourceFile x
 >   where
->     isSourceFile f = or $ applyMany (map isSuffixOf [".lhs", ".sql"]) f
+>     isSourceFile = or . applyMany (map isSuffixOf [".lhs", ".sql"])
 
 > doFile conv f = do
 >     b <- readFile f
@@ -79,12 +79,12 @@ todo: doesn't check all the sprite files are present
 > lf = chr 0x0A
 
 > dos2unix :: String -> String
-> dos2unix s = gsubRegexPR "\r\n" "\n" s
+> dos2unix = gsubRegexPR "\r\n" "\n"
 
 > unix2dos :: String -> String
-> unix2dos s = gsubRegexPR "(?<!\r)\n" "\r\n" s
+> unix2dos = gsubRegexPR "(?<!\r)\n" "\r\n"
 
-> countNewlines s = (length $ elemIndices '\n' s)
+> countNewlines = length . elemIndices '\n'
 
 > prop_duud s = --collect (length $elemIndices '\n' s) $
 >                        forAll unixString $ \s ->

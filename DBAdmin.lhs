@@ -33,7 +33,7 @@ and you have that one available to test whilst you fix the errors.
 >   switchOverTempDb conf
 
 > createDb :: Conf -> String -> IO()
-> createDb conf dbName = do
+> createDb conf dbName =
 >   systemWithCheck ("psql -c \"create database " ++ dbName ++ "\"" ++
 >                    upargs conf "template1")
 >                   ("create tempdb: " ++ dbName) >> return ()
@@ -43,7 +43,7 @@ and you have that one available to test whilst you fix the errors.
 > setup conf = do
 >   putStrLn "Loading database"
 >   d <- dbExists conf $ dbName conf
->   when (not d) $ do
+>   unless d $ do
 >     let q = do
 >             putStrLn $ "Database " ++
 >                        dbName conf ++ " doesn't exist \
@@ -61,13 +61,11 @@ and you have that one available to test whilst you fix the errors.
 > installDbTo :: Conf -> String -> IO()
 > installDbTo conf dbName = do
 >   c <- getCount conf
->          ("select count(1) from pg_language where lanname='plpgsql';")
->          (dbName)
->          ("check plpgsql")
->   when (c == 0) $ do
->     systemWithCheck
+>          "select count(1) from pg_language where lanname='plpgsql';"
+>          dbName "check plpgsql"
+>   when (c == 0) $ systemWithCheck
 >             ("psql -c \"create procedural language plpgsql;\"" ++
->              upargs conf (dbName))
+>              upargs conf dbName)
 >             ("init plpgsql " ++ dbName) >> return ()
 >   --TODO: hack for line endings, if windows then convert sql
 >   --to windows line endings
@@ -107,7 +105,7 @@ and you have that one available to test whilst you fix the errors.
 > dropDbIfExists :: Conf -> String -> IO ()
 > dropDbIfExists conf dbName =
 >   dbExists conf dbName >>=
->     flip when (do systemWithCheck
+>     flip when (systemWithCheck
 >                    ("psql -c \"drop database " ++ dbName ++ "\"" ++
 >                     upargs conf "template1")
 >                    ("dropping database " ++ dbName) >> return())

@@ -131,7 +131,7 @@ all that main needs to do is call this and call the two gtk init actions
 >      | (length args == 1 && head args == "unix") ->
 >            time convertToUnix >>
 >            putStrLn "converted text files to unix line endings"
->      | (length args /= 0) -> do
+>      | not (null args) ->
 >            putStrLn "Call with no arguments to run game,\n\
 >                     \or run 'chaos setup' to initialise database\n\n\
 >                     \For developers: with exactly one of these \
@@ -174,11 +174,11 @@ create some shortcuts
 
 >   let ibc = textBufferInsertAtCursor buf
 >       ibct = textBufferInsertAtCursorWithTags buf
->       ibs = (\sn -> textBufferInsertSpriteAtCursor buf sn spriteMap)
+>       ibs sn = textBufferInsertSpriteAtCursor buf sn spriteMap
 >       iw = textViewInsertWidgetAtCursor tv
->       sv = selectValueIf conn
->       st = selectTupleIf conn
->       sts = selectTuples conn
+>       sv q = selectValueIf conn q []
+>       st q = selectTupleIf conn q []
+>       sts q = selectTuples conn q []
 
 redraw the contents
 
@@ -569,7 +569,7 @@ update the board sprites 10 times a second to animate them
 >     return (frame, refresh)
 >     where
 >         readBoardSprites = do
->           br <- selectRelation conn "select * from board_sprites"
+>           br <- selectRelation conn "select * from board_sprites" []
 >           return $ map (\bs -> (read (bs "x")::Int,
 >                                 read (bs "y")::Int,
 >                                 bs "sprite",
@@ -625,9 +625,9 @@ red 10-20
 >   let ibc = textBufferInsertAtCursor buf
 >       ibct = textBufferInsertAtCursorWithTags buf
 >       ibs = (\sn -> textBufferInsertMiniSpriteAtCursor buf sn spriteMap)
->       sv = selectValueIf conn
->       st = selectTupleIf conn
->       sts = selectTuples conn
+>       sv q = selectValueIf conn q []
+>       st q = selectTupleIf conn q []
+>       sts q = selectTuples conn q []
 >       refresh = do
 >         textBufferClear buf
 
@@ -706,9 +706,9 @@ new game widget:
 >       ibct = textBufferInsertAtCursorWithTags buf
 >       ibcw = textViewInsertWidgetAtCursor tv
 >       ibs = (\sn -> textBufferInsertSpriteAtCursor buf sn spriteMap)
->       sv = selectValueIf conn
->       st = selectTupleIf conn
->       sts = selectTuples conn
+>       sv q = selectValueIf conn q []
+>       st q = selectTupleIf conn q []
+>       sts q = selectTuples conn q []
 >
 >   let refresh = do
 >         textBufferClear buf
@@ -825,11 +825,11 @@ text box instead of redrawing them all
 >   let ibc = textBufferInsertAtCursor buf
 >       ibct = textBufferInsertAtCursorWithTags buf
 >       ibs = (\sn -> textBufferInsertSpriteAtCursor buf sn spriteMap)
->       st = selectTupleIf conn
->       sts = selectTuples conn
+>       st t = selectTupleIf conn t []
+>       sts t = selectTuples conn t []
 
 >   wizardColours <- selectLookup conn "select wizard_name,colour\n\
->                                      \from wizard_display_info"
+>                                      \from wizard_display_info" []
 >   let getWC wn = fromMaybe "grey" $ lookup wn wizardColours
 
 >   let insertHistory h = do
@@ -915,9 +915,8 @@ display to the user
 
 >     let niceNameF = map
 >                     (\c -> if c == '_' then ' ' else c)
-
 >     selectValueIf conn "select count(*) from windows\n\
->                      \where window_name = 'window_manager'"
+>                      \where window_name = 'window_manager'" []
 >                 (\c -> when (read c == 0)
 >                    (dbAction conn "reset_windows" []))
 
@@ -955,8 +954,7 @@ window and update the database
 
 >         if name == "window_manager"
 >           then do
->             onDestroy ww $ do
->                     mainQuit
+>             onDestroy ww mainQuit
 >             return ()
 >           else do
 >             onDelete ww (\_ -> do
@@ -976,7 +974,7 @@ that window and hook pressing F12 up to refresh all the widgets
 >         return (name, (ww, wrefresh))
 >
 >     v <- selectRelation conn "select window_name \n\
->                              \from windows"
+>                              \from windows" []
 >     widgetData <- forM v (\r ->
 >                   makeWindow (r "window_name"))
 
@@ -990,7 +988,7 @@ way to unhide them).
 >     let refresh = do
 >         textBufferClear buf
 >         selectTuples conn "select window_name,px,py,sx,sy,state \n\
->                           \from windows" (\wi -> do
+>                           \from windows" [] (\wi -> do
 >               let name = wi "window_name"
 >               --first add the buttons to the window manager widget
 >               let niceName = niceNameF name
@@ -1093,7 +1091,7 @@ text views and a cairo surface for drawing on the board
 > loadSprites :: Connection -> IO SpriteMap
 > loadSprites conn = do
 >   maybeSpriteFiles <- findAllFiles "sprites"
->   spriteNames <- selectSingleColumn conn "select sprite from sprites"
+>   spriteNames <- selectSingleColumn conn "select sprite from sprites" []
 >   --for now, we just find the first matching first frame for a sprite
 >   --since we aren't doing any animation
 >   let spriteFilenames = for spriteNames
@@ -1141,7 +1139,7 @@ to another surface and keep that surface around.
 
 > readColours :: Connection -> IO ColourList
 > readColours conn = do
->   r <- selectRelation conn "select name,red,green,blue from colours"
+>   r <- selectRelation conn "select name,red,green,blue from colours" []
 >   return $ map (\t -> ((t "name"),
 >                      Color (read (t "red"))
 >                            (read (t "green"))
