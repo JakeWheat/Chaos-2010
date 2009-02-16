@@ -129,10 +129,13 @@ Run all the tests.
 >   withConn ("host=localhost dbname=" ++
 >             dbName conf ++ " user=" ++ username conf ++
 >             " password=" ++ password conf) (\conn -> runTestTT $ TestList [
+
 >         testDatabaseStuff conn,
 >         testCursorMovement conn,
 >         testNextPhase conn,
+
 >         testNextPhaseWizardDead conn,
+
 >         testNextPhaseTwoWizardsDead conn,
 >         testPiecesOnTop conn,
 >         testMoveSubphases1 conn,
@@ -168,9 +171,9 @@ Run all the tests.
 >         testImaginary conn,
 >         testShadowWoodAttack conn,
 >         testMount conn,
->         testWizardWin conn
+>         testWizardWin conn,
 
--- >         testWizardDraw conn
+>         testGameDraw conn
 
 >         ])
 
@@ -2052,10 +2055,10 @@ wizards getting new spell from magic tree
 
 = winning/drawing
 
-Win/draw is tested when next phase is called following the original
-chaos. We check that the win/draw has been detected by seeing the
-win/draw history item in the history table, and by checking the valid
-activate and target action views are empty.
+Win is tested when next phase is called following the original
+chaos. We check that the win has been detected by seeing the win
+history item in the history table, and by checking the valid activate
+and target action views are empty.
 
 > testWizardWin conn = TestLabel "testWizardWin" $ TestCase $ do
 >   startNewGame conn
@@ -2090,7 +2093,10 @@ activate and target action views are empty.
 >                         \from client_valid_activate_actions;"
 >   assertEqual "now valid activate actions" 0 (read r)
 
-> testWizardDraw conn = TestLabel "testWizardDraw" $ TestCase $ do
+Draw works similarly to win, except it is detected the instant there
+are no wizards left.
+
+> testGameDraw conn = TestLabel "testGameDraw" $ TestCase $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1G 2           \n\
@@ -2116,10 +2122,9 @@ activate and target action views are empty.
 >   moveCursorTo conn 3 0
 >   rigActionSuccess conn "ranged_attack" True
 >   sendKeyPress conn "Return"
->   sendKeyPress conn "space"
 >   r <- selectValue conn "select count(1) from action_history_mr\n\
 >                         \where history_name='game drawn';"
->   assertEqual "game won history entry" 1 (read r)
+>   assertEqual "game drawn history entry" 1 (read r)
 >   r <- selectValue conn "select count(1)\n\
 >                         \from client_valid_target_actions;"
 >   assertEqual "now valid target actions" 0 (read r)
@@ -2471,8 +2476,9 @@ setup a particular game before running some tests
 >     selectTuple conn "select x,y from pieces where ptype='wizard'\n\
 >                      \and allegiance=?" [name] (\t ->
 >       unless (read (t "x") == x && read (t "y") == y)
->            (runSql conn "update pieces set x = ?, y = ?\n\
->                        \where ptype='wizard' and allegiance=?" [name])))
+>            (runSql conn "update pieces_mr set x = ?, y = ?\n\
+>                        \where ptype='wizard' and allegiance=?"
+>                    [show x, show y, name])))
 >   -- add extra pieces
 >   forM_ nonWizardItems (\(PieceDescription ptype allegiance tags, x, y) ->
 >     if allegiance == "dead"
@@ -2532,10 +2538,10 @@ keep running next_phase until we get to the cast phase
 
 > readTurnPhase :: Connection -> IO String
 > readTurnPhase conn = do
->   r <- selectRelation conn "select turn_phase from turn_phase_table" []
->   return $ head r "turn_phase"
+>   r <- selectTupleRet conn "select turn_phase from turn_phase_table" []
+>   return $ r "turn_phase"
 
 > readCurrentWizard :: Connection -> IO String
 > readCurrentWizard conn = do
->   r <- selectRelation conn "select current_wizard from current_wizard_table" []
->   return $ head r "current_wizard"
+>   r <- selectTupleRet conn "select current_wizard from current_wizard_table" []
+>   return $ r "current_wizard"

@@ -27,6 +27,7 @@ Select functions
 >                 selectTupleIf,
 >                 selectValue,
 >                 selectTuple,
+>                 selectTupleRet,
 >                 selectTuples,
 >                 selectSingleColumn,
 >                 selectRelation,
@@ -150,6 +151,21 @@ errors if more than one tuple is returned from the query
 >            0 -> error $ "expected query " ++ query ++
 >                 " to return 1 tuple but it returned none"
 >            1 -> callback $ flip lookupAtt (convertRow cn (head v))
+>            _ -> error $ "expected query " ++ query ++
+>                 " to return onne tuple but it returned " ++
+>                 show (length v)
+
+> selectTupleRet :: Connection -> String -> [String] ->
+>                   IO (String -> String)
+> selectTupleRet conn query args  = handleSqlError $ do
+>   sth <- prepare conn query
+>   execute sth $ map toSql args
+>   cn <- getColumnNames sth
+>   v <- fetchAllRows' sth
+>   case length v of
+>            0 -> error $ "expected query " ++ query ++
+>                 " to return 1 tuple but it returned none"
+>            1 -> return $ flip lookupAtt (convertRow cn (head v))
 >            _ -> error $ "expected query " ++ query ++
 >                 " to return onne tuple but it returned " ++
 >                 show (length v)

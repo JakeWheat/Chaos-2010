@@ -754,7 +754,7 @@ begin
     relvar_name || '_no_delete',
     'exists(select 1 from creating_new_game_table
       where creating_new_game = true)');
-  perform create_delete_transition_tuple_constraint(
+  perform create_insert_transition_tuple_constraint(
     relvar_name,
     relvar_name || '_no_insert',
     'exists(select 1 from creating_new_game_table
@@ -815,7 +815,20 @@ select create_update_transition_tuple_constraint(
   'current_wizard_table',
   'next_wizard_change_valid',
   'NEW.current_wizard = next_wizard(OLD.current_wizard)');
-select no_deletes_inserts_except_new_game('current_wizard_table');
+select create_delete_transition_tuple_constraint(
+    'current_wizard_table',
+    'current_wizard_table_no_delete',
+    'exists(select 1 from creating_new_game_table
+      where creating_new_game = true)
+     or exists (select 1 from game_completed_table)');
+select create_insert_transition_tuple_constraint(
+    'current_wizard_table',
+    'current_wizard_table_no_insert',
+    'exists(select 1 from creating_new_game_table
+      where creating_new_game = true)');
+
+
+--select no_deletes_inserts_except_new_game('current_wizard_table');
 select add_constraint('current_wizard_must_be_alive',
   $$(select not expired from current_wizard_table
      inner join wizards on current_wizard = wizard_name)$$,
@@ -1156,6 +1169,17 @@ remaining.)
 
 select create_var('game_completed', 'boolean');
 select set_relvar_type('game_completed_table', 'data');
+select add_constraint('game_completed_wizards',
+       $$((select count(1) = 0 from game_completed_table)
+           or (select count(1) <= 1 from live_wizards))$$,
+       array['game_completed_table']);
+
+create function game_completed() returns void as $$
+begin
+  insert into game_completed_table
+    select true where (select count(1) = 0 from game_completed_table);
+end;
+$$ language plpgsql volatile strict;
 
 -- 1 tuple iff current moving piece walks, empty otherwise
 
@@ -1796,21 +1820,21 @@ begin
   c := (select count(1) from wizards
          where not expired);
   if c = 1 then
+    perform game_completed();
+    update current_wizard_table set current_wizard =
+      (select wizard_name from wizards where not expired);
     insert into action_history_mr
       (history_name, wizard_name)
       values ('game won',
               (select wizard_name from wizards where not expired));
-    insert into game_completed_table values (true);
     return;
   elseif c = 0 then
-    insert into action_history_mr
-      (history_name)
-      values ('game drawn',
-              (select wizard_name from wizards where not expired));
-    insert into game_completed_table values (true);
+    perform game_completed();
+    insert into action_history_mr (history_name)
+      values ('game drawn');
+    delete from current_wizard_table;
     return;
   end if;
-
 
   update in_next_phase_hack_table
     set in_next_phase_hack = true;
@@ -2647,6 +2671,12 @@ create function action_next_move_subphase() returns void as $$
 declare
   r record;
 begin
+  --check if creature has just died - just bodge it for now this will
+  --silently return instead of erroring under some circumstances where
+  --this function is incorrectly called
+  if not exists (select 1 from selected_piece) then
+    return;
+  end if;
   perform check_can_run_action('next_move_subphase');
   select into r * from selected_piece
     natural inner join pieces;
@@ -2997,17 +3027,27 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
-create function kill_wizard(pwizard_name text) returns void as $$
+create or replace function kill_wizard(pwizard_name text) returns void as $$
 begin
 --if current wizard then next_wizard
+  --raise notice 'kill: % (%)', get_current_wizard(), pwizard_name;
   if get_current_wizard() = pwizard_name then
     perform action_next_phase();
+    --check if this is the last wizard, slightly hacky
+    if get_current_wizard() = pwizard_name then
+      perform game_completed();
+      insert into action_history_mr (history_name)
+        values ('game drawn');
+      delete from current_wizard_table;
+    end if;
+    --raise notice 'new current wizard %', get_current_wizard();
   end if;
 --wipe spell book
   delete from spell_books where wizard_name  = pwizard_name;
 --kill army
   perform disintegrate_wizards_army(pwizard_name);
 --set expired to true
+  ---raise notice 'kill: %', get_current_wizard();
   update wizards set expired = true
     where wizard_name = pwizard_name;
 end;
@@ -3188,6 +3228,7 @@ begin
   -- clear data tables
   delete from action_history_mr;
   --turn data
+  delete from game_completed_table;
   delete from cast_alignment_table;
   delete from squares_left_to_walk_table;
   delete from selected_piece;
@@ -3198,7 +3239,6 @@ begin
   delete from turn_phase_table;
   delete from cast_success_checked_table;
   delete from turn_number_table;
-  delete from game_completed_table;
   --piece data
   delete from spell_books;
   delete from pieces_mr;
