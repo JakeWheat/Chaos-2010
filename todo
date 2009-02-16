@@ -59,7 +59,7 @@ possibles:
   basic save/load feature to dump and restore db to file
   switch to hide information - spell choice and imag/real
   in game manual and tutorials, what can I do now, why can't I do __ questions
-    (goes with better contraint/error messages)
+    (goes with better constraint/error messages)
   visual and sound effects
   redesign ui - more spellbook and info widgets than board
   improved ai, multiple ais
