@@ -489,14 +489,20 @@ create table wizards (
   magic_armour boolean default false,
   magic_bow boolean default false,
   computer_controlled boolean,
-  place int, -- 0 <= n < num wizards
+  original_place int, -- 0 <= n < num wizards
   expired boolean default false
 );
 select add_key('wizards', 'wizard_name');
 select set_relvar_type('wizards', 'data');
 
-create view live_wizards as
+create view live_wizards_aux as
   select * from wizards where not expired;
+
+create view live_wizards as
+select *, (select count(1)
+           from live_wizards_aux lwc
+           where lwc.original_place < lw.original_place) as place
+           from live_wizards_aux lw;
 
 /*
 == spell books
@@ -777,19 +783,17 @@ squares left to walk
 
 create view next_wizard as
 select wizard_name, new_wizard_name from
-  (select wizard_name as new_wizard_name, place from wizards) as a inner join
+  (select wizard_name as new_wizard_name, place from live_wizards) as a inner join
   (select wizard_name,
      (place + 1) %
-       (select max(place) + 1 from wizards)
-      as old_place from wizards) as b
+       (select max(place) + 1 from live_wizards)
+      as old_place from live_wizards) as b
   on (place = old_place);
 
 
 create function next_wizard(text) returns text as $$
-  --todo: avoid dead wizards
-  select wizard_name as result from wizards where place =
-    (select place + 1 from wizards where wizard_name = $1)
-    % (select max(place) + 1 from wizards);
+  select new_wizard_name from next_wizard
+    where wizard_name = $1;
 $$ language sql stable strict;
 
 /*select next_wizard('Buddha');
@@ -812,6 +816,10 @@ select create_update_transition_tuple_constraint(
   'next_wizard_change_valid',
   'NEW.current_wizard = next_wizard(OLD.current_wizard)');
 select no_deletes_inserts_except_new_game('current_wizard_table');
+select add_constraint('current_wizard_must_be_alive',
+  $$(select not expired from current_wizard_table
+     inner join wizards on current_wizard = wizard_name)$$,
+  array['wizards', 'current_wizard_table']);
 
 /*
 wizard field in most tables and views is named wizard_name
@@ -938,14 +946,18 @@ select add_constraint('chosen_spell_phase_valid',
 $$
 ((select in_next_phase_hack from in_next_phase_hack_table) or
 (((select turn_phase='choose' from turn_phase_table) and
- (select max(place) from wizard_spell_choices natural inner join wizards)
-  <= (select place from wizards inner join current_wizard_table
-    on wizard_name = current_wizard))
+ (select max(place) from wizard_spell_choices
+   natural inner join live_wizards) <=
+ (select place from live_wizards
+   inner join current_wizard_table
+     on wizard_name = current_wizard))
 or
 ((select turn_phase='cast' from turn_phase_table) and
- (select min(place) from wizard_spell_choices natural inner join wizards)
-  >= (select place from wizards inner join current_wizard_table
-    on wizard_name = current_wizard))
+ (select min(place) from wizard_spell_choices
+    natural inner join live_wizards) >=
+  (select place from live_wizards
+    inner join current_wizard_table
+      on wizard_name = current_wizard))
 or (select count(*) = 0 from wizard_spell_choices)
 ))$$, array['turn_phase_table', 'current_wizard_table',
     'wizard_spell_choices_mr', 'wizards', 'in_next_phase_hack_table']);
@@ -1129,7 +1141,7 @@ begin
   insert into turn_phase_table
     values ('choose');
   insert into current_wizard_table
-    select wizard_name from wizards
+    select wizard_name from live_wizards
     order by place limit 1;
 end;
 $$ language plpgsql volatile strict;
@@ -2783,7 +2795,7 @@ declare
   i int;
 begin
   --insert into wizards
-  insert into wizards (wizard_name, computer_controlled, place)
+  insert into wizards (wizard_name, computer_controlled, original_place)
       values (vname, vcomputer_controlled, vplace);
   --insert into pieces
   perform create_piece_internal('wizard', vname, x, y, false);
@@ -3233,7 +3245,7 @@ begin
     end loop;
   elseif flavour = 'upgraded_wizards' then
     perform action_cast_wizard_spell(
-      (select wizard_name from wizards where place = 0),
+      (select wizard_name from wizards where original_place = 0),
       'shadow_form');
      --fix history
     update action_history_mr
@@ -3241,42 +3253,42 @@ begin
       wizard_name='Buddha'
       where spell_name is null;
     perform action_cast_wizard_spell(
-      (select wizard_name from wizards where place = 1),
+      (select wizard_name from wizards where original_place = 1),
       'magic_sword');
     update action_history_mr
       set spell_name = 'magic_sword',
       wizard_name = 'Kong Fuzi'
       where spell_name is null;
     perform action_cast_wizard_spell(
-      (select wizard_name from wizards where place = 2),
+      (select wizard_name from wizards where original_place = 2),
       'magic_knife');
     update action_history_mr
       set spell_name = 'magic_knife',
       wizard_name = 'Laozi'
       where spell_name is null;
     perform action_cast_wizard_spell(
-      (select wizard_name from wizards where place = 3),
+      (select wizard_name from wizards where original_place = 3),
       'magic_shield');
     update action_history_mr
       set spell_name = 'magic_shield',
       wizard_name='Moshe'
       where spell_name is null;
     perform action_cast_wizard_spell(
-      (select wizard_name from wizards where place = 4),
+      (select wizard_name from wizards where original_place = 4),
       'magic_wings');
     update action_history_mr
       set spell_name = 'magic_wings',
       wizard_name='Muhammad'
       where spell_name is null;
     perform action_cast_wizard_spell(
-      (select wizard_name from wizards where place = 5),
+      (select wizard_name from wizards where original_place = 5),
       'magic_armour');
     update action_history_mr
       set spell_name = 'magic_armour',
       wizard_name='Shiva'
       where spell_name is null;
     perform action_cast_wizard_spell(
-      (select wizard_name from wizards where place = 6),
+      (select wizard_name from wizards where original_place = 6),
       'magic_bow');
     update action_history_mr
       set spell_name = 'magic_bow',
@@ -3288,7 +3300,7 @@ begin
     select into vx,vy x,y from pieces
       inner join wizards
         on allegiance = wizard_name
-      where ptype = 'wizard' and place = 0;
+      where ptype = 'wizard' and original_place = 0;
     perform create_monster('goblin', 'Buddha', 1, 0, false);
     perform kill_top_piece_at(1, 0);
     --drop in an extra dead gobbo for testing raise dead
@@ -3298,23 +3310,23 @@ begin
     select into vx,vy,vallegiance x,y,allegiance
       from pieces inner join wizards
       on allegiance = wizard_name
-      where ptype = 'wizard' and place = 1;
+      where ptype = 'wizard' and original_place = 1;
     perform create_monster('horse', vallegiance, vx, vy, false);
 --wizard in magic tree, castle, citadel
     select into vx,vy,vallegiance x,y,allegiance
       from pieces inner join wizards
       on allegiance = wizard_name
-      where ptype = 'wizard' and place = 2;
+      where ptype = 'wizard' and original_place = 2;
     perform create_object('magic_tree', vallegiance, vx, vy);
     select into vx,vy,vallegiance x,y,allegiance
       from pieces inner join wizards
       on allegiance = wizard_name
-      where ptype = 'wizard' and place = 3;
+      where ptype = 'wizard' and original_place = 3;
     perform create_object('magic_castle', vallegiance, vx, vy);
     select into vx,vy,vallegiance x,y,allegiance
       from pieces inner join wizards
       on allegiance = wizard_name
-      where ptype = 'wizard' and place = 4;
+      where ptype = 'wizard' and original_place = 4;
     perform create_object('dark_citadel', vallegiance, vx, vy);
 --monster, stiff
     perform create_monster('goblin', 'Buddha', 3, 3, false);

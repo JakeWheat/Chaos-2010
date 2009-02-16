@@ -102,7 +102,6 @@ and you have that one available to test whilst you fix the errors.
 >   c <- getCount conf ("select count(datname) " ++
 >                 "from pg_catalog.pg_database where datname='" ++
 >                 dbName ++ "'") "template1" ("check exists db " ++ dbName)
->   putStrLn $ "dbExists " ++ dbName ++ " - " ++ show c
 >   return $ c /= 0
 
 > dropDbIfExists :: Conf -> String -> IO ()

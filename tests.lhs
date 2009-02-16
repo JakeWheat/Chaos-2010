@@ -133,9 +133,7 @@ Run all the tests.
 >         testDatabaseStuff conn,
 >         testCursorMovement conn,
 >         testNextPhase conn,
-
--- >         testNextPhaseWizardDead conn
-
+>         testNextPhaseWizardDead conn,
 >         testPiecesOnTop conn,
 >         testMoveSubphases1 conn,
 >         testMoveSubphases2 conn,
@@ -435,23 +433,20 @@ to do all variations is 256 tests
 >     startNewGame conn
 >     --kill wizard
 >     callSp conn "kill_wizard" [wizards !! j]
->     putStrLn $ "missing wizard " ++ wizards !! j
 >     let theseWizards = dropItemN wizards j
->     forM_ ["choose","cast","move","choose","cast","move"]
->         (\phase ->
->              forM_ [0..6] (\i -> do
->                tp <- readTurnPhase conn
->                cw <- readCurrentWizard conn
->                assertEqual "tp" phase tp
->                assertEqual "cw" (theseWizards !! i) cw
->                putStrLn $ "tp: " ++ tp
->                putStrLn $ "cw: " ++ cw
->                --so we don't skip the cast phase, make sure
->                -- each wizard has a spell chosen, use disbelieve
->                --cos wizards always have this spell available
->                when (tp == "choose")
->                     (sendKeyPress conn "Q")
->                sendKeyPress conn "space")))
+>     forM_ ["choose","cast","move","choose","cast","move"] (\phase ->
+>       forM_ [0..6] (\i -> do
+>          tp <- readTurnPhase conn
+>          cw <- readCurrentWizard conn
+>          assertEqual "tp" phase tp
+>          assertEqual "cw" (theseWizards !! i) cw
+>          --so we don't skip the cast phase, make sure
+>          -- each wizard has a spell chosen, use disbelieve
+>          --cos wizards always have this spell available
+>          when (tp == "choose")
+>               (sendKeyPress conn "Q")
+>          --when (i == 6) $ error "hhalt"
+>          sendKeyPress conn "space")))
 
 > testNextPhaseTwoWizardsDead conn = TestLabel "testNextPhaseTwoWizardsDead" $ TestCase $ do
 
