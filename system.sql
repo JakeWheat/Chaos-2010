@@ -79,7 +79,7 @@ to try to only show scalar types which are used and not the vast
 array that pg comes with. This is a bit of a hack job, probably
 a bit inaccurate
 */
-create or replace view scalars as
+create view scalars as
 --   select typname as scalar_name from pg_type
 --     where typtype in ('b', 'd')
 --     and typnamespace =

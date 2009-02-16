@@ -72,7 +72,7 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
-create or replace function protect_readonly_relvars() returns void as $$
+create function protect_readonly_relvars() returns void as $$
 declare
   r record;
 begin
@@ -1426,7 +1426,7 @@ create view empty_squares as
   except
   select x,y from pieces;
 
-create or replace view moving_pieces as
+create view moving_pieces as
   select ptype, allegiance, tag from pieces_mr
     where speed is not null
       or attack_strength is not null
@@ -1659,7 +1659,7 @@ create view selected_piece_dismountable_squares as
 The end result: two relvars, one with x,y,
 to list all the valid actions at any time.
 */
-create or replace view valid_target_actions as
+create view valid_target_actions as
 select * from (
 --target spells
 select x,y, 'cast_target_spell'::text as action
@@ -1713,7 +1713,7 @@ where not exists (select 1 from game_completed_table);
 create a view with the choose spell predicates automatically
 */
 
-create or replace view valid_activate_actions as
+create view valid_activate_actions as
 select * from (
 --next_phase - always valid
 select 'next_phase'::text as action
@@ -1809,7 +1809,7 @@ next phase strings the enter and exits all together in the right order
 and provides a simple API for clients
 
 */
-create or replace function action_next_phase() returns void as $$
+create function action_next_phase() returns void as $$
 declare
   c int;
 begin
@@ -1909,7 +1909,7 @@ $$ language plpgsql volatile strict;
 /*
 === internals
 */
-create or replace function is_last_wizard() returns boolean as $$
+create function is_last_wizard() returns boolean as $$
 begin
   return ((select place from live_wizards
         natural inner join current_wizard)
@@ -1929,7 +1929,7 @@ $$ language plpgsql stable strict;
 == spell choice
 
 */
-create or replace function action_choose_spell(vspell_name text)
+create function action_choose_spell(vspell_name text)
   returns void as $$
 begin
   --create the argumentless action name so we can check the action
@@ -1990,7 +1990,7 @@ $$ language plpgsql volatile strict;
 generate the individual spell choice actions
 
 */
-create or replace function generate_spell_choice_actions() returns void as $$
+create function generate_spell_choice_actions() returns void as $$
 declare
   sn text;
   s text;
@@ -2640,7 +2640,7 @@ $$ language plpgsql volatile strict;
 --this fails silently if the action is not valid
 --client may wrap this in select piece at cursor, but the
 --server doesn't require that the client iface uses a cursor
-create or replace function action_select_piece_at_position(vx int, vy int)
+create function action_select_piece_at_position(vx int, vy int)
   returns void as $$
 declare
   r record;
@@ -2740,7 +2740,7 @@ end;
 $$ language plpgsql volatile strict;
 
 
-create or replace function action_attack(px int, py int) returns void as $$
+create function action_attack(px int, py int) returns void as $$
 declare
   r record;
   att int;
@@ -3027,7 +3027,7 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
-create or replace function kill_wizard(pwizard_name text) returns void as $$
+create function kill_wizard(pwizard_name text) returns void as $$
 begin
 --if current wizard then next_wizard
   --raise notice 'kill: % (%)', get_current_wizard(), pwizard_name;
@@ -3288,7 +3288,7 @@ $$ language plpgsql volatile strict;
 = test board support
 */
 --TODO: make this function dump the current game to unique file for backup
-create or replace function setup_test_board(flavour text) returns void as $$
+create function setup_test_board(flavour text) returns void as $$
 declare           --tags: action, development
   i int;
   rec record;
