@@ -1,0 +1,112 @@
+= Notes for developers
+
+== Files
+
+chaos.config        dbms connection details
+
+chaos.lhs           implements the gtk ui using haskell, and front end to
+                    some utility functions
+
+ChaosDB.lhs         some simple wrappers around HDBC for database access
+
+client.sql          database stuff for ui and chaos.lhs
+
+Conf.lhs            reads chaos.config
+
+DBAadmin.lhs         functions to reset the database from the sql scripts for
+                    development and installation
+
+development_guide   this file, an overview of the source
+
+FileAdmin.lhs       some file utils
+
+GtkUtils.lhs        some gtk utils which are shared between programs
+
+LICENSE             license that this code is distributed under
+
+README              overview, prerequisites, installation instructions,
+                    playing instructions
+
+server.sql          database implementation of the game, main relvars and
+                    functions
+
+system.sql          mainly an lightweight extended constraint system for
+                    postgresql
+
+tests.lhs           automated tests using hunit
+
+todo                list of areas to work on
+
+TreeThing.lhs       for developers, displays an outline of files and
+                    sections, as well as the database relvars,
+                    functions, etc.
+
+Utils.lhs           code utility functions
+
+The substantial files (chaos.lhs, client.sql, server.sql, system.sql
+and tests.lhs) each start with a quick list of the main sections in
+that file.
+
+== Design/implementation notes
+
+Uses postgresql, haskell and gtk to run.
+
+The code and comments uses/abuses a mixture of sql and proper
+relational terminology, and also often refers to postgresql (pg)
+functions as stored procedures.
+
+Most of the code to implement the game is written in pl/pgpsql. The ui
+and most of the tests are written in haskell.
+
+All the base relvars in the database are tagged as one of
+
+* readonly: containing data which is updated only when creating the
+  database from source and not when the game is being played
+
+* data: holds data specific to the current game, including client/ ui
+  stuff
+
+* argument: table to hold relation valued arguments to operators - to
+  work around the inability to pass a relation value as an argument to
+  a function in sql.
+
+All updates to the relvars use 'actions' which are the stored procs
+which update the database. (The reason for this is that most of the
+updates don't really map to straightforward relvar
+inserts/updates/deletes, and not for some idealogical reason.) No
+database reads use stored procedures. Each action which can be called
+directly by the ui code has an associated predicate which tests
+whether it is valid to run the action at that time (analogous to
+database constraints).
+
+Data integrity is maintained using transactions exclusively for
+updates (you can't really see them in the code, every function
+invocation in postgresql is in an implicit transaction), and by using
+declarative constraints instead of imperative checks in the updates as
+much as possible.
+
+UI: The basic idea is to program it a series of select statements from
+the database, the resultant widgets are then updated automatically
+when the data changes, this used to rely on postgresql notify/listen,
+which isn't supported in HDBC, so it doesn't yet work this way.
+
+The game state and ui state persist independently of whether the game
+is running or not, and changes are always saved instantly so crashes
+almost never lose anything.
+
+== Getting started with the source code
+
+data structures and then the game code: go through the read only data,
+game data, turn sequence and then action sections in server.sql.
+
+ui: start with chaos.lhs, starts with some notes on the ui design,
+then look at the board widget, spellbook widget, and info widget
+sections which should give you an idea of how the data from the
+database is presented to the user. If you haven't looked at the data
+structures and game code mentioned in the previous section you could
+do that next, then follow the key press handling to see how updates
+are triggered by the ui.
+
+tests: see the tests in tests.lhs which are mostly kind of acceptance/
+functional tests and may provide some useful examples of how the code
+is used, e.g. to cast a spell or move a monster.

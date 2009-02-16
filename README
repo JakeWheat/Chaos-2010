@@ -1,0 +1,145 @@
+= Introduction
+
+A clone of Chaos, a turn based spectrum game from 1985.
+
+http://en.wikipedia.org/wiki/Chaos_(video_game)
+
+This is an pre-alpha version. You can play it but there are some minor
+things missing, the main one being computer controlled
+opponents. There is no installer, getting it running is a challenge.
+
+You can try the original in an emulator:
+http://www.worldofspectrum.org/infoseekid.cgi?id=0000894
+http://www.worldofspectrum.org/emulators.html
+
+Or to play a slick remake that runs in windows:
+http://chaosgroove.wordpress.com/
+which is much better than this version.
+
+===============================================================================
+
+= Game overview
+
+Two to eight wizards battle each other. None, some or all can be
+computer controlled.
+
+The battleground is a grid 15x10 squares, the play is turn based. Each
+wizard casts spells, and moves his army around to attack other wizards
+and their armies.
+
+When a wizard is killed all his monsters disappear. The game is won
+when only one wizard remains.
+
+Some spells summon monsters to be part of the wizards army, some
+upgrade the wizard to be tougher, some spells attack other wizards or
+monsters. Different spells have different likelihoods of success.
+
+Each monster has different strengths, some can fly, some can attack
+from a distance.
+
+================================================================================
+
+= Prerequisites:
+
+Postgresql 8.3+
+gtk
+ghc6.10 with the following packages:
+  gtk2hs 0.10, hdbc, hdbc-postgresql, hunit, fez-conf, quickcheck, regexpr
+  (these are all on cabal except gtk2hs)
+
+If you are interested in the code see the file 'development_guide' file for more
+information.
+
+================================================================================
+
+= Installation instructions:
+
+== Windows
+
+Rough guide, will be fleshed out more.
+
+Warning: currently, install on windows takes ~100MB downloads and
+another ~750MB of disk space when installed!
+
+Get the latest windows installers for these:
+
+http://www.haskell.org/ghc/download.html
+
+http://www.enterprisedb.com/products/pgdownload.do#windows
+
+http://haskell.org/gtk2hs/archives/2009/02/11/gtk2hs-version-0100-released/
+
+You can accept the defaults during the installation on all of
+these. Remember the password you used for postgresql.
+
+Get the cabal.exe linked from here:
+
+http://hackage.haskell.org/trac/hackage/wiki/CabalInstall
+
+You can stick it in the ghc bin folder, which is probably
+C:\ghc\ghc-6.10.1\bin
+
+The pg installer doesn't seem to put the pg bin folder in the path,
+which cabal/HDBC-postgresql needs. Do this in
+controlpanel/system/environment, the folder you want to add to the
+path is probably C:\Program Files\PostgreSQL\8.3\bin
+
+Now run
+cabal install HDBC HDBC-postgresql HUnit fez-conf regexpr QuickCheck
+
+Congratulations, you've installed the prerequisites.
+
+You'll need to add a user with password to postgresql (todo: provide
+links to help on this), create a database called chaos, and give the
+added user access to this database.
+
+If you have a irresponsible approach to security, you can skip adding
+a postgresql user and database if you use the sa password you entered
+during the postgresql install, the username for this will be
+'postgres'. (DO NOT do this if you have any other postgresql databases
+installed, or if your computer is ever connected to the internet or
+any network. See the LICENSE file for a disclaimer.)
+
+Unzip the source files for this project.
+
+Edit the file chaos.config to put the username and password in.
+
+to setup the database, run
+runghc chaos.lhs setup
+
+This only needs to be done once.
+
+Then to play,
+runghc chaos.lhs
+
+================================================================================
+
+= Quick playing guide
+
+== turn sequence overview
+
+3 phases, each wizard goes in order
+
+Spell choice
+
+Each wizard chooses a spell starting with the first wizard and
+finishing with the last wizard in strict order. A wizard can opt not
+to cast any spells.
+
+Spell cast
+
+Each wizard casts his spell starting with the first wizard.
+
+Move
+
+Each wizard moves his army starting with the first wizard etc.. The
+wizard can move his pieces in any order. Each piece can do the
+following in order:
+
+1. move the piece if it can
+2. attack any creatures it is next to
+3. fire any ranged weapons it has
+
+== controls
+
+

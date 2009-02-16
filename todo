@@ -1,0 +1,70 @@
+= milestone pre alpha 3
+
+tests to complete and get passing: missing move phase actions,
+                                   limited subphase transitions
+                                   dead wizards
+                                   win/ draw detect with message
+
+================================================================================
+
+= milestone pre alpha 4+
+
+basic ai
+line of sight
+prompt
+finish simplistic tests for all spells - e.g. missing wizard upgrades
+autonomous phase tests and code
+
+================================================================================
+
+= milestone alpha version
+
+intended to be feature complete for 1.0 wrt playing, but not installation
+listen/notify if feasible
+basic installation help
+
+================================================================================
+
+= milestone beta version
+
+credits/thanks
+background reading
+installation instructions:
+complete instructions for installation and run from source for:
+  ubuntu
+  windows
+plus if possible:
+  debian
+  fedora
+  mac os x
+investigate scripting installation as much as possible
+automate setting conf, loading database, unix2dos when running chaos.lhs
+platforms need ghc6.10, gtk2hs0.10 which includes windows but current release
+  versions of debian, fedora and ubuntu don't have this yet
+more tests?
+
+================================================================================
+
+= milestone gamma 1.0
+
+check out binary distribution
+fix problems from beta testing
+
+================================================================================
+
+= milestone gamma 1.1
+
+possibles:
+  improved installation
+  basic save/load feature to dump and restore db to file
+  switch to hide information - spell choice and imag/real
+  in game manual and tutorials, what can I do now, why can't I do __ questions
+    (goes with better contraint/error messages)
+  visual and sound effects
+  redesign ui - more spellbook and info widgets than board
+  improved ai, multiple ais
+  more tests
+  multiple games without dump/restore, game manager
+  sprite manager, or maybe load from zip file
+  audit trail ish
+  error reporting system
