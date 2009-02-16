@@ -2,6 +2,7 @@
 >               findAllFiles,
 >               time,
 >               updateLookup,
+>               hasKey,
 >               for,
 >               uncurry3,
 >               uncurry5,
@@ -42,6 +43,9 @@
 > updateLookup :: Eq k => k -> v -> [(k,v)] -> [(k,v)]
 > updateLookup k v lkp =
 >     (k,v):filter (\(k',_) -> k' /= k) lkp
+
+> hasKey :: Eq k => k -> [(k,v)] -> Bool
+> hasKey k lkp = any (\(k',v) ->  k == k') lkp
 
 > time f = do
 >   st <- getClockTime

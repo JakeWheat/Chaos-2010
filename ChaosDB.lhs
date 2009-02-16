@@ -3,9 +3,10 @@ Copyright 2009 Jake Wheat
 
 = Database utilities
 
-Put all the database access stuff in this file, main reason
-is so that the tests and other utilities can use it as well
-as the client program.
+Put all the database access stuff in this file, main reason is so that
+the tests and other utilities can use it as well as the client
+program. This has just been bodged together to get things working, so
+the api design is probably a bit crap.
 
 
 > module ChaosDB (
@@ -36,8 +37,8 @@ update function
 
 >                 dbAction,
 
-hack functions, for calling a non action sp,
-and for running inserts and updates
+hack functions, for calling a non action sp, and for running inserts
+and updates
 
 >                 runSql,
 >                 callSp) where
@@ -70,7 +71,7 @@ sql)
  >
 
 TODO this needs writing. HDBC doesn't support it yet, not sure whether
-it should use threads
+it should use threads or what
 
 == Query shortcuts
 
@@ -115,7 +116,8 @@ there is none
 >     _ -> error $ "select value on " ++ query ++
 >              " returned " ++ (show $ length r) ++ " tuples, expected 0 or 1."
 
-> selectValue conn query callback = handleSqlError $ do
+> selectValue :: Connection -> String -> IO String
+> selectValue conn query = handleSqlError $ do
 >   r <- quickQuery' conn query []
 >   case length r of
 >     0 -> error $ "select value on " ++ query ++
@@ -125,7 +127,7 @@ there is none
 >       when (length t /= 1)
 >         (error $ "select value on " ++ query ++
 >              " returned " ++ (show $ length t) ++ " attributes, expected 1.")
->       callback $ fromSql $ head t
+>       return $ fromSql $ head t
 >     _ -> error $ "select value on " ++ query ++
 >              " returned " ++ (show $ length r) ++ " tuples, expected 0 or 1."
 

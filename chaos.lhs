@@ -861,7 +861,11 @@ unfinished...
 >               doPTag h >> ibc " was chinned"
 >           "shrugged off" ->
 >               doPTag h >> ibc " shrugged off the attack"
->           _ -> ibc $ h "history_name"
+>           "game won" ->
+>               doPTag h >> ibc " has won!"
+>           "game drawn" ->
+>               ibc "the game is a draw."
+>           _ -> ibc $ h "history_name" ++ " FIXME"
 >         return ()
 >   let refresh = do
 >         lastHistoryID <- readIORef lastHistoryIDBox
@@ -912,7 +916,7 @@ display to the user
 >     let niceNameF = map
 >                     (\c -> if c == '_' then ' ' else c)
 
->     selectValue conn "select count(*) from windows\n\
+>     selectValueIf conn "select count(*) from windows\n\
 >                      \where window_name = 'window_manager'"
 >                 (\c -> when (read c == 0)
 >                    (dbAction conn "reset_windows" []))

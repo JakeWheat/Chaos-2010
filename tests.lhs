@@ -116,6 +116,7 @@ squares left to walk
 > import Conf
 > import System.Time
 > import Utils
+> import qualified Debug.Trace.Location as L
 
 ================================================================================
 
@@ -168,7 +169,9 @@ Run all the tests.
 >         testRangedAttackResisted conn,
 >         testImaginary conn,
 >         testShadowWoodAttack conn,
->         testMount conn
+>         testMount conn,
+
+>         testWizardWin conn
 
 >         ])
 
@@ -187,12 +190,11 @@ functions whose name starts with 'check_code_'
 >                     \from module_objects\n\
 >                     \where object_name ~ 'check_code_.*'\n\
 >                     \and object_type='operator';"
->                    (\t ->
->      selectValue conn ("select " ++  t "object_name" ++ "()")
->                     (\v -> do
->                        r1 <- readIORef res
->                        writeIORef res $ r1 ++
->                          [(t "object_name", read v::Bool)]))
+>                    (\t -> do
+>      v <- selectValue conn ("select " ++  t "object_name" ++ "()")
+>      r1 <- readIORef res
+>      writeIORef res $ r1 ++
+>                     [(t "object_name", read v::Bool)])
 >   r2 <- readIORef res
 >   let r3 = filter (\(s,b) -> not b) r2
 
@@ -340,7 +342,7 @@ start with a few helper functions
 
 avoid writing out the full key press names:
 
-> cursorShorthand m = fromJust $ lookup m
+> cursorShorthand m = L.check L.assert $ fromJust $ lookup m
 >                      [("d", "Down"),
 >                       ("l", "Left"),
 >                       ("u", "Up"),
@@ -401,14 +403,13 @@ twice, check the turn_phase and current_wizard each time
 
 > testNextPhase conn = TestLabel "testNextPhase" $ TestCase $ do
 >   startNewGame conn
->   let wizards = map (\(_, [PieceDescription _ w _]) -> w) wizardPiecesList
 >   forM_ ["choose","cast","move","choose","cast","move"]
 >         (\phase ->
 >              forM_ [0..7] (\i -> do
 >                tp <- readTurnPhase conn
 >                cw <- readCurrentWizard conn
 >                assertEqual "tp" phase tp
->                assertEqual "cw" (wizards !! i) cw
+>                assertEqual "cw" (wizardNames !! i) cw
 >                --so we don't skip the cast phase, make sure
 >                -- each wizard has a spell chosen, use disbelieve
 >                --cos wizards always have this spell available
@@ -428,13 +429,13 @@ to do all variations is 256 tests
 >                        then xs
 >                        else x: dropItemN xs (i - 1)
 
-> testNextPhaseWizardDead conn = TestLabel "testNextPhaseWizardDead" $ TestCase $ do
->   let wizards = map (\(_, [PieceDescription _ w _]) -> w) wizardPiecesList
+> testNextPhaseWizardDead conn =
+>   TestLabel "testNextPhaseWizardDead" $ TestCase $ do
 >   forM_ [0..7] (\j -> do
 >     startNewGame conn
 >     --kill wizard
->     callSp conn "kill_wizard" [wizards !! j]
->     let theseWizards = dropItemN wizards j
+>     callSp conn "kill_wizard" [wizardNames !! j]
+>     let theseWizards = dropItemN wizardNames j
 >     forM_ ["choose","cast","move","choose","cast","move"] (\phase ->
 >       forM_ [0..6] (\i -> do
 >         tp <- readTurnPhase conn
@@ -448,15 +449,15 @@ to do all variations is 256 tests
 >              (sendKeyPress conn "Q")
 >         sendKeyPress conn "space")))
 
-> testNextPhaseTwoWizardsDead conn = TestLabel "testNextPhaseTwoWizardsDead" $ TestCase $ do
->   let wizards = map (\(_, [PieceDescription _ w _]) -> w) wizardPiecesList
+> testNextPhaseTwoWizardsDead conn =
+>   TestLabel "testNextPhaseTwoWizardsDead" $ TestCase $ do
 >   forM_ [0..7] (\j ->
 >     forM_ [(j + 1)..7] (\k -> do
 >       startNewGame conn
 >       --kill wizards
->       callSp conn "kill_wizard" [wizards !! j]
->       callSp conn "kill_wizard" [wizards !! k]
->       let theseWizards = dropItemN (dropItemN wizards k) j
+>       callSp conn "kill_wizard" [wizardNames !! j]
+>       callSp conn "kill_wizard" [wizardNames !! k]
+>       let theseWizards = dropItemN (dropItemN wizardNames k) j
 >       forM_ ["choose","cast","move","choose","cast","move"] (\phase ->
 >         forM_ [0..5] (\i -> do
 >           tp <- readTurnPhase conn
@@ -1099,9 +1100,11 @@ cast it and check the resulting board
 >                     moveCursorTo conn 0 0
 >                     rigActionSuccess conn "cast" True
 >                     sendKeyPress conn "Right"
->   let sv = selectValue conn "select imaginary from monster_pieces\n\
->                    \natural inner join pieces\n\
->                    \where x= 1 and y = 0"
+>   let sv c = do
+>              v <- selectValue conn "select imaginary from monster_pieces\n\
+>                                    \natural inner join pieces\n\
+>                                    \where x= 1 and y = 0"
+>              c ((read v) :: Bool)
 >   setStuffUp1
 >   setStuffUp2
 >   sendKeyPress conn "Return"
@@ -2016,6 +2019,7 @@ fire ranged weapons
 >                   [('P', [PieceDescription "wizard" "Buddha" [],
 >                           PieceDescription "dark_citadel" "Buddha" []])])
 
+
 attack undead - able, able no corpse
 
 
@@ -2043,6 +2047,50 @@ dead wizard tests
 fire, blob spreading
 castles disappearing
 wizards getting new spell from magic tree
+
+================================================================================
+
+= winning/drawing
+
+Win/draw is tested when next phase is called following the original
+chaos. We check that the win/draw has been detected by seeing the
+win/draw history item in the history table, and by checking the valid
+activate and target action views are empty.
+
+> testWizardWin conn = TestLabel "testWizardWin" $ TestCase $ do
+>   startNewGame conn
+>   setupBoard conn ("\n\
+>                   \1G     2       \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               ",
+>                   (wizardPiecesList ++
+>                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
+>   skipToPhase conn "move"
+>   sendKeyPress conn "space"
+>   moveCursorTo conn 1 0
+>   sendKeyPress conn "Return"
+>   moveCursorTo conn 0 0
+>   rigActionSuccess conn "attack" True
+>   sendKeyPress conn "Return"
+>   sendKeyPress conn "space"
+>   r <- selectValue conn "select count(1) from action_history_mr\n\
+>                         \where history_name='game won';"
+>   assertEqual "game won history entry" 1 (read r)
+>   r <- selectValue conn "select count(1)\n\
+>                         \from client_valid_target_actions;"
+>   assertEqual "now valid target actions" 0 (read r)
+>   r <- selectValue conn "select count(1)\n\
+>                         \from client_valid_activate_actions;"
+>   assertEqual "now valid activate actions" 0 (read r)
+
+
 
 
 ================================================================================
@@ -2182,6 +2230,17 @@ end
 >                      ('7', [PieceDescription "wizard" "Yeshua" []]),
 >                      ('8', [PieceDescription "wizard" "Zarathushthra" []])]
 
+> wizardStartPos = [(PieceDescription "wizard" "Buddha" [], 0, 0),
+>                  (PieceDescription "wizard" "Kong Fuzi" [] ,7 ,0),
+>                  (PieceDescription "wizard" "Laozi" [], 14, 0),
+>                  (PieceDescription "wizard" "Moshe" [], 0, 4),
+>                  (PieceDescription "wizard" "Muhammad" [], 14,4),
+>                  (PieceDescription "wizard" "Shiva" [], 0, 9),
+>                  (PieceDescription "wizard" "Yeshua" [], 7, 9),
+>                  (PieceDescription "wizard" "Zarathushthra" [], 14,9)]
+
+> wizardNames = map (\(_, [PieceDescription _ w _]) -> w) wizardPiecesList
+
 We use these two datatypes in the key for the boards
 
 > data PieceDescription =
@@ -2237,7 +2296,10 @@ on each square
 >   let keyPositionList = parseDiagram diagram
 >   in flip concatMap keyPositionList
 >               (\(k,x,y) ->
->                    let ps = fromJust $ lookup k key
+>                    let ps = if hasKey k key
+>                               then L.check L.assert $ fromJust $ lookup k key
+>                               else error $
+>                                      "Board diagram key is missing " ++ [k]
 >                    in map (\p -> (p,x,y)) ps)
 >
 
@@ -2360,18 +2422,17 @@ setup a particular game before running some tests
 > setupBoard :: Connection -> BoardDiagram -> IO ()
 > setupBoard conn bd = do
 >   let targetBoard = parseBoardDiagram bd
->   --just assume all the wizards are in the usual starting positions
->   -- and that we just have to add objects
+>   --just assume that present wizards are in the usual starting positions
 >   --fix this when needed
->   let wizards = [(PieceDescription "wizard" "Buddha" [], 0, 0),
->                  (PieceDescription "wizard" "Kong Fuzi" [] ,7 ,0),
->                  (PieceDescription "wizard" "Laozi" [], 14, 0),
->                  (PieceDescription "wizard" "Moshe" [], 0, 4),
->                  (PieceDescription "wizard" "Muhammad" [], 14,4),
->                  (PieceDescription "wizard" "Shiva" [], 0, 9),
->                  (PieceDescription "wizard" "Yeshua" [], 7, 9),
->                  (PieceDescription "wizard" "Zarathushthra" [], 14,9)]
->       nonWizardItems = flip filter targetBoard (\x -> not (x `elem` wizards))
+>   let nonWizardItems = filter (\x -> not (x `elem` wizardStartPos))
+>                               targetBoard
+>       isWizPresent name = any (\(PieceDescription _ n _, _, _) ->
+>                                n == name) targetBoard
+>   -- remove missing wizards
+>   forM_ [0..7] $ (\i -> do
+>     when (not $ isWizPresent $ wizardNames !! i) $
+>       callSp conn "kill_wizard" [wizardNames !! i])
+>   -- add extra pieces
 >   let addObject (PieceDescription object allegiance tags, x, y) =
 >         if allegiance == "dead"
 >           then callSp conn "create_corpse"

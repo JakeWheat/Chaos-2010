@@ -1080,11 +1080,12 @@ we add this view to cover the actions which are defined
 in the client to supplement the action valid views
 for the server actions define in the server.
 */
-create view client_valid_target_actions as
-  select * from valid_target_actions;
+create or replace view client_valid_target_actions as
+  select * from valid_target_actions
+  where not exists (select 1 from game_completed_table);
 
-
-create view client_valid_activate_actions as
+create or replace view client_valid_activate_actions as
+select * from (
   select * from valid_activate_actions
 union select 'move_cursor_up'
 union select 'move_cursor_down'
@@ -1100,7 +1101,8 @@ union select 'refresh_windows'
 union select 'spell_book_show_all_update_on'
 union select 'spell_book_show_all_update_off'
 union select 'client_next_phase'
-union select 'go';
+union select 'go') as a
+  where not exists (select 1 from game_completed_table);
 
 /*
 == key controls

@@ -1146,6 +1146,17 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
+/*
+
+table to cache if the game is over: someone has one or it's a draw.
+(This also makes it possible to have a draw when there are wizards
+remaining.)
+
+*/
+
+select create_var('game_completed', 'boolean');
+select set_relvar_type('game_completed_table', 'data');
+
 -- 1 tuple iff current moving piece walks, empty otherwise
 
 
@@ -1624,7 +1635,8 @@ create view selected_piece_dismountable_squares as
 The end result: two relvars, one with x,y,
 to list all the valid actions at any time.
 */
-create view valid_target_actions as
+create or replace view valid_target_actions as
+select * from (
 --target spells
 select x,y, 'cast_target_spell'::text as action
   from current_wizard_spell_squares
@@ -1669,13 +1681,16 @@ union
 --exit
 select x,y, 'exit'::text as action
   from selected_piece_exitable_squares
-;
+) as s
+where not exists (select 1 from game_completed_table);
+
 
 /*
 create a view with the choose spell predicates automatically
 */
 
 create or replace view valid_activate_actions as
+select * from (
 --next_phase - always valid
 select 'next_phase'::text as action
 --choose spell - need one for each spell, add programmatically
@@ -1733,8 +1748,9 @@ select 'choose_' || spell_name || '_spell'::text as action
   and get_turn_phase()='choose'
 union
 select 'choose_no_spell'::text as action
-  from turn_phase_table where turn_phase ='choose';
-;
+  from turn_phase_table where turn_phase ='choose'
+) as a
+where not exists (select 1 from game_completed_table);
 
 /*
 ==== internals
@@ -1770,7 +1786,27 @@ and provides a simple API for clients
 
 */
 create or replace function action_next_phase() returns void as $$
+declare
+  c int;
 begin
+  --check for win or draw
+  c := (select count(1) from wizards
+         where not expired);
+  if c = 1 then
+    insert into action_history_mr
+      (history_name, current_wizard)
+      values ('game won',
+              (select wizard_name from wizards where not expired));
+    insert into game_completed_table values (true);
+  elseif c = 0 then
+    insert into action_history_mr
+      (history_name)
+      values ('game drawn',
+              (select wizard_name from wizards where not expired));
+    insert into game_completed_table values (true);
+  end if;
+
+
   update in_next_phase_hack_table
     set in_next_phase_hack = true;
 
@@ -3156,8 +3192,8 @@ begin
   delete from current_wizard_table;
   delete from turn_phase_table;
   delete from cast_success_checked_table;
-
   delete from turn_number_table;
+  delete from game_completed_table;
   --piece data
   delete from spell_books;
   delete from pieces_mr;
