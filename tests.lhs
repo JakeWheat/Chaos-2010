@@ -1418,6 +1418,10 @@ fire ranged weapons
 >                   \               \n\
 >                   \6      7      8",
 >                   wizardPiecesList)
+>     --test that the next_phase has been automatically called since
+>     --there is nothing left for this wizard to dothat we are on the
+>     --next wizards move
+>     checkCurrentWizardPhase conn "Kong Fuzi" "move"
 
 > testWalkTwoSquares conn = TestLabel "testWalkTwoSquares" $ TestCase $ do
 >     startNewGame conn
@@ -2020,9 +2024,12 @@ todo: attack when dismounting, dismounting when flying
 
 check when moving a mounted wizard, that the corpse on that square stays put
 
+
 == misc
 
 attack undead - able, able no corpse
+
+test select one creature and move, then select a second creature and move
 
 
 attack undead - unable

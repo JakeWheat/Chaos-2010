@@ -2732,7 +2732,12 @@ begin
   --empty selected piece, squares left_to_walk
   delete from selected_piece;
   delete from squares_left_to_walk_table;
-  --perform end_piece_select();
+  --if there are no more pieces that can be selected then move to next
+  --phase automatically, todo: take into account monsters in blob
+  if (select count(*) from pieces_to_move) = 0 then
+    perform action_next_phase();
+  end if;
+
   --insert history
 end;
 $$ language plpgsql volatile strict;
