@@ -130,56 +130,58 @@ Run all the tests.
 >             dbName conf ++ " user=" ++ username conf ++
 >             " password=" ++ password conf) (\conn -> runTestTT $ TestList [
 
->         testDatabaseStuff conn,
->         testCursorMovement conn,
->         testPiecesOnTop conn,
+-- >         testDatabaseStuff conn,
+-- >         testCursorMovement conn,
+-- >         testPiecesOnTop conn,
 
->         testNextPhase conn,
->         testNextPhaseWizardDead conn,
->         testNextPhaseTwoWizardsDead conn,
+-- >         testNextPhase conn,
+-- >         testNextPhaseWizardDead conn,
+-- >         testNextPhaseTwoWizardsDead conn,
 
->         testCastGoblin conn,
->         testFailCastGoblin conn,
->         testCastMagicWood conn,
->         testCastShadowWood conn,
->         testCastMagicBolt conn,
->         testCastMagicBoltResisted conn,
->         testCastVegeanceWizard conn,
->         testCastVegeanceMonster conn,
->         testCastVegeanceMonsterResisted conn,
->         testCastSubversion conn,
->         testCastSubversionResisted conn,
->         testCastDisbelieveReal conn,
->         testCastDisbelieveImaginary conn,
->         testCastRaiseDead conn,
->         testCastArmour conn,
->         testCastLaw conn,
->         testImaginary conn,
+-- >         testCastGoblin conn,
+-- >         testFailCastGoblin conn,
+-- >         testCastMagicWood conn,
+-- >         testCastShadowWood conn,
+-- >         testCastMagicBolt conn,
+-- >         testCastMagicBoltResisted conn,
+-- >         testCastVegeanceWizard conn,
+-- >         testCastVegeanceMonster conn,
+-- >         testCastVegeanceMonsterResisted conn,
+-- >         testCastSubversion conn,
+-- >         testCastSubversionResisted conn,
+-- >         testCastDisbelieveReal conn,
+-- >         testCastDisbelieveImaginary conn,
+-- >         testCastRaiseDead conn,
+-- >         testCastArmour conn,
+-- >         testCastLaw conn,
+-- >         testImaginary conn,
 
->         testMoveSubphases1 conn,
->         testMoveSubphases2 conn,
->         testMoveSubphases3 conn,
->         testMoveSubphases4 conn,
+-- >         testMoveSubphases1 conn,
+-- >         testMoveSubphases2 conn,
+-- >         testMoveSubphases3 conn,
+-- >         testMoveSubphases4 conn,
 
->         testWalkOneSquare conn,
+-- >         testWalkOneSquare conn,
 
->         testWalkTwoSquares conn,
->         testFlyOverPieces conn,
->         testAttackMonster conn,
->         testAttackMonsterResisted conn,
->         testAttackWizard conn,
->         testFlyAttack conn,
->         testFlyThenAttack conn,
->         testRangedAttack conn,
->         testRangedAttackResisted conn,
->         testShadowWoodAttack conn,
+-- >         testWalkTwoSquares conn,
+-- >         testFlyOverPieces conn,
+-- >         testAttackMonster conn,
+-- >         testAttackMonsterResisted conn,
+-- >         testAttackWizard conn,
+-- >         testFlyAttack conn,
+-- >         testFlyThenAttack conn,
+-- >         testRangedAttack conn,
+-- >         testRangedAttackResisted conn,
+-- >         testShadowWoodAttack conn,
 
- >         testMount conn,
+--  >         testMount conn,
 
->         testMoveWhenMounted conn,
+-- >         testMoveWhenMounted conn,
 
->         testWizardWin conn,
->         testGameDraw conn
+>         testDismount conn
+
+-- >         testWizardWin conn,
+-- >         testGameDraw conn
 
 >         ])
 
@@ -1846,40 +1848,44 @@ is mounted here.
 
 dismount then move
 
--- > testDismount conn = TestLabel "testDismount" $ TestCase $ do
--- >   startNewGame conn
--- >   setupBoard conn ("\n\
--- >                   \ P     2      3\n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \4             5\n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \6      7      8",
--- >                    wizardPiecesList ++
--- >                   [('P', [PieceDescription "wizard" "Buddha" [],
--- >                           PieceDescription "pegasus" "Buddha" []])])
--- >   skipToPhase conn "move"
--- >   moveCursorTo conn 1 0
--- >   sendKeyPress conn "Return"
--- >   moveCursorTo conn 1 1
--- >   sendKeyPress conn "Return"
--- >   checkBoard conn ("\n\
--- >                   \ P     2      3\n\
--- >                   \  1            \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \4             5\n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \6      7      8",
--- >                    wizardPiecesList ++
--- >                   [('P', [PieceDescription "pegasus" "Buddha" []])])
+> testDismount conn = TestLabel "testDismount" $ TestCase $ do
+>   startNewGame conn
+>   setupBoard conn ("\n\
+>                   \ P     2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",
+>                    wizardPiecesList ++
+>                   [('P', [PieceDescription "wizard" "Buddha" [],
+>                           PieceDescription "pegasus" "Buddha" []])])
+>   skipToPhase conn "move"
+>   moveCursorTo conn 1 0
+>   sendKeyPress conn "Return"
+>   moveCursorTo conn 1 1
+>   sendKeyPress conn "Return"
+>   moveCursorTo conn 1 0
+>   sendKeyPress conn "Return"
+>   moveCursorTo conn 3 0
+>   sendKeyPress conn "Return"
+>   checkBoard conn ("\n\
+>                   \   P   2      3\n\
+>                   \ 1             \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",
+>                    wizardPiecesList ++
+>                   [('P', [PieceDescription "pegasus" "Buddha" []])])
 
 move when already mounted
 
