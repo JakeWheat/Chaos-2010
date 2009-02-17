@@ -1342,7 +1342,7 @@ create rule pieces_on_top_update as
          allegiance = NEW.allegiance,
          tag = NEW.tag,
          x = NEW.x,
-          y = NEW.y,
+         y = NEW.y,
          flying = NEW.flying,
          speed = NEW.speed,
          agility = NEW.agility,
@@ -1377,24 +1377,18 @@ support all possible where expressions.
 We can't use the pieces on top for the selection because of
 the exceptions re castles, magic wood and mounted wizards,
 so create a similar view so we can determine the piece that
-gets selected by square.
+gets selected by square, this part is just the pieces on top
+combined with all the wizards even if they are not on top.
 
- all selectable pieces: speed, attack or ranged attack
- less any sharing a square with blob
- add a priority so that wizards mounted on monster
-   get selected first
+This is finished off using the pieces_to_move relvar.
 
 */
-create view selectable_piece_squares as
-  select x,y,ptype,allegiance,tag,
-  case when ptype = 'wizard' then 0
-       else 1
-  end as priority
- from pieces_mr
-    where speed is not null
-       or attack_strength is not null
-       or ranged_attack_strength is not null
-    and (x,y) not in (select x,y from pieces where ptype = 'gooey_blob');
+create view selectable_piece_with_squares as
+  select x, y, ptype, allegiance, tag, sp from pieces_on_top
+  union
+  -- set the wizard's sp to -1 so they always get priority
+  select x, y, ptype, allegiance, tag, -1 from pieces_mr
+    where ptype = 'wizard';
 
 /*
 
@@ -1542,10 +1536,12 @@ create view current_wizard_spell_squares as
 -- the current wizard who's moving, else it's empty
 -- so only need to switch the contents dependant on
 -- whether there is a selected piece or not
+
 create view selectable_pieces as
-  select x,y from pieces_to_move
-    natural inner join pieces
-    where not exists(select 1 from selected_piece);
+  select distinct on (x,y) * from selectable_piece_with_squares
+  natural inner join pieces_to_move
+  where not exists(select 1 from selected_piece)
+  order by x,y,sp;
 
 -- this view contains all the squares which the currently
 -- selected piece can walk to.
@@ -2647,9 +2643,8 @@ declare
   r record;
 begin
   perform check_can_run_action('select_piece_at_position', vx,vy);
-  select into r allegiance, ptype, tag from selectable_piece_squares
-         where (x,y) = (vx,vy)
-         order by priority limit 1;
+  select into r allegiance, ptype, tag from selectable_pieces
+         where (x,y) = (vx,vy);
   perform action_select_piece(r.allegiance, r.ptype, r.tag);
 end;
 $$ language plpgsql volatile strict;
