@@ -1,7 +1,6 @@
 = milestone pre alpha 3
 
-tests to complete and get passing: missing move phase actions,
-                                   limited subphase transitions
+tests to complete and get passing: limited subphase transition tests
                                    automatic next phase/subphase tests
 
 ================================================================================

@@ -130,58 +130,58 @@ Run all the tests.
 >             dbName conf ++ " user=" ++ username conf ++
 >             " password=" ++ password conf) (\conn -> runTestTT $ TestList [
 
--- >         testDatabaseStuff conn,
--- >         testCursorMovement conn,
--- >         testPiecesOnTop conn,
+>         testDatabaseStuff conn,
+>         testCursorMovement conn,
+>         testPiecesOnTop conn,
 
--- >         testNextPhase conn,
--- >         testNextPhaseWizardDead conn,
--- >         testNextPhaseTwoWizardsDead conn,
+>         testNextPhase conn,
+>         testNextPhaseWizardDead conn,
+>         testNextPhaseTwoWizardsDead conn,
 
--- >         testCastGoblin conn,
--- >         testFailCastGoblin conn,
--- >         testCastMagicWood conn,
--- >         testCastShadowWood conn,
--- >         testCastMagicBolt conn,
--- >         testCastMagicBoltResisted conn,
--- >         testCastVegeanceWizard conn,
--- >         testCastVegeanceMonster conn,
--- >         testCastVegeanceMonsterResisted conn,
--- >         testCastSubversion conn,
--- >         testCastSubversionResisted conn,
--- >         testCastDisbelieveReal conn,
--- >         testCastDisbelieveImaginary conn,
--- >         testCastRaiseDead conn,
--- >         testCastArmour conn,
--- >         testCastLaw conn,
--- >         testImaginary conn,
+>         testCastGoblin conn,
+>         testFailCastGoblin conn,
+>         testCastMagicWood conn,
+>         testCastShadowWood conn,
+>         testCastMagicBolt conn,
+>         testCastMagicBoltResisted conn,
+>         testCastVegeanceWizard conn,
+>         testCastVegeanceMonster conn,
+>         testCastVegeanceMonsterResisted conn,
+>         testCastSubversion conn,
+>         testCastSubversionResisted conn,
+>         testCastDisbelieveReal conn,
+>         testCastDisbelieveImaginary conn,
+>         testCastRaiseDead conn,
+>         testCastArmour conn,
+>         testCastLaw conn,
+>         testImaginary conn,
 
--- >         testMoveSubphases1 conn,
--- >         testMoveSubphases2 conn,
--- >         testMoveSubphases3 conn,
--- >         testMoveSubphases4 conn,
+>         testMoveSubphases1 conn,
+>         testMoveSubphases2 conn,
+>         testMoveSubphases3 conn,
+>         testMoveSubphases4 conn,
 
--- >         testWalkOneSquare conn,
+>         testWalkOneSquare conn,
 
--- >         testWalkTwoSquares conn,
--- >         testFlyOverPieces conn,
--- >         testAttackMonster conn,
--- >         testAttackMonsterResisted conn,
--- >         testAttackWizard conn,
--- >         testFlyAttack conn,
--- >         testFlyThenAttack conn,
--- >         testRangedAttack conn,
--- >         testRangedAttackResisted conn,
--- >         testShadowWoodAttack conn,
+>         testWalkTwoSquares conn,
+>         testFlyOverPieces conn,
+>         testAttackMonster conn,
+>         testAttackMonsterResisted conn,
+>         testAttackWizard conn,
+>         testFlyAttack conn,
+>         testFlyThenAttack conn,
+>         testRangedAttack conn,
+>         testRangedAttackResisted conn,
+>         testShadowWoodAttack conn,
 
---  >         testMount conn,
+>         testMoveWhenMounted conn,
+>         testDismount conn,
+>         testMoveWhenAlreadyMounted conn,
+>         testEnter conn,
+>         testExit conn,
 
--- >         testMoveWhenMounted conn,
-
->         testDismount conn
-
--- >         testWizardWin conn,
--- >         testGameDraw conn
+>         testWizardWin conn,
+>         testGameDraw conn
 
 >         ])
 
@@ -1889,145 +1889,47 @@ dismount then move
 
 move when already mounted
 
--- > testSelectWizardUnderneath conn =
--- >     TestLabel "testSelectWizardUnderneath" $ TestCase $ do
--- >   startNewGame conn
--- >   setupBoard conn ("\n\
--- >                   \P      C      3\n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \4             5\n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \6      7      8",
--- >                   (wizardPiecesList ++
--- >                   [('P', [PieceDescription "wizard" "Buddha" [],
--- >                           PieceDescription "pegasus" "Buddha" []]),
--- >                    ('C', [PieceDescription "wizard" "Kong Fuzi" [],
--- >                           PieceDescription "dark_citadel" "Kong Fuzi" []])]))
--- >   skipToPhase conn "move"
--- >   moveCursorTo conn 0 0
--- >   sendKeyPress conn "Return"
--- >   -- check wizard selected
--- >   --next turn
--- >   moveCursorTo conn 7 0
--- >   sendKeyPress conn "Return"
--- >   --check wizard selected
+> testMoveWhenAlreadyMounted conn = TestLabel "testMoveWhenAlreadyMounted" $ TestCase $ do
+>   startNewGame conn
+>   setupBoard conn ("\n\
+>                   \ P     2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",
+>                    wizardPiecesList ++
+>                   [('P', [PieceDescription "wizard" "Buddha" [],
+>                           PieceDescription "pegasus" "Buddha" []])])
+>   skipToPhase conn "move"
+>   moveCursorTo conn 1 0
+>   sendKeyPress conn "Return"
+>   sendKeyPress conn "End"
+>   sendKeyPress conn "Return"
+>   moveCursorTo conn 3 0
+>   sendKeyPress conn "Return"
+>   checkBoard conn ("\n\
+>                   \   P   2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",
+>                    wizardPiecesList ++
+>                   [('P', [PieceDescription "wizard" "Buddha" [],
+>                           PieceDescription "pegasus" "Buddha" []])])
 
-attack when dismounting
+todo: attack when dismounting, dismounting when flying
 
--------------------------------
-junk
--- > testDismount conn = TestLabel "testDismount" $ TestCase $ do
--- >   startNewGame conn
--- >   setupBoard conn ("\n\
--- >                   \ P     2      3\n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \4             5\n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \6      7      8",
--- >                    wizardPiecesList ++
--- >                   [('P', [PieceDescription "wizard" "Buddha" [],
--- >                           PieceDescription "pegasus" "Buddha" []])])
--- >   skipToPhase conn "move"
--- >   moveCursorTo conn 1 0
--- >   sendKeyPress conn "Return"
--- >   moveCursorTo conn 1 1
--- >   sendKeyPress conn "Return"
--- >   checkBoard conn ("\n\
--- >                   \ P     2      3\n\
--- >                   \  1            \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \4             5\n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \6      7      8",
--- >                    wizardPiecesList ++
--- >                   [('P', [PieceDescription "pegasus" "Buddha" []])])
-
--- > testMount conn = TestLabel "testMount" $ TestCase $ do
--- >   startNewGame conn
--- >   setupBoard conn ("\n\
--- >                   \1P     2      3\n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \4             5\n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \6      7      8",
--- >                   (wizardPiecesList ++
--- >                   [('P', [PieceDescription "pegasus" "Buddha" []])]))
--- >   skipToPhase conn "move"
--- >   moveCursorTo conn 0 0
--- >   sendKeyPress conn "Return"
--- >   moveCursorTo conn 1 0
--- >   sendKeyPress conn "Return"
--- >   checkBoard conn ("\n\
--- >                   \ P     2      3\n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \4             5\n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \6      7      8",
--- >                    wizardPiecesList ++
--- >                   [('P', [PieceDescription "wizard" "Buddha" [],
--- >                           PieceDescription "pegasus" "Buddha" []])])
-
--- > testMoveWhenMounted conn = TestLabel "testMoveWhenMounted" $ TestCase $ do
--- >   startNewGame conn
--- >   setupBoard conn ("\n\
--- >                   \ P     2      3\n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \4             5\n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \6      7      8",
--- >                    wizardPiecesList ++
--- >                   [('P', [PieceDescription "wizard" "Buddha" [],
--- >                           PieceDescription "pegasus" "Buddha" []])])
--- >   skipToPhase conn "move"
--- >   moveCursorTo conn 1 0
--- >   sendKeyPress conn "Return"
--- >   sendKeyPress conn "End"
--- >   sendKeyPress conn "Return"
--- >   moveCursorTo conn 2 2
--- >   sendKeyPress conn "Return"
--- >   checkBoard conn ("\n\
--- >                   \       2      3\n\
--- >                   \               \n\
--- >                   \  P            \n\
--- >                   \               \n\
--- >                   \4             5\n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \               \n\
--- >                   \6      7      8",
--- >                    wizardPiecesList ++
--- >                   [('P', [PieceDescription "wizard" "Buddha" [],
--- >                           PieceDescription "pegasus" "Buddha" []])])
+== enter/exit
 
 > testExit conn = TestLabel "testExit" $ TestCase $ do
 >   startNewGame conn
@@ -2048,11 +1950,12 @@ junk
 >   skipToPhase conn "move"
 >   moveCursorTo conn 1 0
 >   sendKeyPress conn "Return"
+>   assertSelectedPiece conn "wizard" "Buddha"
 >   moveCursorTo conn 1 1
 >   sendKeyPress conn "Return"
 >   checkBoard conn ("\n\
 >                   \ P     2      3\n\
->                   \  1            \n\
+>                   \ 1             \n\
 >                   \               \n\
 >                   \               \n\
 >                   \4             5\n\

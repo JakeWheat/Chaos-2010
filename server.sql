@@ -177,6 +177,12 @@ create view monster_prototypes as
     from piece_prototypes_mr
     where undead is not null and rideable is not null;
 
+create view enterable_piece_types as
+  select 'magic_tree'::text as ptype
+  union
+  select 'magic_castle'
+  union
+  select 'dark_citadel';
 /*
 === data
 
@@ -1404,12 +1410,18 @@ create view board_ranges as
 --  iterate d over 0 to 20
 --    iterate tx,ty over each square on board
 --      include x,y,d, tx, ty iff d(x,y,tx,ty) < d
+--so: we include squares <= to the range, not just squares at that
+--range
+
   select * from generate_series(0, 14) as x
                 cross join generate_series(0, 9) as y
                 cross join generate_series(1, 20) as range
                 cross join generate_series(0, 14) as tx
                 cross join generate_series(0, 9) as ty
-  where distance(x,y,tx,ty) - 0.5 <= range; --round to closest int
+  where distance(x,y,tx,ty) - 0.5 <= range --round to closest int
+  --slightly hacky, we never need the current square to be included so
+  --exclude it here even though it's not quite mathematically correct
+  and (x,y) != (tx,ty);
 
 select set_module_for_preceding_objects('squares_valid');
 
@@ -1629,16 +1641,16 @@ create view selected_piece_mountable_squares as
 
 create view selected_piece_enterable_squares as
   select x,y from pieces_next_to_current_piece
+    natural inner join enterable_piece_types
     where allegiance = get_current_wizard()
-      and (select ptype='wizard' from selected_piece)
-      and ptype in ('magic_tree', 'magic_castle', 'dark_fortress');
+      and (select ptype='wizard' from selected_piece);
 
 create view selected_piece_occupying as
   select 1 from pieces
+    natural inner join enterable_piece_types
     where (select ptype = 'wizard' from selected_piece)
       and (x,y) = (select x,y from pieces
-                   natural inner join selected_piece)
-      and ptype in ('magic_wood', 'magic_castle', 'dark_fortress');
+                   natural inner join selected_piece);
 
 create view selected_piece_exitable_squares as
   select x,y from selected_piece_walk_squares
@@ -2711,6 +2723,22 @@ $$ language plpgsql volatile strict;
 create function action_fly(px int, py int) returns void as $$
 begin
   perform check_can_run_action('fly', px, py);
+  perform selected_piece_move_to(px, py);
+  perform action_next_move_subphase();
+end;
+$$ language plpgsql volatile strict;
+
+create function action_enter(px int, py int) returns void as $$
+begin
+  perform check_can_run_action('enter', px, py);
+  perform selected_piece_move_to(px, py);
+  perform action_next_move_subphase();
+end;
+$$ language plpgsql volatile strict;
+
+create function action_exit(px int, py int) returns void as $$
+begin
+  perform check_can_run_action('exit', px, py);
   perform selected_piece_move_to(px, py);
   perform action_next_move_subphase();
 end;
