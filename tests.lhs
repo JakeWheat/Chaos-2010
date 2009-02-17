@@ -162,7 +162,6 @@ Run all the tests.
 >         testMoveSubphases4 conn,
 
 >         testWalkOneSquare conn,
-
 >         testWalkTwoSquares conn,
 >         testFlyOverPieces conn,
 >         testAttackMonster conn,
@@ -490,7 +489,14 @@ to do all variations is 256 tests
 
 check wizards dying during move when it is their turn - this can
 happen if you shoot your own wizard with a ranged weapon from a
-monster, the game should cope with it
+monster, the game should cope with it - I think this is tested in the
+game drawn test
+
+automatic next phase tests:
+casting the last part of a spell moves to the next player automatically
+moving the last creature moves to the next player automatically
+these are tested in the spell cast and move sections respectively
+
 
 ================================================================================
 
@@ -504,6 +510,10 @@ chosen goblin
 >   startNewGame conn
 >   addSpell conn "goblin"
 >   sendKeyPress conn "m"
+>   --get the next wizard to select disbelieve so we can check the
+>   --auto next phase works
+>   sendKeyPress conn "space"
+>   sendKeyPress conn "Q"
 >   skipToPhase conn "cast"
 
 check the squares we can cast goblin onto
@@ -539,6 +549,8 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Buddha" []])]))
+>   --check we are on the next wizard's phase
+>   checkCurrentWizardPhase conn "Kong Fuzi" "cast"
 
 > testFailCastGoblin conn = TestLabel "testFailCastGoblin" $ TestCase $ do
 >   startNewGame conn
@@ -1205,10 +1217,14 @@ substitute walk for fly
    attack-done
    cancel-done
 
+1 test for each pairwise combo
+
+
+
 for each test, redo with fly instead
 also, for each test do 2 squares walk variation:
 always walk the first square, the walk or cancel as with above
-how to handle shadow wood next to no enemy?
+how to handle shadow wood next to no enemy? maybe immediately unselects
 
 fly only variations?:
 
@@ -2537,3 +2553,9 @@ keep running next_phase until we get to the cast phase
 >                                  (ptype,allegiance)
 >                                  (t "ptype", t "allegiance"))
 
+> checkCurrentWizardPhase :: Connection -> String -> String -> IO()
+> checkCurrentWizardPhase conn wiz phase = do
+>   wiz' <- readCurrentWizard conn
+>   phase' <- readTurnPhase conn
+>   assertEqual "current wizard" wiz wiz'
+>   assertEqual "current phase" phase' phase

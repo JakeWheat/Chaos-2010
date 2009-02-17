@@ -443,10 +443,6 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
---create trigger move_cursor_to_wizard_on_next_phase
---  after insert on action_history_next_phase for each statement
---  execute procedure action_move_cursor_to_current_wizard();
-
 /*
 
 the plan is to have a board_sprites view for the board widget. This
@@ -1245,13 +1241,6 @@ create function action_client_next_phase() returns void as $$
 begin
   perform action_next_phase();
   perform action_move_cursor_to_current_wizard();
-  --skip if cast phase and wizard has no spell
-  --this should be in the server code
-  --if get_turn_phase() = 'cast' and
-  --  (select count(1) = 0 from wizard_spell_choices
-  --     natural inner join current_wizard) then
-  --  perform action_client_next_phase();
-  --end if;
 end;
 $$ language plpgsql volatile strict;
 
