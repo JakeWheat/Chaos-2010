@@ -2609,6 +2609,7 @@ If a piece is unselected before it has moved or done anything then it
 remains able to move this turn otherwise its move is over for this
 turn.
 
+=== selection and subphase
 */
 create function action_select_piece(pallegiance text, pptype text,ptag int)
   returns void as $$
@@ -2697,15 +2698,13 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
+/*
+=== movement
+*/
 create function action_walk(px int, py int) returns void as $$
 begin
   perform check_can_run_action('walk', px, py);
-  update pieces_mr
-    set x = px,
-        y = py
-    -- no joins using 'join' in an update in pg? sucks to be a pg user
-    where (ptype,allegiance,tag) =
-      (select ptype,allegiance,tag from selected_piece);
+  perform selected_piece_move_to(px, py);
   update squares_left_to_walk_table
     set squares_left_to_walk = squares_left_to_walk - 1;
   if get_squares_left_to_walk() = 0 then
@@ -2717,11 +2716,7 @@ $$ language plpgsql volatile strict;
 create function action_fly(px int, py int) returns void as $$
 begin
   perform check_can_run_action('fly', px, py);
-  update pieces_mr
-    set x = px,
-        y = py
-    where (ptype,allegiance,tag) =
-      (select ptype,allegiance,tag from selected_piece);
+  perform selected_piece_move_to(px, py);
   perform action_next_move_subphase();
 end;
 $$ language plpgsql volatile strict;
@@ -2739,7 +2734,9 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
-
+/*
+=== attacking
+*/
 create function action_attack(px int, py int) returns void as $$
 declare
   r record;
@@ -2767,12 +2764,10 @@ begin
     where x = px and y = py;
   perform kill_piece(r.ptype, r.allegiance, r.tag);
   --move to the square if walker
-  update pieces_mr set x = px,
-                     y = py
-          where (ptype,allegiance,tag) =
-         (select ptype,allegiance,tag from selected_piece)
-         and exists(select 1 from creature_prototypes
-              natural inner join selected_piece);
+  if exists(select 1 from creature_prototypes
+              natural inner join selected_piece) then
+    perform selected_piece_move_to(px, py);
+  end if;
   perform action_next_move_subphase();
 end;
 $$ language plpgsql volatile strict;
@@ -2841,6 +2836,43 @@ begin
       (select ptype from pieces_on_top where x = px and y = py),
       (select allegiance from pieces_on_top where x = px and y = py),
       (select tag from pieces_on_top where x = px and y = py));
+end;
+$$ language plpgsql volatile strict;
+
+create function selected_piece_move_to(px int, py int) returns void as $$
+begin
+  -- this is used to move a piece when it walks/flies and as part of a
+  -- successful attack to keep the logic for moving a wizard piece
+  -- along with his mount in one place
+  if
+     --this is a rideable monster
+     (select count(*) = 1 from selected_piece
+       natural inner join monster_pieces
+       where rideable) and
+     --there is also a wizard on this square
+     (select count(*) = 1
+      from (select x,y from pieces
+            natural inner join selected_piece) as a
+      natural inner join pieces
+      where ptype='wizard') then
+     -- move the wizard also
+    update pieces_mr
+      set x = px,
+          y = py
+      where (ptype,allegiance,tag) =
+        (select ptype, allegiance, tag
+         from (select x,y from pieces
+               natural inner join selected_piece) as a
+         natural inner join pieces
+         where ptype='wizard');
+  end if;
+
+  update pieces_mr
+    set x = px,
+        y = py
+    where (ptype,allegiance,tag) =
+      (select ptype,allegiance,tag from selected_piece);
+
 end;
 $$ language plpgsql volatile strict;
 

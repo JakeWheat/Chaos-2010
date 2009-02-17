@@ -374,9 +374,6 @@ wizard upgrades
 >                ibc "-------\n"
 >                drawPieceInfo cpd)
 
-draw the initial contents then return
-
->   refresh
 >   return (tv, refresh)
 
 
@@ -668,7 +665,6 @@ write this spell's line
 >                     " " ++ sb "chance" ++ "%") [sb "colour"]
 >               ibc $ " " ++ sb "align_icons" ++ " " ++ sb "count_icons")
 >
->   refresh
 >   return (tv, refresh)
 
 ================================================================================
@@ -795,7 +791,6 @@ add some temporary buttons to start custom games for testing purposes
 >               callSp conn "setup_test_board" [b]
 >             ibcw but)
 >         return ()
->   refresh
 >   return (tv, refresh)
 
 TODO: make this into a game manager which handles managing multiple
@@ -996,7 +991,7 @@ way to unhide them).
 >               textViewInsertWidgetAtCursor wm but
 >               textBufferInsertAtCursor buf "\n"
 >               toggleButtonSetActive but $ wi "state" /= "hidden"
->               let (ww,_) = safeLookup "window manager refresh" name widgetData
+>               let (ww,wrefresh) = safeLookup "window manager refresh" name widgetData
 
 setup the handler so that clicking the button toggles the window visibility
 
@@ -1008,6 +1003,7 @@ setup the handler so that clicking the button toggles the window visibility
 >                         --reposition the window since it's position is reset
 >                         -- when the window is hidden
 >                         windowMove ww (read $ wi "px") (read $ wi "py")
+>                         wrefresh
 >                         runSql conn
 >                                "update windows set state='normal'\n\
 >                                \where window_name=?;" [name]
@@ -1023,7 +1019,7 @@ is hooked up to the database it will be hooked up in the window
 manager ctor (this function)
 
 >               if name == "window_manager" || wi "state" /= "hidden"
->                 then widgetShowAll ww
+>                 then widgetShowAll ww >> wrefresh
 >                 else widgetHideAll ww
 >               --fix up the size and position
 >               windowMove ww (read $ wi "px") (read $ wi "py")

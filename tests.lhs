@@ -132,16 +132,12 @@ Run all the tests.
 
 >         testDatabaseStuff conn,
 >         testCursorMovement conn,
->         testNextPhase conn,
-
->         testNextPhaseWizardDead conn,
-
->         testNextPhaseTwoWizardsDead conn,
 >         testPiecesOnTop conn,
->         testMoveSubphases1 conn,
->         testMoveSubphases2 conn,
->         testMoveSubphases3 conn,
->         testMoveSubphases4 conn,
+
+>         testNextPhase conn,
+>         testNextPhaseWizardDead conn,
+>         testNextPhaseTwoWizardsDead conn,
+
 >         testCastGoblin conn,
 >         testFailCastGoblin conn,
 >         testCastMagicWood conn,
@@ -158,7 +154,15 @@ Run all the tests.
 >         testCastRaiseDead conn,
 >         testCastArmour conn,
 >         testCastLaw conn,
+>         testImaginary conn,
+
+>         testMoveSubphases1 conn,
+>         testMoveSubphases2 conn,
+>         testMoveSubphases3 conn,
+>         testMoveSubphases4 conn,
+
 >         testWalkOneSquare conn,
+
 >         testWalkTwoSquares conn,
 >         testFlyOverPieces conn,
 >         testAttackMonster conn,
@@ -168,14 +172,21 @@ Run all the tests.
 >         testFlyThenAttack conn,
 >         testRangedAttack conn,
 >         testRangedAttackResisted conn,
->         testImaginary conn,
 >         testShadowWoodAttack conn,
->         testMount conn,
->         testWizardWin conn,
 
+>         testMount conn,
+
+-->         testMoveWhenMounted conn,
+
+>         testWizardWin conn,
 >         testGameDraw conn
 
 >         ])
+
+postgresql.conf  #track_functions = none # none, pl, all
+
+ select * from pg_stat_user_functions ;
+http://www.depesz.com/index.php/2008/05/15/waiting-for-84-function-stats/
 
 ================================================================================
 
@@ -1356,6 +1367,8 @@ fire ranged weapons
 >                              \  allegiance='Buddha'" []
 >     assertBool "piece not in ptm" (null v)
 
+== moving
+
 > testWalkOneSquare conn = TestLabel "testWalkOneSquare" $ TestCase $ do
 >     startNewGame conn
 >     setupBoard conn ("\n\
@@ -1477,6 +1490,7 @@ fire ranged weapons
 >                   \6      7      8",
 >                   pk)
 
+== attacking
 
 > testAttackMonster conn = TestLabel "testAttackMonster" $ TestCase $ do
 >   startNewGame conn
@@ -1780,6 +1794,17 @@ fire ranged weapons
 >                   [('W', [PieceDescription "shadow_tree" "Buddha" []]),
 >                    ('g', [PieceDescription "goblin" "dead" []])])
 
+== other move actions
+
+Test that the first time when try to select a square with a mounted
+wizard we get the wizard, if we cancel then select again on that
+square, we should get the monster the wizards is mounted on. To reduce
+the number of tests we also test moving the monster whilst the wizard
+is mounted here.
+
+ > testMountedSelectionAndWalk conn
+
+
 > testDismount conn = TestLabel "testDismount" $ TestCase $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
@@ -2022,6 +2047,9 @@ fire ranged weapons
 >                   [('P', [PieceDescription "wizard" "Buddha" [],
 >                           PieceDescription "dark_citadel" "Buddha" []])])
 
+check when moving a mounted wizard, that the corpse on that square stays put
+
+== misc
 
 attack undead - able, able no corpse
 
@@ -2042,6 +2070,7 @@ wizard upgrades
 
 dead wizard tests
 
+second monster dying on a square - the first corpse should disappear permanently
 
 ================================================================================
 

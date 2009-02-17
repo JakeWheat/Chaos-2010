@@ -63,11 +63,12 @@
 >       Nothing -> error $ errMsg ++ " missing key: " ++ show key
 
 > time f = do
->   st <- getClockTime
->   f
->   et <- getClockTime
->   let tdiff = diffClockTimes et st
->   putStrLn $ "time taken: " ++ timeDiffToString tdiff
+>   bracket (getClockTime)
+>           (\st -> do
+>              et <- getClockTime
+>              let tdiff = diffClockTimes et st
+>              putStrLn $ "time taken: " ++ timeDiffToString tdiff)
+>           (\_ -> f)
 
 > for = flip map
 

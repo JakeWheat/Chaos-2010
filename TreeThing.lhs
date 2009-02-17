@@ -34,8 +34,7 @@ todo: get this tree into speedbar
 > getSourceFiles = do
 >   entries <- getDirectoryContents "."
 >   files <- filterM doesFileExist entries
->   return $ "README" : "DEVELOPMENT" : filter (\f -> isSuffixOf ".lhs" f ||
->                          isSuffixOf ".sql" f) files
+>   return files
 
 Create the tree widget and do a bunch of red tape.
 

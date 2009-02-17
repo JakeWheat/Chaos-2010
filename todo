@@ -2,6 +2,7 @@
 
 tests to complete and get passing: missing move phase actions,
                                    limited subphase transitions
+                                   automatic next phase/subphase tests
 
 ================================================================================
 
