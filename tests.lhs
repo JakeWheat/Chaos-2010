@@ -171,6 +171,7 @@ Run all the tests.
 >        ,testGroup "move phase stuff" [
 >           testGroup "moveSubphases" [
 >                          testCancelFlyAttackRangedAttack conn
+>                         ,testCancelWalkAttack conn
 
 >                         ,testMoveSubphases2 conn
 >                         ,testMoveSubphases3 conn
@@ -393,7 +394,8 @@ get the current cursor position from the database
 > readCursorPosition :: Connection -> IO (Int,Int)
 > readCursorPosition conn = do
 >   r <- selectRelation conn "select x,y from cursor_position" []
->   return (read $ head r "x", read $ head r "y")
+>   messageIfError "read cursor position" $
+>     return (read $ head r "x", read $ head r "y")
 
 move the cursor to x,y, using key presses
 
@@ -1052,7 +1054,8 @@ cast it and check the resulting board
 >   sendKeyPress conn "Return"
 >   dbAlign <- selectRelation conn "select world_alignment\n\
 >                                  \from world_alignment_table" []
->   assertEqual "world alignment not law after casting law"
+>   messageIfError "read world_alignment" $
+>     assertEqual "world alignment not law after casting law"
 >              1 (read $ head dbAlign "world_alignment")
 
 
@@ -1266,7 +1269,38 @@ see below for the misc move phase tests not included in these
 >                              \  allegiance='Buddha'" []
 >     assertBool "piece not in ptm" (null v)
 
-testCancelWalkAttack
+> testCancelWalkAttack conn =
+>   testCase "testCancelWalkAttack" $ do
+>     startNewGameReadyToMove conn ("\n\
+>                   \1GR    2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",
+>                    (wizardPiecesList ++
+>                   [('G', [PieceDescription "orc" "Buddha" []]),
+>                    ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])]))
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "orc"
+>     checkMoveSubphase conn "motion"
+>     sendKeyPress conn "End"
+>     checkMoveSubphase conn "attack"
+
+-- >     sendKeyPress conn "End"
+-- >     --check nothing selected and dragon no longer in ptm table
+-- >     checkNoSelectedPiece conn
+-- >     v <- selectRelationValues conn
+-- >                              "select * from pieces_to_move\n\
+-- >                              \where ptype='orc' and\n\
+-- >                              \  allegiance='Buddha'" []
+-- >     assertBool "piece not in ptm" (null v)
+
+
 testCancelFlyRangedAttack
 testCancelWalk
 testCancelAttack
@@ -2072,10 +2106,12 @@ This code is used both for the valid squares and the board diagrams.
 > parseDiagram :: String -> [(Char,Int,Int)]
 > parseDiagram board =
 >     let ls' = lines board
->     in if head ls' /= ""
->          then error $ "first line in diagram should be empty string, got " ++
+>     in case True of
+>          _ | null ls' -> error "board diagram empty"
+>            | head ls' /= "" ->
+>                error $ "first line in diagram should be empty string, got " ++
 >                        head ls'
->          else
+>            | otherwise ->
 >            let ls = tail ls'
 >            in case True of
 >                  _ | length ls /= 10 ->
@@ -2352,12 +2388,14 @@ shorthands to check data in the database
 
 > checkSelectedPiece conn allegiance ptype = do
 >   v <- selectRelation conn "select * from selected_piece" []
->   assertEqual "selected piece" (allegiance,ptype)
+>   messageIfError "read selected piece" $
+>     assertEqual "selected piece" (allegiance,ptype)
 >               (head v "allegiance", head v "ptype")
 
 > checkMoveSubphase conn sp = do
 >   ms <- selectRelation conn "select move_phase from selected_piece" []
->   assertEqual "move subphase" sp (head ms "move_phase")
+>   messageIfError "read move_phase" $
+>     assertEqual "move subphase" sp (head ms "move_phase")
 
 > checkNoSelectedPiece conn = do
 >   v <- selectRelation conn "select * from selected_piece" []

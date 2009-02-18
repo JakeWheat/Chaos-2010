@@ -5,6 +5,7 @@
 >               hasKey,
 >               safeLookup,
 >               safeMLookup,
+>               messageIfError,
 >               dropItemN,
 >               for,
 >               uncurry3,
@@ -108,3 +109,12 @@
 > dropItemN (x:xs) i = if i == 0
 >                        then xs
 >                        else x: dropItemN xs (i - 1)
+
+This doesn't work for some reason - doesn't print the message if there
+is an error:
+
+> messageIfError :: String -> IO a -> IO a
+> messageIfError message f =
+>     bracketOnError (return())
+>                    (\ _ -> putStrLn message)
+>                    (\ _ -> f)
