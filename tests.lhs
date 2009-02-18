@@ -35,79 +35,75 @@ e.g. testing that next_phase is automatically called when a wizard
 finished casting his spell is combined with a test for casting a
 spell. This is probably evil and wrong.
 
-Todo for tests:
+Speed: running all the tests takes ages for very little work, this
+highlights how slow the code is. I'm waiting for postgresql 8.4 which
+apparently has easy function profiling to find out why it's so
+slow. Probably some materialised views are needed.
 
-finish off move phase action tests
+Current Todo planned for beta:
+create aliases for the keypress calls
+move subphase tests
+move misc tests
+line of sight
+prompt
+autonomous
+loop through all spells
+missing wizard upgrades
+valid squares after all updates
 
-finish the phase change tests
+== Notes for checking database updates
 
-test moving to next phase automatically
+Want to check all the data tables after each action is run, so we keep
+track of all the relvar updates and make sure all the relvars which
+shouldn't change haven't changed.
 
-? Write tests for the more complicated logic in the sql.  e.g. pieces
-on top, line of sight, some of the constraint system, etc.
+data relvars plus notes
 
-Fix up tests already written:
-
-Add test fragments to run at every stage to check all the available
-actions and all their valid arguments.
-
-check all changes to the database after each action and check no other
-changes are made also.
-
-Fix probabilities:
-
-write tests to run tests many times and check the probabilities
-
-for all the actions which involve a piece moving square write a test
-to cover all options e.g. test walk attack in all eight directions
-
-make the tests hierarchical, use a better tool to run them
-
-Make the tests more watertight: at least one test for each spell,
-mirror tests for each wizard
-
-Add variants for all actions which can be repeated: e.g. walk 3 squares
-cast 4 spells.
-
-Check any actions which don't have tests and write them.
-
-Use a quickcheck style spec to generate more exaustive tests?
-
-some other todos:
-
-win game test
-
-try to select and do stuff that isn't allowed at a particular time,
-make sure nothing happens, looking to prevent the game crashing with a
-database constraint fail
-
-find some way to record a full game and replay it as a test to check
-everything
-
-run each action from each wizard, and from a monster and a wizard variations
-when applicable
-
-
-main list of relvars to check:
-
-law/chaos
-wizards
-spellbooks
-pieces
-turnnumber
-currentwizard
-turnphase
-wizard spell choices
-wizard spell choices imaginary
-spell choice hack
-spell parts to cast
-cast success checked
-cast alignment
+history: added to each action
+prompt: changes depending on valid squares
+alignment: may change after casting
+pieces: usually checked directly using the diagram stuff
+current wizard
+game completed
 pieces to move
 selected piece
-
+spell parts to cast
 squares left to walk
+turn number
+turn phase
+wizard spell choices
+spell books
+wizards
+cast success checked
+cursor pos - tested implicitly all the time
 
+data relvars that are always empty outside of a transactions
+(metaphorically speaking these would be put on the stack instead of
+the heap if we could):
+
+cast magic wood squares
+cast alignment
+creating new game
+*_hack
+
+data relvars to skip testing
+piece starting frames
+board size
+new game widget state
+spell books show all
+test action overrides
+wizard display info
+windows
+
+reduce testing work:
+
+don't check relvars which are unchanged every action, just check their
+value immediately after they've changed ore at start of test, and
+check they are still the same immediately before they're changed or at
+end of test.
+
+Don't check data covered by database constraints (at some point want
+to find a way of testing the database constraints themselves).
 
 
 > import Data.List
@@ -1101,6 +1097,9 @@ cast it and check the resulting board
 >   sv (\v -> assertBool "dither then cast imaginary monster" v)
 >
 
+todo: wizard upgrades stats, usage in move tests
+
+
 what are the side effects to check for when casting spells:
 spell direct effect
 spell book looses spell
@@ -1128,75 +1127,113 @@ check it's the next wizards turn
 
 == move subphases
 
-check that the game progresses through the subphases correctly
-just do one for a dragon which cancels move, cancels ranged attack
-and cancels attack for now
+Check that the game progresses through the subphases correctly, as
+well as the actions work, the subphases are move, attack, ranged
+attack, the program misses one out if it isn't relevant to a piece,
+moves to the next subphase when the piece can do no more in its
+current subphase, and unselects the piece automatically when it has no
+more move subphases.
 
-TODO:
-check variations where each action is used or cancelled
-substitute walk for fly
+
+our subphase progression options for different pieces depending on
+their capabilities are:
+
+
 1 walk-done
 2 walk-attack-done
 3 walk-ranged-done
 4 walk-attack-ranged-done
 5 attack-done (for shadow wood)
 
-1: walk-done:
-   walk-done
-   cancel-done
-2: walk-attack-done:
-   walk-attack-done
-   walk-cancel-done
-   cancel-attack-done
-   cancel-cancel-done
-3: walk-ranged-done:
-   walk-ranged-done
-   walk-cancel-done
-   cancel-ranged-done
-   cancel-cancel-done
-4: walk-attack-ranged-done:
-   walk-attack-ranged-done
-   walk-attack-cancel-done
-   walk-cancel-ranged-done
-   walk-cancel-cancel-done
-   cancel-attack-ranged-done
-   cancel-attack-cancel-done
-   cancel-cancel-cancel-done
-5  attack-done:
-   attack-done
-   cancel-done
+Want to check variations where each action is used or cancelled,
+substitute walk for fly in tests, and do variations for pieces which
+can walk more than one square.
 
-1 test for each pairwise combo
+If we expand these out to switch in the cancel variations, fly and
+walk one or more squares, we end up with way too many combinations,
+need a better way to get reasonable coverage.
 
+Hopefully, because of the database constraints, we can assume that
+e.g. attacking then ranged attacking is the same whether we've previously
+walked, flew or cancelled, so:
 
+* we only need to cover each unique neighbouring pair of actions from
+  the list above;
 
-for each test, redo with fly instead
-also, for each test do 2 squares walk variation:
-always walk the first square, the walk or cancel as with above
-how to handle shadow wood next to no enemy? maybe immediately unselects
+* we can test multiple pairs in one go e.g. walk-attack-ranged-done
+  will cover walk-attack, attack-ranged and ranged-done;
 
-fly only variations?:
+* we can run through all cancel variations and not need to do any
+  other combos with cancel. e.g. instead of:
 
-multiple square walk variations
+** walk-attack-done
+** cancel-attack-done
+** walk-cancel-done
+** cancel-cancel-done
 
-what about engaged ish?
+with variations for flying and walking different amounts of squares,
+we just need to to cancel-cancel-done to cover them all.
 
-seems like loads and loads of tests, can this list be shortened and
-still be comprehensive?
+Same idea about database constraints goes for walking: creatures with
+a one square walk work the same as creatures who have one square left
+to walk, and that e.g. cancelling after one square of walk for a two
+or more square walker, or two squares of walk for a three or more
+square walker are the same, etc., so for each walk variation we need
+one with a one square walker, one with a two square walker where we
+cancel after the first square, and one with a flyer.
 
-walking
-flying
-walking when engaged
-flying when engaged
-trying to walk/fly to occupied squares
-flying attack
-fly then walk attack
-walk attack
-non undead/undead, magic weapons
-shadow form attack
-cobra attack dragon
-fire ranged weapons
+A piece can also move straight into an attack, e.g. a walker in the
+moving subphase can select a neighbouring square an attack it without
+having to cancel the moving subphase first, and a flying creature can
+fly straight onto an enemy to attack it, so we need to test
+walk-attack and fly-attack as well, with the same reasoning as before,
+transitions from these attacks work the same as transitions from a
+normal attack and so these don't need any additional transition
+testing.
 
+From the implementation we know that a walk-attack works the same
+whether the piece has finished it's walk or not, so we don't need to
+test walk-attack separately from normal attacking.
+
+Final bits to take into account: the program skips the attack phase if
+there are no attackable squares, moving and ranged-attacking are not
+skipped automatically like this, so we want to test this skipping from
+walk, walk-cancel and fly, skipping to both ranged attack and done
+(but we don't need all the combinations)
+
+Combine the subphase progression with testing the walk, fly, attack,
+fly-attack, and ranged-attack variations.
+
+Our final list of tests is
+
+all cancel versions:
+
+fly-attack-ranged attack
+walk-attack
+fly-ranged attack
+walk
+attack (for shadow wood)
+
+no cancel versions:
+
+fly-attack-ranged attack-done
+flyattack-ranged attack
+walk-attack-done
+walkcancel-attack
+skip-done (shadow wood)
+walk-skip-ranged attack
+fly-skip-done
+walkcancel-skip-done
+
+these should cover the subphase progression pretty well.
+
+we have at least two attacks and two ranged attacks, make sure there
+is at least one success and failure of each checked
+
+see below for the misc move phase tests not included in these
+
+TODO: implement this plan
+Old move phase tests follow
 
 > testMoveSubphases1 conn = testCase "testMoveSubphases1" $ do
 >     --test 1: move -> attack -> ranged -> unselected
@@ -1662,6 +1699,13 @@ fire ranged weapons
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []]),
 >                    ('E', [PieceDescription "elf" "Buddha" []])]))
 
+== misc move phase stuff
+
+check shadow tree winning fight doesn't move
+killing wizard removes creations
+mount, dismount, enter, exit, etc.
+
+
 > testShadowWoodAttack conn = testCase "testShadowWoodAttack" $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \1W     2      3\n\
@@ -1881,16 +1925,16 @@ todo: attack when dismounting, dismounting when flying
 
 check when moving a mounted wizard, that the corpse on that square stays put
 
+trying to walk/fly to occupied squares
 
-== misc
-
-attack undead - able, able no corpse
+shadow form attack
+cobra attack dragon
 
 test select one creature and move, then select a second creature and move
 
-
 attack undead - unable
-attack undead - able, no corpse
+attack undead - able (undead on undead crime, and wizards with magic
+  weapons), check results in no corpse
 
 test monsters in blob cannot be selected, but can be
 moved if free'd that turn
@@ -1900,10 +1944,6 @@ moved if free'd that turn
 shadow form attack and moving, shadow form and magic wings at same time
 
 engaged stuff
-
-wizard upgrades
-
-dead wizard tests
 
 second monster dying on a square - the first corpse should disappear permanently
 
@@ -2441,3 +2481,49 @@ understand
 
 > keyChooseSpell :: String -> String
 > keyChooseSpell spellName = safeLookup "get key for spell" spellName lookupChooseSpellKeys
+
+--------------------------------------------------------------
+
+Todo ideas for tests:
+
+? Write tests for the more complicated logic in the sql.  e.g. some of
+the constraint system, etc.
+
+Fix up tests already written:
+
+Add test fragments to run at every stage to check all the available
+actions and all their valid arguments.
+
+check all changes to the database after each action and also check no
+other changes are made.
+
+Fix probabilities:
+
+write tests to run tests many times and check the probabilities
+
+for all the actions which involve a piece moving square write a test
+to cover all options e.g. test walk attack in all eight directions
+
+make the tests hierarchical, use a better tool to run them
+
+Make the tests more watertight: at least one test for each spell,
+mirror tests for each wizard
+
+Add variants for all actions which can be repeated: e.g. walk 3 squares
+cast 4 spells.
+
+Check any actions which don't have tests and write them.
+
+Use a quickcheck style spec to generate more exaustive tests?
+
+some other todos:
+
+try to select and do stuff that isn't allowed at a particular time,
+make sure nothing happens, looking to prevent the game crashing with a
+database constraint fail
+
+find some way to record a full game and replay it as a test to check
+everything
+
+run each action from each wizard, and from a monster and a wizard variations
+when applicable

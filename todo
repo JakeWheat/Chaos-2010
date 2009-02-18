@@ -10,16 +10,17 @@ tests to complete and get passing: limited subphase transition tests
 basic ai
 line of sight
 prompt
-finish simplistic tests for all spells - e.g. missing wizard upgrades
 autonomous phase tests and code
+finish simplistic tests for all spells - e.g. missing wizard upgrades, and test every single spell
 
 ================================================================================
 
 = milestone alpha 0.1
 
-intended to be feature complete for 1.0 wrt playing, but not installation
+intended to be feature complete for 0.2 wrt playing, but not installation
 listen/notify if feasible
 basic installation help
+mouse controls?
 
 ================================================================================
 
@@ -46,7 +47,7 @@ more tests?
 = milestone beta 0.3
 
 check out binary distribution
-fix problems from beta 0.1
+fix problems from beta 0.2
 
 ================================================================================
 

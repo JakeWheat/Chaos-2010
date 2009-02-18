@@ -54,6 +54,18 @@ information.
 
 = Installation instructions:
 
+Short version:
+get the source
+install ghc, postgresql, gtk2hs, cabal then the extra haskell libs
+download the source for this game
+add a user to postgresql, set this in chaos.conf
+run 'runghc chaos.lhs setup'
+
+Then to play,
+runghc chaos.lhs
+
+
+
 == Windows
 
 Rough guide, will be fleshed out more.
@@ -69,8 +81,8 @@ http://www.enterprisedb.com/products/pgdownload.do#windows
 
 http://haskell.org/gtk2hs/archives/2009/02/11/gtk2hs-version-0100-released/
 
-You can accept the defaults during the installation on all of
-these. Remember the password you used for postgresql.
+Install them, you can accept the defaults during the installation on
+all of these. Remember the password you used for postgresql.
 
 Get the cabal.exe linked from here:
 
@@ -100,7 +112,10 @@ during the postgresql install, the username for this will be
 installed, or if your computer is ever connected to the internet or
 any network. See the LICENSE file for a disclaimer.)
 
-Unzip the source files for this project.
+Download the source for this project from
+https://launchpad.net/chaos2010/+download
+
+Unzip the source files.
 
 Edit the file chaos.config to put the username and password in.
 
