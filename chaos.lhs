@@ -147,6 +147,8 @@ todo: if cannot connect to database give info to this effect
  if database doesn't appear to be a chaos db or is empty, message
 
 >          unsafeInitGUIForThreadedRTS --initGUI
+>          timeoutAddFull (yield >> return True)
+>                         priorityDefaultIdle 100
 >          withConn ("host=localhost dbname=" ++ Conf.dbName conf ++
 >                    " user=" ++ Conf.username conf ++
 >                    " password=" ++ Conf.password conf)

@@ -144,61 +144,69 @@ Run all the tests.
 >             " password=" ++ password conf) (\conn -> do
 >     defaultMain [
 >         testGroup "basics" [
->                        testDatabaseStuff conn,
->                        testCursorMovement conn,
->                        testPiecesOnTop conn],
->         testGroup "phases" [
->                        testNextPhase conn,
->                        testNextPhaseWizardDead conn,
->                        testNextPhaseTwoWizardsDead conn],
->         testGroup "casting" [
->                         testCastGoblin conn,
->                         testFailCastGoblin conn,
->                         testCastMagicWood conn,
->                         testCastShadowWood conn,
->                         testCastMagicBolt conn,
->                         testCastMagicBoltResisted conn,
->                         testCastVegeanceWizard conn,
->                         testCastVegeanceMonster conn,
->                         testCastVegeanceMonsterResisted conn,
->                         testCastSubversion conn,
->                         testCastSubversionResisted conn,
->                         testCastDisbelieveReal conn,
->                         testCastDisbelieveImaginary conn,
->                         testCastRaiseDead conn,
->                         testCastArmour conn,
->                         testCastLaw conn,
->                         testImaginary conn],
->         testGroup "move phase stuff" [
+>                        testDatabaseStuff conn
+>                       ,testCursorMovement conn
+>                       ,testPiecesOnTop conn
+>                       ]
+>        ,testGroup "phases" [
+>                        testNextPhase conn
+>                       ,testNextPhaseWizardDead conn
+>                       ,testNextPhaseTwoWizardsDead conn
+>                       ]
+>        ,testGroup "casting" [
+>                        testCastGoblin conn
+>                       ,testFailCastGoblin conn
+>                       ,testCastMagicWood conn
+>                       ,testCastShadowWood conn
+>                       ,testCastMagicBolt conn
+>                       ,testCastMagicBoltResisted conn
+>                       ,testCastVegeanceWizard conn
+>                       ,testCastVegeanceMonster conn
+>                       ,testCastVegeanceMonsterResisted conn
+>                       ,testCastSubversion conn
+>                       ,testCastSubversionResisted conn
+>                       ,testCastDisbelieveReal conn
+>                       ,testCastDisbelieveImaginary conn
+>                       ,testCastRaiseDead conn
+>                       ,testCastArmour conn
+>                       ,testCastLaw conn
+>                       ,testImaginary conn
+>                       ]
+>        ,testGroup "move phase stuff" [
 >           testGroup "move subphases" [
->                        testMoveSubphases1 conn,
->                        testMoveSubphases2 conn,
->                        testMoveSubphases3 conn,
->                        testMoveSubphases4 conn],
->           testGroup "moving" [
->                         testWalkOneSquare conn,
->                         testWalkTwoSquares conn,
->                         testFlyOverPieces conn],
->           testGroup "attacking" [
->                         testAttackMonster conn,
->                         testAttackMonsterResisted conn,
->                         testAttackWizard conn,
->                         testFlyAttack conn,
->                         testFlyThenAttack conn,
->                         testRangedAttack conn,
->                         testRangedAttackResisted conn,
->                         testShadowWoodAttack conn],
->           testGroup "mount,enter,etc." [
->                        testMoveWhenMounted conn,
->                        testDismount conn,
->                        testMoveWhenAlreadyMounted conn,
->                        testEnter conn,
->                        testExit conn]],
->         testGroup "game complete" [
->                        testWizardWin conn,
->                        testGameDraw conn]
-
->         ])
+>                          testMoveSubphases1 conn
+>                         ,testMoveSubphases2 conn
+>                         ,testMoveSubphases3 conn
+>                         ,testMoveSubphases4 conn
+>                         ]
+>          , testGroup "moving" [
+>                          testWalkOneSquare conn
+>                         ,testWalkTwoSquares conn
+>                         ,testFlyOverPieces conn
+>                         ]
+>           ,testGroup "attacking" [
+>                          testAttackMonster conn
+>                         ,testAttackMonsterResisted conn
+>                         ,testAttackWizard conn
+>                         ,testFlyAttack conn
+>                         ,testFlyThenAttack conn
+>                         ,testRangedAttack conn
+>                         ,testRangedAttackResisted conn
+>                         ,testShadowWoodAttack conn
+>                         ]
+>           ,testGroup "mount,enter,etc." [
+>                         testMoveWhenMounted conn
+>                        ,testDismount conn
+>                        ,testMoveWhenAlreadyMounted conn
+>                        ,testEnter conn
+>                        ,testExit conn
+>                        ]
+>           ]
+>        ,testGroup "game complete" [
+>                        testWizardWin conn
+>                       ,testGameDraw conn
+>                       ]
+>                 ])
 
 postgresql.conf  #track_functions = none # none, pl, all
 
@@ -420,12 +428,13 @@ move the cursor to x,y, using key presses
 >           sequence_ (replicate amount
 >                        (sendKeyPress conn $ cursorShorthand dir))
 
-
-
 > checkCursorPosition conn x y = do
 >   cp <- readCursorPosition conn
 >   assertEqual "cursor position" cp (x, y)
 
+> goSquare conn x y = do
+>   moveCursorTo conn x y
+>   sendKeyPress conn "Return"
 
 == next phase
 
@@ -437,13 +446,11 @@ twice, check the turn_phase and current_wizard each time
 >   forM_ ["choose","cast","move","choose","cast","move"]
 >         (\phase ->
 >              forM_ [0..7] (\i -> do
->                tp <- readTurnPhase conn
->                cw <- readCurrentWizard conn
->                assertEqual "tp" phase tp
->                assertEqual "cw" (wizardNames !! i) cw
+>                checkCurrentWizardPhase conn (wizardNames !! i) phase
 >                --so we don't skip the cast phase, make sure
 >                -- each wizard has a spell chosen, use disbelieve
 >                --cos wizards always have this spell available
+>                tp <- readTurnPhase conn
 >                when (tp == "choose")
 >                     (sendKeyPress conn "Q")
 >                sendKeyPress conn "space"))
@@ -454,14 +461,7 @@ now test it works with one or more wizards dead:
 start at choose on first wizard and run though twice
 to do all variations is 256 tests
 
-> dropItemN :: [a] -> Int -> [a]
-> dropItemN [] i = []
-> dropItemN (x:xs) i = if i == 0
->                        then xs
->                        else x: dropItemN xs (i - 1)
-
-> testNextPhaseWizardDead conn =
->   testCase "testNextPhaseWizardDead" $
+> testNextPhaseWizardDead conn = testCase "testNextPhaseWizardDead" $
 >   forM_ [0..7] (\j -> do
 >     startNewGame conn
 >     --kill wizard
@@ -469,19 +469,16 @@ to do all variations is 256 tests
 >     let theseWizards = dropItemN wizardNames j
 >     forM_ ["choose","cast","move","choose","cast","move"] (\phase ->
 >       forM_ [0..6] (\i -> do
->         tp <- readTurnPhase conn
->         cw <- readCurrentWizard conn
->         assertEqual "tp" phase tp
->         assertEqual "cw" (theseWizards !! i) cw
+>         checkCurrentWizardPhase conn (theseWizards !! i) phase
 >         --so we don't skip the cast phase, make sure
 >         -- each wizard has a spell chosen, use disbelieve
 >         --cos wizards always have this spell available
+>         tp <- readTurnPhase conn
 >         when (tp == "choose")
 >              (sendKeyPress conn "Q")
 >         sendKeyPress conn "space")))
 
-> testNextPhaseTwoWizardsDead conn =
->   testCase "testNextPhaseTwoWizardsDead" $
+> testNextPhaseTwoWizardsDead conn = testCase "testNextPhaseTwoWizardsDead" $
 >   forM_ [0..7] (\j ->
 >     forM_ [(j + 1)..7] (\k -> do
 >       startNewGame conn
@@ -491,15 +488,13 @@ to do all variations is 256 tests
 >       let theseWizards = dropItemN (dropItemN wizardNames k) j
 >       forM_ ["choose","cast","move","choose","cast","move"] (\phase ->
 >         forM_ [0..5] (\i -> do
->           tp <- readTurnPhase conn
->           cw <- readCurrentWizard conn
->           assertEqual "tp" phase tp
->           assertEqual "cw" (theseWizards !! i) cw
+>           checkCurrentWizardPhase conn (theseWizards !! i) phase
 >           --so we don't skip the cast phase, make sure
 >           -- each wizard has a spell chosen, use disbelieve
 >           --cos wizards always have this spell available
+>           tp <- readTurnPhase conn
 >           when (tp == "choose")
->               (sendKeyPress conn "Q")
+>                (sendKeyPress conn "Q")
 >           sendKeyPress conn "space"))))
 
 
@@ -525,11 +520,11 @@ chosen goblin
 
 >   startNewGame conn
 >   addSpell conn "goblin"
->   sendKeyPress conn "m"
+>   sendKeyPress conn $ keyChooseSpell "goblin"
 >   --get the next wizard to select disbelieve so we can check the
 >   --auto next phase works
 >   sendKeyPress conn "space"
->   sendKeyPress conn "Q"
+>   sendKeyPress conn $ keyChooseSpell "disbelieve"
 >   skipToPhase conn "cast"
 
 check the squares we can cast goblin onto
@@ -548,10 +543,8 @@ check the squares we can cast goblin onto
 
 cast it and check the resulting board
 
->   moveCursorTo conn 0 0
 >   rigActionSuccess conn "cast" True
->   sendKeyPress conn "Right"
->   sendKeyPress conn "Return"
+>   goSquare conn 1 0
 >   checkBoard conn ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -569,16 +562,9 @@ cast it and check the resulting board
 >   checkCurrentWizardPhase conn "Kong Fuzi" "cast"
 
 > testFailCastGoblin conn = testCase "testFailCastGoblin" $ do
->   startNewGame conn
->   addSpell conn "goblin"
->   sendKeyPress conn "m"
->   skipToPhase conn "cast"
->   moveCursorTo conn 0 0
+>   newGameReadyToCast conn "goblin"
 >   rigActionSuccess conn "cast" False
->   sendKeyPress conn "Right"
-
->   sendKeyPress conn "Return"
-
+>   goSquare conn 1 0
 >   checkBoard conn ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -593,10 +579,7 @@ cast it and check the resulting board
 >                   wizardPiecesList)
 
 > testCastMagicWood conn = testCase "testCastMagicWood" $ do
->   startNewGame conn
->   addSpell conn "magic_wood"
->   sendKeyPress conn "G"
->   skipToPhase conn "cast"
+>   newGameReadyToCast conn "magic_wood"
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
 >   checkBoard conn ("\n\
@@ -614,10 +597,7 @@ cast it and check the resulting board
 >                   [('W', [PieceDescription "magic_tree" "Buddha" []])]))
 
 > testCastShadowWood conn = testCase "testCastShadowWood" $ do
->   startNewGame conn
->   addSpell conn "shadow_wood"
->   sendKeyPress conn "M"
->   skipToPhase conn "cast"
+>   newGameReadyToCast conn "shadow_wood"
 >   checkValidSquares conn "\n\
 >                          \1XXXXXX2X     3\n\
 >                          \XXXXXXXXX      \n\
@@ -630,9 +610,7 @@ cast it and check the resulting board
 >                          \XXX            \n\
 >                          \6      7      8"
 >   rigActionSuccess conn "cast" True
->   mapM_ (\(x,y) -> do
->                    moveCursorTo conn x y
->                    sendKeyPress conn "Return")
+>   mapM_ (\(x,y) -> goSquare conn x y)
 >         [(1,0),(3,0),(5,0),(0,2),(2,2),(4,2),(1,4),(3,4)]
 >   checkBoard conn ("\n\
 >                   \1W W W 2      3\n\
@@ -649,10 +627,7 @@ cast it and check the resulting board
 >                   [('W', [PieceDescription "shadow_tree" "Buddha" []])]))
 
 > testCastMagicBolt conn = testCase "testCastMagicBolt" $ do
->   startNewGame conn
->   addSpell conn "magic_bolt"
->   sendKeyPress conn "D"
->   skipToPhase conn "cast"
+>   newGameReadyToCast conn "magic_bolt"
 >   checkValidSquares conn "\n\
 >                          \1      2      3\n\
 >                          \               \n\
@@ -664,10 +639,9 @@ cast it and check the resulting board
 >                          \               \n\
 >                          \               \n\
 >                          \6      7      8"
->   moveCursorTo conn 0 4
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" False
->   sendKeyPress conn "Return"
+>   goSquare conn 0 4
 >   checkBoard conn ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -681,12 +655,8 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   wizardPiecesList)
 
-> testCastMagicBoltResisted conn =
->     testCase "testCastMagicBoltResisted" $ do
->   startNewGame conn
->   addSpell conn "magic_bolt"
->   sendKeyPress conn "D"
->   skipToPhase conn "cast"
+> testCastMagicBoltResisted conn = testCase "testCastMagicBoltResisted" $ do
+>   newGameReadyToCast conn "magic_bolt"
 >   checkValidSquares conn "\n\
 >                          \1      2      3\n\
 >                          \               \n\
@@ -698,10 +668,9 @@ cast it and check the resulting board
 >                          \               \n\
 >                          \               \n\
 >                          \6      7      8"
->   moveCursorTo conn 0 4
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" True
->   sendKeyPress conn "Return"
+>   goSquare conn 0 4
 >   checkBoard conn ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -716,10 +685,9 @@ cast it and check the resulting board
 >                   wizardPiecesList)
 
 
-> testCastVegeanceWizard conn =
->     testCase "testCastVegeanceWizard" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+> testCastVegeanceWizard conn = testCase "testCastVegeanceWizard" $ do
+>   newGameWithBoardReadyToCast conn "vengeance"
+>                  ("\n\
 >                   \1G     2      3\n\
 >                   \G              \n\
 >                   \               \n\
@@ -732,9 +700,6 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
->   addSpell conn "vengeance"
->   sendKeyPress conn "E"
->   skipToPhase conn "cast"
 >   checkValidSquares conn "\n\
 >                          \1X     X      X\n\
 >                          \X              \n\
@@ -746,10 +711,9 @@ cast it and check the resulting board
 >                          \               \n\
 >                          \               \n\
 >                          \X      X      X"
->   moveCursorTo conn 7 0
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" False
->   sendKeyPress conn "Return"
+>   goSquare conn 7 0
 >   checkBoard conn ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -763,10 +727,9 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   wizardPiecesList)
 
-> testCastVegeanceMonster conn =
->     testCase "testCastVegeanceMonster" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+> testCastVegeanceMonster conn = testCase "testCastVegeanceMonster" $ do
+>   newGameWithBoardReadyToCast conn "vengeance"
+>                 ("\n\
 >                   \1G     2      3\n\
 >                   \G              \n\
 >                   \               \n\
@@ -779,9 +742,6 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
->   addSpell conn "vengeance"
->   sendKeyPress conn "E"
->   skipToPhase conn "cast"
 >   checkValidSquares conn "\n\
 >                          \1X     X      X\n\
 >                          \X              \n\
@@ -793,10 +753,9 @@ cast it and check the resulting board
 >                          \               \n\
 >                          \               \n\
 >                          \X      X      X"
->   moveCursorTo conn 1 0
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" False
->   sendKeyPress conn "Return"
+>   goSquare conn 1 0
 >   checkBoard conn ("\n\
 >                   \1      2      3\n\
 >                   \G              \n\
@@ -813,8 +772,8 @@ cast it and check the resulting board
 
 > testCastVegeanceMonsterResisted conn =
 >     testCase "testCastVegeanceMonsterResisted" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+>   newGameWithBoardReadyToCast conn "vengeance"
+>                   ("\n\
 >                   \1G     2      3\n\
 >                   \G              \n\
 >                   \               \n\
@@ -827,9 +786,6 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
->   addSpell conn "vengeance"
->   sendKeyPress conn "E"
->   skipToPhase conn "cast"
 >   checkValidSquares conn "\n\
 >                          \1X     X      X\n\
 >                          \X              \n\
@@ -841,10 +797,9 @@ cast it and check the resulting board
 >                          \               \n\
 >                          \               \n\
 >                          \X      X      X"
->   moveCursorTo conn 1 0
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" True
->   sendKeyPress conn "Return"
+>   goSquare conn 1 0
 >   checkBoard conn ("\n\
 >                   \1G     2      3\n\
 >                   \G              \n\
@@ -861,8 +816,8 @@ cast it and check the resulting board
 
 
 > testCastSubversion conn = testCase "testCastSubversion" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+>   newGameWithBoardReadyToCast conn "subversion"
+>                  ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -875,9 +830,6 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
->   addSpell conn "subversion"
->   sendKeyPress conn "R"
->   skipToPhase conn "cast"
 >   checkValidSquares conn "\n\
 >                          \1X     2      3\n\
 >                          \               \n\
@@ -889,10 +841,9 @@ cast it and check the resulting board
 >                          \               \n\
 >                          \               \n\
 >                          \6      7      8"
->   moveCursorTo conn 1 0
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" False
->   sendKeyPress conn "Return"
+>   goSquare conn 1 0
 >   checkBoard conn ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -908,10 +859,9 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Buddha" []])]))
 
 
-> testCastSubversionResisted conn =
->     testCase "testCastSubversionResisted" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+> testCastSubversionResisted conn = testCase "testCastSubversionResisted" $ do
+>   newGameWithBoardReadyToCast conn "subversion"
+>                  ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -924,9 +874,6 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
->   addSpell conn "subversion"
->   sendKeyPress conn "R"
->   skipToPhase conn "cast"
 >   checkValidSquares conn "\n\
 >                          \1X     2      3\n\
 >                          \               \n\
@@ -938,10 +885,9 @@ cast it and check the resulting board
 >                          \               \n\
 >                          \               \n\
 >                          \6      7      8"
->   moveCursorTo conn 1 0
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" True
->   sendKeyPress conn "Return"
+>   goSquare conn 1 0
 >   checkBoard conn ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -957,10 +903,9 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
 
-> testCastDisbelieveReal conn =
->     testCase "testCastDisbelieveReal" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+> testCastDisbelieveReal conn = testCase "testCastDisbelieveReal" $ do
+>   newGameWithBoardReadyToCast conn "disbelieve"
+>                 ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -973,9 +918,6 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
->   addSpell conn "disbelieve"
->   sendKeyPress conn "Q"
->   skipToPhase conn "cast"
 >   checkValidSquares conn "\n\
 >                          \1X     2      3\n\
 >                          \               \n\
@@ -987,8 +929,7 @@ cast it and check the resulting board
 >                          \               \n\
 >                          \               \n\
 >                          \6      7      8"
->   moveCursorTo conn 1 0
->   sendKeyPress conn "Return"
+>   goSquare conn 1 0
 >   checkBoard conn ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -1003,10 +944,9 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
-> testCastDisbelieveImaginary conn =
->     testCase "testCastDisbelieveImaginary" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+> testCastDisbelieveImaginary conn = testCase "testCastDisbelieveImaginary" $ do
+>   newGameWithBoardReadyToCast conn "disbelieve"
+>                   ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1020,9 +960,6 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi"
 >                            [PImaginary]])]))
->   addSpell conn "disbelieve"
->   sendKeyPress conn "Q"
->   skipToPhase conn "cast"
 >   checkValidSquares conn "\n\
 >                          \1X     2      3\n\
 >                          \               \n\
@@ -1034,8 +971,7 @@ cast it and check the resulting board
 >                          \               \n\
 >                          \               \n\
 >                          \6      7      8"
->   moveCursorTo conn 1 0
->   sendKeyPress conn "Return"
+>   goSquare conn 1 0
 >   checkBoard conn ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -1051,8 +987,8 @@ cast it and check the resulting board
 >
 
 > testCastRaiseDead conn = testCase "testCastRaiseDead" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+>   newGameWithBoardReadyToCast conn "raise_dead"
+>                   ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1065,9 +1001,6 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "dead" []])]))
->   addSpell conn "raise_dead"
->   sendKeyPress conn "V"
->   skipToPhase conn "cast"
 >   checkValidSquares conn "\n\
 >                          \1X     2      3\n\
 >                          \               \n\
@@ -1079,9 +1012,8 @@ cast it and check the resulting board
 >                          \               \n\
 >                          \               \n\
 >                          \6      7      8"
->   moveCursorTo conn 1 0
 >   rigActionSuccess conn "cast" True
->   sendKeyPress conn "Return"
+>   goSquare conn 1 0
 >   checkBoard conn ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -1098,10 +1030,7 @@ cast it and check the resulting board
 
 
 > testCastArmour conn = testCase "testCastArmour" $ do
->   startNewGame conn
->   addSpell conn "magic_armour"
->   sendKeyPress conn "3"
->   skipToPhase conn "cast"
+>   newGameReadyToCast conn "magic_armour"
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
 >   checkBoard conn ("\n\
@@ -1121,10 +1050,7 @@ cast it and check the resulting board
 
 
 > testCastLaw conn = testCase "testCastLaw" $ do
->   startNewGame conn
->   addSpell conn "law"
->   sendKeyPress conn "O"
->   skipToPhase conn "cast"
+>   newGameReadyToCast conn "law"
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
 >   dbAlign <- selectRelation conn "select world_alignment\n\
@@ -1138,12 +1064,11 @@ cast it and check the resulting board
 >   let setStuffUp1 = do
 >                     startNewGame conn
 >                     addSpell conn "goblin"
->                     sendKeyPress conn "m"
+>                     sendKeyPress conn $ keyChooseSpell "goblin"
 >   let setStuffUp2 = do
 >                     skipToPhase conn "cast"
->                     moveCursorTo conn 0 0
 >                     rigActionSuccess conn "cast" True
->                     sendKeyPress conn "Right"
+>                     goSquare conn 1 0
 >   let sv c = do
 >              v <- selectValue conn "select imaginary from monster_pieces\n\
 >                                    \natural inner join pieces\n\
@@ -1151,33 +1076,28 @@ cast it and check the resulting board
 >              c ((read v) :: Bool)
 >   setStuffUp1
 >   setStuffUp2
->   sendKeyPress conn "Return"
 >   sv (\v -> assertBool "default real for monsters" $ not v)
 
 >   setStuffUp1
 >   sendKeyPress conn "n"
 >   setStuffUp2
->   sendKeyPress conn "Return"
 >   sv (\v -> assertBool "cast real monster" $ not v)
 
 >   setStuffUp1
 >   sendKeyPress conn "y"
 >   setStuffUp2
->   sendKeyPress conn "Return"
 >   sv (\v -> assertBool "cast imaginary monster" v)
 
 >   setStuffUp1
 >   sendKeyPress conn "y"
 >   sendKeyPress conn "n"
 >   setStuffUp2
->   sendKeyPress conn "Return"
 >   sv (\v -> assertBool "dither then cast real monster" $ not v)
 
 >   setStuffUp1
 >   sendKeyPress conn "n"
 >   sendKeyPress conn "y"
 >   setStuffUp2
->   sendKeyPress conn "Return"
 >   sv (\v -> assertBool "dither then cast imaginary monster" v)
 >
 
@@ -1188,6 +1108,19 @@ history added
 world alignment changed
 turn phase changed
 check it's the next wizards turn
+
+> newGameReadyToCast conn spellName = do
+>   startNewGame conn
+>   addSpell conn spellName
+>   sendKeyPress conn  $ keyChooseSpell spellName
+>   skipToPhase conn "cast"
+
+> newGameWithBoardReadyToCast conn spellName board = do
+>   startNewGame conn
+>   setupBoard conn board
+>   addSpell conn spellName
+>   sendKeyPress conn  $ keyChooseSpell spellName
+>   skipToPhase conn "cast"
 
 ================================================================================
 
@@ -1267,8 +1200,7 @@ fire ranged weapons
 
 > testMoveSubphases1 conn = testCase "testMoveSubphases1" $ do
 >     --test 1: move -> attack -> ranged -> unselected
->     startNewGame conn
->     setupBoard conn ("\n\
+>     startNewGameReadyToMove conn ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1282,11 +1214,8 @@ fire ranged weapons
 >                    (wizardPiecesList ++
 >                   [('G', [PieceDescription "golden_dragon" "Buddha" []]),
 >                    ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])]))
->     skipToPhase conn "move"
->     moveCursorTo conn 0 0
 >     --select dragon
->     sendKeyPress conn "Right"
->     sendKeyPress conn "Return"
+>     goSquare conn 1 0
 >     checkSelectedPiece conn "Buddha" "golden_dragon"
 >     checkMoveSubphase conn "motion"
 >     sendKeyPress conn "End"
@@ -1304,8 +1233,7 @@ fire ranged weapons
 
 > testMoveSubphases2 conn = testCase "testMoveSubphases2" $ do
 >     --test 2: move -> ranged -> unselected>
->     startNewGame conn
->     setupBoard conn ("\n\
+>     startNewGameReadyToMove conn ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1318,11 +1246,8 @@ fire ranged weapons
 >                   \6      7      8",
 >                    (wizardPiecesList ++
 >                   [('G', [PieceDescription "golden_dragon" "Buddha" []])]))
->     skipToPhase conn "move"
->     moveCursorTo conn 0 0
 >     --select dragon
->     sendKeyPress conn "Right"
->     sendKeyPress conn "Return"
+>     goSquare conn 1 0
 >     checkSelectedPiece conn "Buddha" "golden_dragon"
 >     checkMoveSubphase conn "motion"
 >     sendKeyPress conn "End"
@@ -1337,8 +1262,7 @@ fire ranged weapons
 >     assertBool "piece not in ptm" (null v)
 > testMoveSubphases3 conn = testCase "testMoveSubphases3" $ do
 >     --test 3: move -> unselected
->     startNewGame conn
->     setupBoard conn ("\n\
+>     startNewGameReadyToMove conn ("\n\
 >                   \1R     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1351,11 +1275,7 @@ fire ranged weapons
 >                   \6      7      8",
 >                    (wizardPiecesList ++
 >                   [('R', [PieceDescription "giant_rat" "Buddha" []])]))
->     skipToPhase conn "move"
->     moveCursorTo conn 0 0
->     --select dragon
->     sendKeyPress conn "Right"
->     sendKeyPress conn "Return"
+>     goSquare conn 1 0
 >     checkSelectedPiece conn "Buddha" "giant_rat"
 >     checkMoveSubphase conn "motion"
 >     sendKeyPress conn "End"
@@ -1368,8 +1288,7 @@ fire ranged weapons
 >     assertBool "piece not in ptm" (null v)
 > testMoveSubphases4 conn = testCase "testMoveSubphases4" $ do
 >     --test 4: attack -> unselected
->     startNewGame conn
->     setupBoard conn ("\n\
+>     startNewGameReadyToMove conn ("\n\
 >                   \1BR    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1383,11 +1302,7 @@ fire ranged weapons
 >                    (wizardPiecesList ++
 >                   [('B', [PieceDescription "bear" "Buddha" []]),
 >                    ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])]))
->     skipToPhase conn "move"
->     moveCursorTo conn 0 0
->     --select dragon
->     sendKeyPress conn "Right"
->     sendKeyPress conn "Return"
+>     goSquare conn 1 0
 >     checkSelectedPiece conn "Buddha" "bear"
 >     checkMoveSubphase conn "motion"
 >     sendKeyPress conn "End"
@@ -1404,8 +1319,7 @@ fire ranged weapons
 == moving
 
 > testWalkOneSquare conn = testCase "testWalkOneSquare" $ do
->     startNewGame conn
->     setupBoard conn ("\n\
+>     startNewGameReadyToMove conn ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1417,11 +1331,8 @@ fire ranged weapons
 >                   \               \n\
 >                   \6      7      8",
 >                    wizardPiecesList)
->     skipToPhase conn "move"
->     moveCursorTo conn 0 0
->     sendKeyPress conn "Return"
->     sendKeyPress conn "Right"
->     sendKeyPress conn "Return"
+>     goSquare conn 0 0
+>     goSquare conn 1 0
 >     checkBoard conn ("\n\
 >                   \ 1     2      3\n\
 >                   \               \n\
@@ -1440,10 +1351,9 @@ fire ranged weapons
 >     checkCurrentWizardPhase conn "Kong Fuzi" "move"
 
 > testWalkTwoSquares conn = testCase "testWalkTwoSquares" $ do
->     startNewGame conn
 >     let pk = (wizardPiecesList ++
 >                   [('B',[PieceDescription "bear" "Buddha" []])])
->     setupBoard conn ("\n\
+>     startNewGameReadyToMove conn ("\n\
 >                   \1B     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1455,15 +1365,9 @@ fire ranged weapons
 >                   \               \n\
 >                   \6      7      8",
 >                   pk)
->     skipToPhase conn "move"
->     moveCursorTo conn 0 0
->     --move cursor over bear
->     sendKeyPress conn "Right"
->     --select bear
->     sendKeyPress conn "Return"
+>     goSquare conn 1 0
 >     --move down
->     sendKeyPress conn "Down"
->     sendKeyPress conn "Return"
+>     goSquare conn 1 1
 >     checkBoard conn ("\n\
 >                   \1      2      3\n\
 >                   \ B             \n\
@@ -1477,8 +1381,7 @@ fire ranged weapons
 >                   \6      7      8",
 >                   pk)
 >     --move down-right
->     sendKeyPress conn "KP_Page_Down"
->     sendKeyPress conn "Return"
+>     goSquare conn 2 2
 >     checkBoard conn ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -1493,11 +1396,10 @@ fire ranged weapons
 >                   pk)
 
 > testFlyOverPieces conn = testCase "testFlyOverPieces" $ do
->     startNewGame conn
 >     let pk = (wizardPiecesList ++
 >                   [('E', [PieceDescription "eagle" "Buddha" []]),
 >                    ('G', [PieceDescription "goblin" "Buddha" []])])
->     setupBoard conn ("\n\
+>     startNewGameReadyToMove conn ("\n\
 >                   \1E     2      3\n\
 >                   \GGG            \n\
 >                   \GGG            \n\
@@ -1509,12 +1411,8 @@ fire ranged weapons
 >                   \               \n\
 >                   \6      7      8",
 >                   pk)
->     skipToPhase conn "move"
->     moveCursorTo conn 0 0
->     sendKeyPress conn "Right"
->     sendKeyPress conn "Return"
->     moveCursorTo conn 3 4
->     sendKeyPress conn "Return"
+>     goSquare conn 1 0
+>     goSquare conn 3 4
 >     checkBoard conn ("\n\
 >                   \1      2      3\n\
 >                   \GGG            \n\
@@ -1531,8 +1429,7 @@ fire ranged weapons
 == attacking
 
 > testAttackMonster conn = testCase "testAttackMonster" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+>   startNewGameReadyToMove conn ("\n\
 >                   \1G     2      3\n\
 >                   \ G             \n\
 >                   \               \n\
@@ -1545,12 +1442,9 @@ fire ranged weapons
 >                   \6      7      8",
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
->   skipToPhase conn "move"
->   moveCursorTo conn 0 0
->   sendKeyPress conn "Return"
->   moveCursorTo conn 1 0
+>   goSquare conn 0 0
 >   rigActionSuccess conn "attack" True
->   sendKeyPress conn "Return"
+>   goSquare conn 1 0
 >   checkBoard conn ("\n\
 >                   \ 1     2      3\n\
 >                   \ G             \n\
@@ -1568,10 +1462,8 @@ fire ranged weapons
 >                    wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])])
 
-> testAttackMonsterResisted conn =
->     testCase "testAttackMonsterResisted" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+> testAttackMonsterResisted conn = testCase "testAttackMonsterResisted" $ do
+>   startNewGameReadyToMove conn ("\n\
 >                   \1G     2      3\n\
 >                   \ G             \n\
 >                   \               \n\
@@ -1584,12 +1476,9 @@ fire ranged weapons
 >                   \6      7      8",
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
->   skipToPhase conn "move"
->   moveCursorTo conn 0 0
->   sendKeyPress conn "Return"
->   moveCursorTo conn 1 0
+>   goSquare conn 0 0
 >   rigActionSuccess conn "attack" False
->   sendKeyPress conn "Return"
+>   goSquare conn 1 0
 >   checkBoard conn ("\n\
 >                   \1G     2      3\n\
 >                   \ G             \n\
@@ -1606,8 +1495,7 @@ fire ranged weapons
 
 
 > testAttackWizard conn = testCase "testAttackWizard" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+>   startNewGameReadyToMove conn ("\n\
 >                   \1G     2      3\n\
 >                   \ H             \n\
 >                   \               \n\
@@ -1621,13 +1509,10 @@ fire ranged weapons
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []]),
 >                    ('H', [PieceDescription "goblin" "Buddha" []])]))
->   skipToPhase conn "move"
 >   sendKeyPress conn "space"
->   moveCursorTo conn 1 0
->   sendKeyPress conn "Return"
->   moveCursorTo conn 0 0
+>   goSquare conn 1 0
 >   rigActionSuccess conn "attack" True
->   sendKeyPress conn "Return"
+>   goSquare conn 0 0
 >   checkBoard conn ("\n\
 >                   \G      2      3\n\
 >                   \               \n\
@@ -1643,8 +1528,7 @@ fire ranged weapons
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
 > testFlyAttack conn = testCase "testFlyAttack" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+>   startNewGameReadyToMove conn ("\n\
 >                   \1 E    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1658,12 +1542,9 @@ fire ranged weapons
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []]),
 >                    ('E', [PieceDescription "eagle" "Buddha" []])]))
->   skipToPhase conn "move"
->   moveCursorTo conn 2 0
->   sendKeyPress conn "Return"
->   moveCursorTo conn 3 3
+>   goSquare conn 2 0
 >   rigActionSuccess conn "attack" True
->   sendKeyPress conn "Return"
+>   goSquare conn 3 3
 >   checkBoard conn ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -1680,8 +1561,7 @@ fire ranged weapons
 >                           PieceDescription "goblin" "dead" []])]))
 
 > testFlyThenAttack conn = testCase "testFlyThenAttack" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+>   startNewGameReadyToMove conn ("\n\
 >                   \1 E    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1695,14 +1575,10 @@ fire ranged weapons
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []]),
 >                    ('E', [PieceDescription "eagle" "Buddha" []])]))
->   skipToPhase conn "move"
->   moveCursorTo conn 2 0
->   sendKeyPress conn "Return"
->   moveCursorTo conn 2 3
->   sendKeyPress conn "Return"
->   moveCursorTo conn 3 3
+>   goSquare conn 2 0
+>   goSquare conn 2 3
 >   rigActionSuccess conn "attack" True
->   sendKeyPress conn "Return"
+>   goSquare conn 3 3
 >   checkBoard conn ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -1719,8 +1595,7 @@ fire ranged weapons
 >                           PieceDescription "goblin" "dead" []])]))
 
 > testRangedAttack conn = testCase "testRangedAttack" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+>   startNewGameReadyToMove conn ("\n\
 >                   \1 E    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1734,13 +1609,10 @@ fire ranged weapons
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []]),
 >                    ('E', [PieceDescription "elf" "Buddha" []])]))
->   skipToPhase conn "move"
->   moveCursorTo conn 2 0
->   sendKeyPress conn "Return"
+>   goSquare conn 2 0
 >   sendKeyPress conn "End"
->   moveCursorTo conn 3 3
 >   rigActionSuccess conn "ranged_attack" True
->   sendKeyPress conn "Return"
+>   goSquare conn 3 3
 >   checkBoard conn ("\n\
 >                   \1 E    2      3\n\
 >                   \               \n\
@@ -1756,10 +1628,8 @@ fire ranged weapons
 >                   [('E', [PieceDescription "elf" "Buddha" []]),
 >                    ('g', [PieceDescription "goblin" "dead" []])]))
 
-> testRangedAttackResisted conn =
->     testCase "testRangedAttackResisted" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+> testRangedAttackResisted conn = testCase "testRangedAttackResisted" $ do
+>   startNewGameReadyToMove conn ("\n\
 >                   \1 E    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1773,13 +1643,10 @@ fire ranged weapons
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []]),
 >                    ('E', [PieceDescription "elf" "Buddha" []])]))
->   skipToPhase conn "move"
->   moveCursorTo conn 2 0
->   sendKeyPress conn "Return"
+>   goSquare conn 2 0
 >   sendKeyPress conn "End"
->   moveCursorTo conn 3 3
 >   rigActionSuccess conn "ranged_attack" False
->   sendKeyPress conn "Return"
+>   goSquare conn 3 3
 >   checkBoard conn ("\n\
 >                   \1 E    2      3\n\
 >                   \               \n\
@@ -1796,8 +1663,7 @@ fire ranged weapons
 >                    ('E', [PieceDescription "elf" "Buddha" []])]))
 
 > testShadowWoodAttack conn = testCase "testShadowWoodAttack" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+>   startNewGameReadyToMove conn ("\n\
 >                   \1W     2      3\n\
 >                   \ G             \n\
 >                   \               \n\
@@ -1811,12 +1677,9 @@ fire ranged weapons
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []]),
 >                    ('W', [PieceDescription "shadow_tree" "Buddha" []])]))
->   skipToPhase conn "move"
->   moveCursorTo conn 1 0
->   sendKeyPress conn "Return"
->   moveCursorTo conn 1 1
+>   goSquare conn 1 0
 >   rigActionSuccess conn "attack" True
->   sendKeyPress conn "Return"
+>   goSquare conn 1 1
 >   checkBoard conn ("\n\
 >                   \1W     2      3\n\
 >                   \ g             \n\
@@ -1841,8 +1704,7 @@ the number of tests we also test moving the monster whilst the wizard
 is mounted here.
 
 > testMoveWhenMounted conn = testCase "testMoveWhenMounted" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+>   startNewGameReadyToMove conn ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1856,17 +1718,14 @@ is mounted here.
 >                    wizardPiecesList ++
 >                   [('P', [PieceDescription "wizard" "Buddha" [],
 >                           PieceDescription "pegasus" "Buddha" []])])
->   skipToPhase conn "move"
->   moveCursorTo conn 1 0
 >   --select then cancel the wizard
->   sendKeyPress conn "Return"
+>   goSquare conn 1 0
 >   assertSelectedPiece conn "wizard" "Buddha"
 >   sendKeyPress conn "End"
 >   --now we can select the monster
 >   sendKeyPress conn "Return"
 >   assertSelectedPiece conn "pegasus" "Buddha"
->   moveCursorTo conn 2 2
->   sendKeyPress conn "Return"
+>   goSquare conn 2 2
 >   checkBoard conn ("\n\
 >                   \       2      3\n\
 >                   \               \n\
@@ -1885,8 +1744,7 @@ is mounted here.
 dismount then move
 
 > testDismount conn = testCase "testDismount" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+>   startNewGameReadyToMove conn ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1900,15 +1758,10 @@ dismount then move
 >                    wizardPiecesList ++
 >                   [('P', [PieceDescription "wizard" "Buddha" [],
 >                           PieceDescription "pegasus" "Buddha" []])])
->   skipToPhase conn "move"
->   moveCursorTo conn 1 0
->   sendKeyPress conn "Return"
->   moveCursorTo conn 1 1
->   sendKeyPress conn "Return"
->   moveCursorTo conn 1 0
->   sendKeyPress conn "Return"
->   moveCursorTo conn 3 0
->   sendKeyPress conn "Return"
+>   goSquare conn 1 0
+>   goSquare conn 1 1
+>   goSquare conn 1 0
+>   goSquare conn 3 0
 >   checkBoard conn ("\n\
 >                   \   P   2      3\n\
 >                   \ 1             \n\
@@ -1926,8 +1779,7 @@ dismount then move
 move when already mounted
 
 > testMoveWhenAlreadyMounted conn = testCase "testMoveWhenAlreadyMounted" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+>   startNewGameReadyToMove conn ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1941,13 +1793,10 @@ move when already mounted
 >                    wizardPiecesList ++
 >                   [('P', [PieceDescription "wizard" "Buddha" [],
 >                           PieceDescription "pegasus" "Buddha" []])])
->   skipToPhase conn "move"
->   moveCursorTo conn 1 0
->   sendKeyPress conn "Return"
+>   goSquare conn 1 0
 >   sendKeyPress conn "End"
 >   sendKeyPress conn "Return"
->   moveCursorTo conn 3 0
->   sendKeyPress conn "Return"
+>   goSquare conn 3 0
 >   checkBoard conn ("\n\
 >                   \   P   2      3\n\
 >                   \               \n\
@@ -1968,8 +1817,7 @@ todo: attack when dismounting, dismounting when flying
 == enter/exit
 
 > testExit conn = testCase "testExit" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+>   startNewGameReadyToMove conn ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1983,12 +1831,9 @@ todo: attack when dismounting, dismounting when flying
 >                    wizardPiecesList ++
 >                   [('P', [PieceDescription "wizard" "Buddha" [],
 >                           PieceDescription "dark_citadel" "Buddha" []])])
->   skipToPhase conn "move"
->   moveCursorTo conn 1 0
->   sendKeyPress conn "Return"
+>   goSquare conn 1 0
 >   assertSelectedPiece conn "wizard" "Buddha"
->   moveCursorTo conn 1 1
->   sendKeyPress conn "Return"
+>   goSquare conn 1 1
 >   checkBoard conn ("\n\
 >                   \ P     2      3\n\
 >                   \ 1             \n\
@@ -2004,8 +1849,7 @@ todo: attack when dismounting, dismounting when flying
 >                   [('P', [PieceDescription "dark_citadel" "Buddha" []])])
 
 > testEnter conn = testCase "testEnter" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+>   startNewGameReadyToMove conn ("\n\
 >                   \1P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -2018,11 +1862,8 @@ todo: attack when dismounting, dismounting when flying
 >                   \6      7      8",
 >                   (wizardPiecesList ++
 >                   [('P', [PieceDescription "dark_citadel" "Buddha" []])]))
->   skipToPhase conn "move"
->   moveCursorTo conn 0 0
->   sendKeyPress conn "Return"
->   moveCursorTo conn 1 0
->   sendKeyPress conn "Return"
+>   goSquare conn 0 0
+>   goSquare conn 1 0
 >   checkBoard conn ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
@@ -2066,6 +1907,11 @@ dead wizard tests
 
 second monster dying on a square - the first corpse should disappear permanently
 
+> startNewGameReadyToMove conn board = do
+>   startNewGame conn
+>   setupBoard conn board
+>   skipToPhase conn "move"
+
 ================================================================================
 
 = autonomous action tests
@@ -2084,8 +1930,7 @@ history item in the history table, and by checking the valid activate
 and target action views are empty.
 
 > testWizardWin conn = testCase "testWizardWin" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+>   startNewGameReadyToMove conn ("\n\
 >                   \1G     2       \n\
 >                   \               \n\
 >                   \               \n\
@@ -2098,13 +1943,10 @@ and target action views are empty.
 >                   \               ",
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
->   skipToPhase conn "move"
 >   sendKeyPress conn "space"
->   moveCursorTo conn 1 0
->   sendKeyPress conn "Return"
->   moveCursorTo conn 0 0
+>   goSquare conn 1 0
 >   rigActionSuccess conn "attack" True
->   sendKeyPress conn "Return"
+>   goSquare conn 0 0
 >   sendKeyPress conn "space"
 >   r <- selectValue conn "select count(1) from action_history_mr\n\
 >                         \where history_name='game won';"
@@ -2120,8 +1962,7 @@ Draw works similarly to win, except it is detected the instant there
 are no wizards left.
 
 > testGameDraw conn = testCase "testGameDraw" $ do
->   startNewGame conn
->   setupBoard conn ("\n\
+>   startNewGameReadyToMove conn ("\n\
 >                   \1G 2           \n\
 >                   \               \n\
 >                   \               \n\
@@ -2134,17 +1975,13 @@ are no wizards left.
 >                   \               ",
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "green_dragon" "Kong Fuzi" []])]))
->   skipToPhase conn "move"
 >   sendKeyPress conn "space"
->   moveCursorTo conn 1 0
->   sendKeyPress conn "Return"
->   moveCursorTo conn 0 0
+>   goSquare conn 1 0
 >   rigActionSuccess conn "attack" True
->   sendKeyPress conn "Return"
+>   goSquare conn 0 0
 >   --now the dragon shoots it's own wizard to force the draw
->   moveCursorTo conn 3 0
 >   rigActionSuccess conn "ranged_attack" True
->   sendKeyPress conn "Return"
+>   goSquare conn 3 0
 >   r <- selectValue conn "select count(1) from action_history_mr\n\
 >                         \where history_name='game drawn';"
 >   assertEqual "game drawn history entry" 1 (read r)
@@ -2582,3 +2419,25 @@ keep running next_phase until we get to the cast phase
 >   phase' <- readTurnPhase conn
 >   assertEqual "current wizard" wiz wiz'
 >   assertEqual "current phase" phase' phase
+
+================================================================================
+
+= keyboard stuff
+
+create wrappers around the key press stuff to make the tests easier to
+understand
+
+> lookupChooseSpellKeys = [("goblin", "m")
+>                         ,("disbelieve", "Q")
+>                         ,("magic_wood", "G")
+>                         ,("shadow_wood", "M")
+>                         ,("magic_bolt", "D")
+>                         ,("vengeance", "E")
+>                         ,("subversion", "R")
+>                         ,("raise_dead", "V")
+>                         ,("magic_armour", "3")
+>                         ,("law", "O")
+>                         ]
+
+> keyChooseSpell :: String -> String
+> keyChooseSpell spellName = safeLookup "get key for spell" spellName lookupChooseSpellKeys

@@ -5,6 +5,7 @@
 >               hasKey,
 >               safeLookup,
 >               safeMLookup,
+>               dropItemN,
 >               for,
 >               uncurry3,
 >               uncurry5,
@@ -101,3 +102,9 @@
 > deleteIfExists fn = do
 >    doesFileExist fn >>=
 >      flip when (removeFile fn)
+
+> dropItemN :: [a] -> Int -> [a]
+> dropItemN [] i = []
+> dropItemN (x:xs) i = if i == 0
+>                        then xs
+>                        else x: dropItemN xs (i - 1)

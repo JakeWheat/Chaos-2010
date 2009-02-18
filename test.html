@@ -1,0 +1,60 @@
+<style type="text/css"><!-- 
+body { background: rgb(51, 51, 51);  color: rgb(204, 204, 204);  }
+span.default   {   color: rgb(204, 204, 204); }
+span.default a {   color: rgb(204, 204, 204); text-decoration: underline; }
+span.comment   { color: rgb(255, 127, 36);     }
+span.comment a { color: rgb(255, 127, 36);      text-decoration: underline; }
+span.comment-delimiter   { color: rgb(255, 127, 36);     }
+span.comment-delimiter a { color: rgb(255, 127, 36);      text-decoration: underline; }
+span.string   { color: rgb(255, 160, 122);     }
+span.string a { color: rgb(255, 160, 122);      text-decoration: underline; }
+span.function-name   { color: rgb(135, 206, 250);     }
+span.function-name a { color: rgb(135, 206, 250);      text-decoration: underline; }
+span.type   { color: rgb(152, 251, 152);     }
+span.type a { color: rgb(152, 251, 152);      text-decoration: underline; }
+span.keyword   { color: rgb(0, 255, 255);     }
+span.keyword a { color: rgb(0, 255, 255);      text-decoration: underline; }
+span.variable-name   { color: rgb(238, 221, 130);     }
+span.variable-name a { color: rgb(238, 221, 130);      text-decoration: underline; }
+span.doc   { color: rgb(255, 160, 122);     }
+span.doc a { color: rgb(255, 160, 122);      text-decoration: underline; }
+span.warning   { color: rgb(255, 192, 203);  font-weight: 700;     }
+span.warning a { color: rgb(255, 192, 203);  font-weight: 700;    text-decoration: underline; }
+ --></style>
+
+
+<pre>
+
+<span class="variable-name">&gt;</span> <span class="keyword">module</span> <span class="type">Conf</span> (getConfig, <span class="type">Conf</span> (<span class="variable-name">..</span>)) <span class="keyword">where</span>
+
+<span class="variable-name">&gt;</span> <span class="keyword">import</span> <span class="type">Fez.Data.Conf</span>
+<span class="variable-name">&gt;</span> <span class="keyword">import</span> <span class="type">Data.Map</span> <span class="keyword">as</span> <span class="type">M</span>
+<span class="variable-name">&gt;</span> <span class="keyword">import</span> <span class="type">Data.Maybe</span>
+<span class="variable-name">&gt;</span> <span class="keyword">import</span> <span class="type">Data.List</span>
+<span class="variable-name">&gt;</span> <span class="keyword">import</span> <span class="type">System.IO</span>
+<span class="variable-name">&gt;</span> <span class="keyword">import</span> <span class="type">Utils</span>
+
+
+<span class="variable-name">&gt;</span> <span class="keyword">data</span> <span class="type">Conf</span> <span class="variable-name">=</span> <span class="type">Conf</span> { tempDbName <span class="variable-name">::</span> <span class="type">String</span>,
+<span class="variable-name">&gt;</span>               dbName <span class="variable-name">::</span> <span class="type">String</span>,
+<span class="variable-name">&gt;</span>               username <span class="variable-name">::</span> <span class="type">String</span>,
+<span class="variable-name">&gt;</span>               password <span class="variable-name">::</span> <span class="type">String</span> }
+
+<span class="variable-name">&gt;</span> <span class="function-name">expectedKeys</span> <span class="variable-name">=</span> sort [<span class="string">&quot;tempDbName&quot;</span>, <span class="string">&quot;dbName&quot;</span>, <span class="string">&quot;username&quot;</span>, <span class="string">&quot;password&quot;</span>]
+
+<span class="variable-name">&gt;</span> <span class="function-name">getConfig</span> <span class="variable-name">::</span> <span class="type">IO</span> (<span class="type">Conf</span>)
+<span class="variable-name">&gt;</span> <span class="function-name">getConfig</span> <span class="variable-name">=</span> <span class="keyword">do</span>
+<span class="variable-name">&gt;</span>   f <span class="variable-name">&lt;-</span> readFile <span class="string">&quot;chaos.config&quot;</span>
+<span class="variable-name">&gt;</span>   <span class="keyword">let</span> m <span class="variable-name">=</span> parseToMap f
+
+<span class="variable-name">&gt;</span>   <span class="keyword">if</span> <span class="type">M</span><span class="variable-name">.</span>keys m <span class="variable-name">/=</span> expectedKeys
+<span class="variable-name">&gt;</span>     <span class="keyword">then</span> error <span class="variable-name">$</span> <span class="string">&quot;Config file must contain exactly these keys: &quot;</span> <span class="variable-name">++</span>
+<span class="variable-name">&gt;</span>                  show expectedKeys <span class="variable-name">++</span> <span class="string">&quot;\ngot &quot;</span> <span class="variable-name">++</span> show (<span class="type">M</span><span class="variable-name">.</span>keys m)
+<span class="variable-name">&gt;</span>     <span class="keyword">else</span>
+<span class="variable-name">&gt;</span>         <span class="keyword">let</span> k key <span class="variable-name">=</span> safeMLookup <span class="string">&quot;get config&quot;</span> key m
+<span class="variable-name">&gt;</span>         <span class="keyword">in</span> return <span class="variable-name">$</span> <span class="type">Conf</span> (k <span class="string">&quot;tempDbName&quot;</span>)
+<span class="variable-name">&gt;</span>                      (k <span class="string">&quot;dbName&quot;</span>)
+<span class="variable-name">&gt;</span>                      (k <span class="string">&quot;username&quot;</span>)
+<span class="variable-name">&gt;</span>                      (k <span class="string">&quot;password&quot;</span>)
+
+</pre>
