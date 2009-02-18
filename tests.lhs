@@ -172,10 +172,10 @@ Run all the tests.
 >           testGroup "moveSubphases" [
 >                          testCancelFlyAttackRangedAttack conn
 >                         ,testCancelWalkAttack conn
+>                         ,testCancelFlyRangedAttack conn
+>                         ,testCancelWalk conn
+>                         ,testCancelAttack conn
 
->                         ,testMoveSubphases2 conn
->                         ,testMoveSubphases3 conn
->                         ,testMoveSubphases4 conn
 >                         ]
 >          , testGroup "moving" [
 >                          testWalkOneSquare conn
@@ -1236,6 +1236,8 @@ is at least one success and failure of each checked
 
 see below for the misc move phase tests not included in these
 
+=== cancel tests
+
 > testCancelFlyAttackRangedAttack conn =
 >   testCase "testCancelFlyAttackRangedAttack" $ do
 >     startNewGameReadyToMove conn ("\n\
@@ -1290,35 +1292,16 @@ see below for the misc move phase tests not included in these
 >     checkMoveSubphase conn "motion"
 >     sendKeyPress conn "End"
 >     checkMoveSubphase conn "attack"
+>     sendKeyPress conn "End"
+>     checkNoSelectedPiece conn
+>     v <- selectRelationValues conn
+>                              "select * from pieces_to_move\n\
+>                              \where ptype='orc' and\n\
+>                              \  allegiance='Buddha'" []
+>     assertBool "piece not in ptm" (null v)
 
--- >     sendKeyPress conn "End"
--- >     --check nothing selected and dragon no longer in ptm table
--- >     checkNoSelectedPiece conn
--- >     v <- selectRelationValues conn
--- >                              "select * from pieces_to_move\n\
--- >                              \where ptype='orc' and\n\
--- >                              \  allegiance='Buddha'" []
--- >     assertBool "piece not in ptm" (null v)
-
-
-testCancelFlyRangedAttack
-testCancelWalk
-testCancelAttack
-
-testFlyAttackRangedAttackDone
-testFlytackRangedAttack
-testWalkAttackDone
-testWalkcancelAttack
-testSkipDoneShadowWood
-testWalkSkipRangedAttack
-testFlySkipDone
-testWalkcancelSkipDone
-
-
-Old move phase tests follow
-
-> testMoveSubphases2 conn = testCase "testMoveSubphases2" $ do
->     --test 2: move -> ranged -> unselected>
+> testCancelFlyRangedAttack conn =
+>   testCase "testCancelFlyRangedAttack" $ do
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -1332,24 +1315,23 @@ Old move phase tests follow
 >                   \6      7      8",
 >                    (wizardPiecesList ++
 >                   [('G', [PieceDescription "golden_dragon" "Buddha" []])]))
->     --select dragon
 >     goSquare conn 1 0
 >     checkSelectedPiece conn "Buddha" "golden_dragon"
 >     checkMoveSubphase conn "motion"
 >     sendKeyPress conn "End"
 >     checkMoveSubphase conn "ranged-attack"
 >     sendKeyPress conn "End"
->     --check nothing selected and dragon no longer in ptm table
 >     checkNoSelectedPiece conn
 >     v <- selectRelationValues conn
 >                              "select * from pieces_to_move\n\
 >                              \where ptype='golden_dragon' and\n\
 >                              \  allegiance='Buddha'" []
 >     assertBool "piece not in ptm" (null v)
-> testMoveSubphases3 conn = testCase "testMoveSubphases3" $ do
->     --test 3: move -> unselected
+
+> testCancelWalk conn =
+>   testCase "testCancelWalk" $ do
 >     startNewGameReadyToMove conn ("\n\
->                   \1R     2      3\n\
+>                   \1G     2      3\n\
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
@@ -1360,23 +1342,22 @@ Old move phase tests follow
 >                   \               \n\
 >                   \6      7      8",
 >                    (wizardPiecesList ++
->                   [('R', [PieceDescription "giant_rat" "Buddha" []])]))
+>                   [('G', [PieceDescription "orc" "Buddha" []])]))
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "giant_rat"
+>     checkSelectedPiece conn "Buddha" "orc"
 >     checkMoveSubphase conn "motion"
 >     sendKeyPress conn "End"
->     --check nothing selected and dragon no longer in ptm table
 >     checkNoSelectedPiece conn
 >     v <- selectRelationValues conn
 >                              "select * from pieces_to_move\n\
->                              \where ptype='giant_rat' and\n\
+>                              \where ptype='orc' and\n\
 >                              \  allegiance='Buddha'" []
 >     assertBool "piece not in ptm" (null v)
-> testMoveSubphases4 conn = testCase "testMoveSubphases4" $ do
->     --test 4: attack -> unselected
->     startNewGameReadyToMove conn ("\n\
->                   \1BR    2      3\n\
->                   \               \n\
+
+> testCancelAttack conn = testCase "testShadowWoodAttack" $ do
+>   startNewGameReadyToMove conn ("\n\
+>                   \1W     2      3\n\
+>                   \ G             \n\
 >                   \               \n\
 >                   \               \n\
 >                   \4             5\n\
@@ -1385,22 +1366,32 @@ Old move phase tests follow
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",
->                    (wizardPiecesList ++
->                   [('B', [PieceDescription "bear" "Buddha" []]),
->                    ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])]))
->     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "bear"
->     checkMoveSubphase conn "motion"
->     sendKeyPress conn "End"
->     checkMoveSubphase conn "attack"
->     sendKeyPress conn "End"
->     --check nothing selected and dragon no longer in ptm table
->     checkNoSelectedPiece conn
->     v <- selectRelationValues conn
+>                   (wizardPiecesList ++
+>                   [('G', [PieceDescription "goblin" "Kong Fuzi" []]),
+>                    ('W', [PieceDescription "shadow_tree" "Buddha" []])]))
+>   goSquare conn 1 0
+>   checkMoveSubphase conn "attack"
+>   sendKeyPress conn "End"
+>   checkNoSelectedPiece conn
+>   v <- selectRelationValues conn
 >                              "select * from pieces_to_move\n\
->                              \where ptype='bear' and\n\
+>                              \where ptype='shadow_tree' and\n\
 >                              \  allegiance='Buddha'" []
->     assertBool "piece not in ptm" (null v)
+>   assertBool "piece not in ptm" (null v)
+
+=== non cancel tests
+
+testFlyAttackRangedAttackDone
+testFlytackRangedAttack
+testWalkAttackDone
+testWalkcancelAttack
+testSkipDoneShadowWood
+testWalkSkipRangedAttack
+testFlySkipDone
+testWalkcancelSkipDone
+
+
+Old move phase tests follow
 
 == moving
 

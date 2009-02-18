@@ -2681,7 +2681,8 @@ turn.
 
 === selection and subphase
 */
-create function action_select_piece(pallegiance text, pptype text,ptag int)
+create or replace function action_select_piece(pallegiance text,
+                                               pptype text,ptag int)
   returns void as $$
 begin
   perform check_can_run_action('select_piece_at_position',
@@ -2690,12 +2691,25 @@ begin
     (select y from pieces_on_top
       where (ptype,allegiance,tag)=(ptype,pallegiance,ptag)));
 
-  --set selected piece
   insert into selected_piece (ptype, allegiance, tag, move_phase) values
-    (pptype, pallegiance, ptag, 'motion');
-  --todo: fix this so that if piece doesn't move it goes straight to
-  --appropriate phase if walker, set squares left_to_walk = speed of
-  --selected piece
+    (pptype, pallegiance, ptag,
+    --skip move or attack phases if the piece cannot move or attack
+    --todo: also skip attack phase if nothing in range
+    --need to deal with possibility that the piece is automatically
+    --unselected because it can't do anything
+    (select * from (
+      select 'motion' as o from creature_pieces
+        where (ptype,allegiance,tag) = (pptype, pallegiance, ptag)
+      union all --welll dodgy, use union all to keep the rows in the
+                --order they are written down in so that the limit 1
+                --keeps the correct row.
+      select 'attack' from attacking_pieces
+        where (ptype,allegiance,tag) = (pptype, pallegiance, ptag)
+      union all
+      select 'ranged-attack' from ranged_weapon_pieces
+        where (ptype,allegiance,tag) = (pptype, pallegiance, ptag)) as a
+     limit 1));
+
   if (is_walker(pptype, pallegiance, ptag)) then
     insert into squares_left_to_walk_table
       select speed from creature_pieces
