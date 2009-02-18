@@ -15,7 +15,7 @@ autonomous phase tests and code
 
 ================================================================================
 
-= milestone alpha version
+= milestone alpha 0.1
 
 intended to be feature complete for 1.0 wrt playing, but not installation
 listen/notify if feasible
@@ -23,7 +23,7 @@ basic installation help
 
 ================================================================================
 
-= milestone beta version
+= milestone beta 0.2
 
 credits/thanks
 background reading
@@ -43,14 +43,14 @@ more tests?
 
 ================================================================================
 
-= milestone gamma 1.0
+= milestone beta 0.3
 
 check out binary distribution
-fix problems from beta testing
+fix problems from beta 0.1
 
 ================================================================================
 
-= milestone gamma 1.1
+= milestone beta 0.4
 
 possibles:
   improved installation
@@ -66,3 +66,5 @@ possibles:
   sprite manager, or maybe load from zip file
   audit trail ish
   error reporting system
+  decide whether this gets the program to 1.0 or not - 1.0 should be
+    the first version that normal people can easily install and play

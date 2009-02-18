@@ -26,6 +26,15 @@ run by feeding letters to the handle key press action to simulate
 someone actually using the ui, the main big hole in the tests is
 checking the displayed data in the ui.
 
+We try to get maximum effect for a minimal amount of tests, so there
+is no great attempt at comprehensiveness.
+
+In order to speed the run of tests up, some items which might live in
+different tests are combined to reduce the amount of work needed,
+e.g. testing that next_phase is automatically called when a wizard
+finished casting his spell is combined with a test for casting a
+spell. This is probably evil and wrong.
+
 Todo for tests:
 
 finish off move phase action tests
@@ -117,6 +126,10 @@ squares left to walk
 > import System.Time
 > import Utils
 > import qualified Debug.Trace.Location as L
+> import Test.Framework
+> import Test.Framework.Providers.HUnit
+> import Test.Framework.Providers.QuickCheck
+
 
 ================================================================================
 
@@ -128,60 +141,62 @@ Run all the tests.
 >   conf <- getConfig
 >   withConn ("host=localhost dbname=" ++
 >             dbName conf ++ " user=" ++ username conf ++
->             " password=" ++ password conf) (\conn -> runTestTT $ TestList [
-
->         testDatabaseStuff conn,
->         testCursorMovement conn,
->         testPiecesOnTop conn,
-
->         testNextPhase conn,
->         testNextPhaseWizardDead conn,
->         testNextPhaseTwoWizardsDead conn,
-
->         testCastGoblin conn,
->         testFailCastGoblin conn,
->         testCastMagicWood conn,
->         testCastShadowWood conn,
->         testCastMagicBolt conn,
->         testCastMagicBoltResisted conn,
->         testCastVegeanceWizard conn,
->         testCastVegeanceMonster conn,
->         testCastVegeanceMonsterResisted conn,
->         testCastSubversion conn,
->         testCastSubversionResisted conn,
->         testCastDisbelieveReal conn,
->         testCastDisbelieveImaginary conn,
->         testCastRaiseDead conn,
->         testCastArmour conn,
->         testCastLaw conn,
->         testImaginary conn,
-
->         testMoveSubphases1 conn,
->         testMoveSubphases2 conn,
->         testMoveSubphases3 conn,
->         testMoveSubphases4 conn,
-
->         testWalkOneSquare conn,
-
->         testWalkTwoSquares conn,
->         testFlyOverPieces conn,
->         testAttackMonster conn,
->         testAttackMonsterResisted conn,
->         testAttackWizard conn,
->         testFlyAttack conn,
->         testFlyThenAttack conn,
->         testRangedAttack conn,
->         testRangedAttackResisted conn,
->         testShadowWoodAttack conn,
-
->         testMoveWhenMounted conn,
->         testDismount conn,
->         testMoveWhenAlreadyMounted conn,
->         testEnter conn,
->         testExit conn,
-
->         testWizardWin conn,
->         testGameDraw conn
+>             " password=" ++ password conf) (\conn -> do
+>     defaultMain [
+>         testGroup "basics" [
+>                        testDatabaseStuff conn,
+>                        testCursorMovement conn,
+>                        testPiecesOnTop conn],
+>         testGroup "phases" [
+>                        testNextPhase conn,
+>                        testNextPhaseWizardDead conn,
+>                        testNextPhaseTwoWizardsDead conn],
+>         testGroup "casting" [
+>                         testCastGoblin conn,
+>                         testFailCastGoblin conn,
+>                         testCastMagicWood conn,
+>                         testCastShadowWood conn,
+>                         testCastMagicBolt conn,
+>                         testCastMagicBoltResisted conn,
+>                         testCastVegeanceWizard conn,
+>                         testCastVegeanceMonster conn,
+>                         testCastVegeanceMonsterResisted conn,
+>                         testCastSubversion conn,
+>                         testCastSubversionResisted conn,
+>                         testCastDisbelieveReal conn,
+>                         testCastDisbelieveImaginary conn,
+>                         testCastRaiseDead conn,
+>                         testCastArmour conn,
+>                         testCastLaw conn,
+>                         testImaginary conn],
+>         testGroup "move phase stuff" [
+>           testGroup "move subphases" [
+>                        testMoveSubphases1 conn,
+>                        testMoveSubphases2 conn,
+>                        testMoveSubphases3 conn,
+>                        testMoveSubphases4 conn],
+>           testGroup "moving" [
+>                         testWalkOneSquare conn,
+>                         testWalkTwoSquares conn,
+>                         testFlyOverPieces conn],
+>           testGroup "attacking" [
+>                         testAttackMonster conn,
+>                         testAttackMonsterResisted conn,
+>                         testAttackWizard conn,
+>                         testFlyAttack conn,
+>                         testFlyThenAttack conn,
+>                         testRangedAttack conn,
+>                         testRangedAttackResisted conn,
+>                         testShadowWoodAttack conn],
+>           testGroup "mount,enter,etc." [
+>                        testMoveWhenMounted conn,
+>                        testDismount conn,
+>                        testMoveWhenAlreadyMounted conn,
+>                        testEnter conn,
+>                        testExit conn]],
+>         testGroup "game complete" [
+>                        testWizardWin conn,
+>                        testGameDraw conn]
 
 >         ])
 
@@ -199,7 +214,7 @@ http://www.depesz.com/index.php/2008/05/15/waiting-for-84-function-stats/
 First run the tests from the database, these are all the database
 functions whose name starts with 'check_code_'
 
-> testDatabaseStuff conn = TestLabel "testDatabaseStuff" $ TestCase $ do
+> testDatabaseStuff conn = testCase "testDatabaseStuff" $ do
 >   res <- newIORef ([]::[(String,Bool)])
 >   selectTuples conn "select object_name\n\
 >                     \from module_objects\n\
@@ -246,7 +261,7 @@ TODO: we can usually only interact with the top piece on each square,
 but there are exceptions: mounted wizard who hasn't moved, wizard in
 magic tree or castle; add test for these.
 
-> testPiecesOnTop conn = TestLabel "testPiecesOnTop" $ TestCase $ do
+> testPiecesOnTop conn = testCase "testPiecesOnTop" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \b      c      d\n\
@@ -308,7 +323,7 @@ magic tree or castle; add test for these.
 Check the cursor movement and also the shortcut for the tests to move
 the cursor to a given position, also check the moveto code
 
-> testCursorMovement conn = TestLabel "testCursorMovement" $ TestCase $ do
+> testCursorMovement conn = testCase "testCursorMovement" $ do
 >   --make sure there is a game running:
 >   startNewGame conn
 >   --reset the cursor position
@@ -417,7 +432,7 @@ move the cursor to x,y, using key presses
 Just run through the choose, cast and move phases for each wizard
 twice, check the turn_phase and current_wizard each time
 
-> testNextPhase conn = TestLabel "testNextPhase" $ TestCase $ do
+> testNextPhase conn = testCase "testNextPhase" $ do
 >   startNewGame conn
 >   forM_ ["choose","cast","move","choose","cast","move"]
 >         (\phase ->
@@ -446,7 +461,7 @@ to do all variations is 256 tests
 >                        else x: dropItemN xs (i - 1)
 
 > testNextPhaseWizardDead conn =
->   TestLabel "testNextPhaseWizardDead" $ TestCase $
+>   testCase "testNextPhaseWizardDead" $
 >   forM_ [0..7] (\j -> do
 >     startNewGame conn
 >     --kill wizard
@@ -466,7 +481,7 @@ to do all variations is 256 tests
 >         sendKeyPress conn "space")))
 
 > testNextPhaseTwoWizardsDead conn =
->   TestLabel "testNextPhaseTwoWizardsDead" $ TestCase $
+>   testCase "testNextPhaseTwoWizardsDead" $
 >   forM_ [0..7] (\j ->
 >     forM_ [(j + 1)..7] (\k -> do
 >       startNewGame conn
@@ -490,13 +505,20 @@ to do all variations is 256 tests
 
 check wizards dying during move when it is their turn - this can
 happen if you shoot your own wizard with a ranged weapon from a
-monster, the game should cope with it
+monster, the game should cope with it - I think this is tested in the
+game drawn test
+
+automatic next phase tests:
+casting the last part of a spell moves to the next player automatically
+moving the last creature moves to the next player automatically
+these are tested in the spell cast and move sections respectively
+
 
 ================================================================================
 
 = spell cast tests
 
-> testCastGoblin conn = TestLabel "testCastGoblin" $ TestCase $ do
+> testCastGoblin conn = testCase "testCastGoblin" $ do
 
 setup the game, get to cast phase with the first wizard having
 chosen goblin
@@ -504,6 +526,10 @@ chosen goblin
 >   startNewGame conn
 >   addSpell conn "goblin"
 >   sendKeyPress conn "m"
+>   --get the next wizard to select disbelieve so we can check the
+>   --auto next phase works
+>   sendKeyPress conn "space"
+>   sendKeyPress conn "Q"
 >   skipToPhase conn "cast"
 
 check the squares we can cast goblin onto
@@ -539,8 +565,10 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Buddha" []])]))
+>   --check we are on the next wizard's phase
+>   checkCurrentWizardPhase conn "Kong Fuzi" "cast"
 
-> testFailCastGoblin conn = TestLabel "testFailCastGoblin" $ TestCase $ do
+> testFailCastGoblin conn = testCase "testFailCastGoblin" $ do
 >   startNewGame conn
 >   addSpell conn "goblin"
 >   sendKeyPress conn "m"
@@ -564,7 +592,7 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   wizardPiecesList)
 
-> testCastMagicWood conn = TestLabel "testCastMagicWood" $ TestCase $ do
+> testCastMagicWood conn = testCase "testCastMagicWood" $ do
 >   startNewGame conn
 >   addSpell conn "magic_wood"
 >   sendKeyPress conn "G"
@@ -585,7 +613,7 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('W', [PieceDescription "magic_tree" "Buddha" []])]))
 
-> testCastShadowWood conn = TestLabel "testCastShadowWood" $ TestCase $ do
+> testCastShadowWood conn = testCase "testCastShadowWood" $ do
 >   startNewGame conn
 >   addSpell conn "shadow_wood"
 >   sendKeyPress conn "M"
@@ -620,7 +648,7 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('W', [PieceDescription "shadow_tree" "Buddha" []])]))
 
-> testCastMagicBolt conn = TestLabel "testCastMagicBolt" $ TestCase $ do
+> testCastMagicBolt conn = testCase "testCastMagicBolt" $ do
 >   startNewGame conn
 >   addSpell conn "magic_bolt"
 >   sendKeyPress conn "D"
@@ -654,7 +682,7 @@ cast it and check the resulting board
 >                   wizardPiecesList)
 
 > testCastMagicBoltResisted conn =
->     TestLabel "testCastMagicBoltResisted" $ TestCase $ do
+>     testCase "testCastMagicBoltResisted" $ do
 >   startNewGame conn
 >   addSpell conn "magic_bolt"
 >   sendKeyPress conn "D"
@@ -689,7 +717,7 @@ cast it and check the resulting board
 
 
 > testCastVegeanceWizard conn =
->     TestLabel "testCastVegeanceWizard" $ TestCase $ do
+>     testCase "testCastVegeanceWizard" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1G     2      3\n\
@@ -736,7 +764,7 @@ cast it and check the resulting board
 >                   wizardPiecesList)
 
 > testCastVegeanceMonster conn =
->     TestLabel "testCastVegeanceMonster" $ TestCase $ do
+>     testCase "testCastVegeanceMonster" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1G     2      3\n\
@@ -784,7 +812,7 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
 > testCastVegeanceMonsterResisted conn =
->     TestLabel "testCastVegeanceMonsterResisted" $ TestCase $ do
+>     testCase "testCastVegeanceMonsterResisted" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1G     2      3\n\
@@ -832,7 +860,7 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
 
-> testCastSubversion conn = TestLabel "testCastSubversion" $ TestCase $ do
+> testCastSubversion conn = testCase "testCastSubversion" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1G     2      3\n\
@@ -881,7 +909,7 @@ cast it and check the resulting board
 
 
 > testCastSubversionResisted conn =
->     TestLabel "testCastSubversionResisted" $ TestCase $ do
+>     testCase "testCastSubversionResisted" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1G     2      3\n\
@@ -930,7 +958,7 @@ cast it and check the resulting board
 
 
 > testCastDisbelieveReal conn =
->     TestLabel "testCastDisbelieveReal" $ TestCase $ do
+>     testCase "testCastDisbelieveReal" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1G     2      3\n\
@@ -976,7 +1004,7 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
 > testCastDisbelieveImaginary conn =
->     TestLabel "testCastDisbelieveImaginary" $ TestCase $ do
+>     testCase "testCastDisbelieveImaginary" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1G     2      3\n\
@@ -1022,7 +1050,7 @@ cast it and check the resulting board
 >                   wizardPiecesList)
 >
 
-> testCastRaiseDead conn = TestLabel "testCastRaiseDead" $ TestCase $ do
+> testCastRaiseDead conn = testCase "testCastRaiseDead" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1G     2      3\n\
@@ -1069,7 +1097,7 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Buddha" [PUndead]])]))
 
 
-> testCastArmour conn = TestLabel "testCastArmour" $ TestCase $ do
+> testCastArmour conn = testCase "testCastArmour" $ do
 >   startNewGame conn
 >   addSpell conn "magic_armour"
 >   sendKeyPress conn "3"
@@ -1092,7 +1120,7 @@ cast it and check the resulting board
 >                    wizardPiecesList))
 
 
-> testCastLaw conn = TestLabel "testCastLaw" $ TestCase $ do
+> testCastLaw conn = testCase "testCastLaw" $ do
 >   startNewGame conn
 >   addSpell conn "law"
 >   sendKeyPress conn "O"
@@ -1105,7 +1133,7 @@ cast it and check the resulting board
 >              1 (read $ head dbAlign "world_alignment")
 
 
-> testImaginary conn = TestLabel "testImaginary" $ TestCase $ do
+> testImaginary conn = testCase "testImaginary" $ do
 
 >   let setStuffUp1 = do
 >                     startNewGame conn
@@ -1205,10 +1233,14 @@ substitute walk for fly
    attack-done
    cancel-done
 
+1 test for each pairwise combo
+
+
+
 for each test, redo with fly instead
 also, for each test do 2 squares walk variation:
 always walk the first square, the walk or cancel as with above
-how to handle shadow wood next to no enemy?
+how to handle shadow wood next to no enemy? maybe immediately unselects
 
 fly only variations?:
 
@@ -1233,7 +1265,7 @@ cobra attack dragon
 fire ranged weapons
 
 
-> testMoveSubphases1 conn = TestLabel "testMoveSubphases1" $ TestCase $ do
+> testMoveSubphases1 conn = testCase "testMoveSubphases1" $ do
 >     --test 1: move -> attack -> ranged -> unselected
 >     startNewGame conn
 >     setupBoard conn ("\n\
@@ -1270,7 +1302,7 @@ fire ranged weapons
 >                              \  allegiance='Buddha'" []
 >     assertBool "piece not in ptm" (null v)
 
-> testMoveSubphases2 conn = TestLabel "testMoveSubphases2" $ TestCase $ do
+> testMoveSubphases2 conn = testCase "testMoveSubphases2" $ do
 >     --test 2: move -> ranged -> unselected>
 >     startNewGame conn
 >     setupBoard conn ("\n\
@@ -1303,7 +1335,7 @@ fire ranged weapons
 >                              \where ptype='golden_dragon' and\n\
 >                              \  allegiance='Buddha'" []
 >     assertBool "piece not in ptm" (null v)
-> testMoveSubphases3 conn = TestLabel "testMoveSubphases3" $ TestCase $ do
+> testMoveSubphases3 conn = testCase "testMoveSubphases3" $ do
 >     --test 3: move -> unselected
 >     startNewGame conn
 >     setupBoard conn ("\n\
@@ -1334,7 +1366,7 @@ fire ranged weapons
 >                              \where ptype='giant_rat' and\n\
 >                              \  allegiance='Buddha'" []
 >     assertBool "piece not in ptm" (null v)
-> testMoveSubphases4 conn = TestLabel "testMoveSubphases4" $ TestCase $ do
+> testMoveSubphases4 conn = testCase "testMoveSubphases4" $ do
 >     --test 4: attack -> unselected
 >     startNewGame conn
 >     setupBoard conn ("\n\
@@ -1371,7 +1403,7 @@ fire ranged weapons
 
 == moving
 
-> testWalkOneSquare conn = TestLabel "testWalkOneSquare" $ TestCase $ do
+> testWalkOneSquare conn = testCase "testWalkOneSquare" $ do
 >     startNewGame conn
 >     setupBoard conn ("\n\
 >                   \1      2      3\n\
@@ -1402,8 +1434,12 @@ fire ranged weapons
 >                   \               \n\
 >                   \6      7      8",
 >                   wizardPiecesList)
+>     --test that the next_phase has been automatically called since
+>     --there is nothing left for this wizard to dothat we are on the
+>     --next wizards move
+>     checkCurrentWizardPhase conn "Kong Fuzi" "move"
 
-> testWalkTwoSquares conn = TestLabel "testWalkTwoSquares" $ TestCase $ do
+> testWalkTwoSquares conn = testCase "testWalkTwoSquares" $ do
 >     startNewGame conn
 >     let pk = (wizardPiecesList ++
 >                   [('B',[PieceDescription "bear" "Buddha" []])])
@@ -1456,7 +1492,7 @@ fire ranged weapons
 >                   \6      7      8",
 >                   pk)
 
-> testFlyOverPieces conn = TestLabel "testFlyOverPieces" $ TestCase $ do
+> testFlyOverPieces conn = testCase "testFlyOverPieces" $ do
 >     startNewGame conn
 >     let pk = (wizardPiecesList ++
 >                   [('E', [PieceDescription "eagle" "Buddha" []]),
@@ -1494,7 +1530,7 @@ fire ranged weapons
 
 == attacking
 
-> testAttackMonster conn = TestLabel "testAttackMonster" $ TestCase $ do
+> testAttackMonster conn = testCase "testAttackMonster" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1G     2      3\n\
@@ -1533,7 +1569,7 @@ fire ranged weapons
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])])
 
 > testAttackMonsterResisted conn =
->     TestLabel "testAttackMonsterResisted" $ TestCase $ do
+>     testCase "testAttackMonsterResisted" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1G     2      3\n\
@@ -1569,7 +1605,7 @@ fire ranged weapons
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
 
-> testAttackWizard conn = TestLabel "testAttackWizard" $ TestCase $ do
+> testAttackWizard conn = testCase "testAttackWizard" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1G     2      3\n\
@@ -1606,7 +1642,7 @@ fire ranged weapons
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
-> testFlyAttack conn = TestLabel "testFlyAttack" $ TestCase $ do
+> testFlyAttack conn = testCase "testFlyAttack" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1 E    2      3\n\
@@ -1643,7 +1679,7 @@ fire ranged weapons
 >                   [('E', [PieceDescription "eagle" "Buddha" [],
 >                           PieceDescription "goblin" "dead" []])]))
 
-> testFlyThenAttack conn = TestLabel "testFlyThenAttack" $ TestCase $ do
+> testFlyThenAttack conn = testCase "testFlyThenAttack" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1 E    2      3\n\
@@ -1682,7 +1718,7 @@ fire ranged weapons
 >                   [('E', [PieceDescription "eagle" "Buddha" [],
 >                           PieceDescription "goblin" "dead" []])]))
 
-> testRangedAttack conn = TestLabel "testRangedAttack" $ TestCase $ do
+> testRangedAttack conn = testCase "testRangedAttack" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1 E    2      3\n\
@@ -1721,7 +1757,7 @@ fire ranged weapons
 >                    ('g', [PieceDescription "goblin" "dead" []])]))
 
 > testRangedAttackResisted conn =
->     TestLabel "testRangedAttackResisted" $ TestCase $ do
+>     testCase "testRangedAttackResisted" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1 E    2      3\n\
@@ -1759,7 +1795,7 @@ fire ranged weapons
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []]),
 >                    ('E', [PieceDescription "elf" "Buddha" []])]))
 
-> testShadowWoodAttack conn = TestLabel "testShadowWoodAttack" $ TestCase $ do
+> testShadowWoodAttack conn = testCase "testShadowWoodAttack" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1W     2      3\n\
@@ -1804,7 +1840,7 @@ square, we should get the monster the wizards is mounted on. To reduce
 the number of tests we also test moving the monster whilst the wizard
 is mounted here.
 
-> testMoveWhenMounted conn = TestLabel "testMoveWhenMounted" $ TestCase $ do
+> testMoveWhenMounted conn = testCase "testMoveWhenMounted" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \ P     2      3\n\
@@ -1848,7 +1884,7 @@ is mounted here.
 
 dismount then move
 
-> testDismount conn = TestLabel "testDismount" $ TestCase $ do
+> testDismount conn = testCase "testDismount" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \ P     2      3\n\
@@ -1889,7 +1925,7 @@ dismount then move
 
 move when already mounted
 
-> testMoveWhenAlreadyMounted conn = TestLabel "testMoveWhenAlreadyMounted" $ TestCase $ do
+> testMoveWhenAlreadyMounted conn = testCase "testMoveWhenAlreadyMounted" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \ P     2      3\n\
@@ -1931,7 +1967,7 @@ todo: attack when dismounting, dismounting when flying
 
 == enter/exit
 
-> testExit conn = TestLabel "testExit" $ TestCase $ do
+> testExit conn = testCase "testExit" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \ P     2      3\n\
@@ -1967,7 +2003,7 @@ todo: attack when dismounting, dismounting when flying
 >                    wizardPiecesList ++
 >                   [('P', [PieceDescription "dark_citadel" "Buddha" []])])
 
-> testEnter conn = TestLabel "testEnter" $ TestCase $ do
+> testEnter conn = testCase "testEnter" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1P     2      3\n\
@@ -2004,9 +2040,12 @@ todo: attack when dismounting, dismounting when flying
 
 check when moving a mounted wizard, that the corpse on that square stays put
 
+
 == misc
 
 attack undead - able, able no corpse
+
+test select one creature and move, then select a second creature and move
 
 
 attack undead - unable
@@ -2044,7 +2083,7 @@ chaos. We check that the win has been detected by seeing the win
 history item in the history table, and by checking the valid activate
 and target action views are empty.
 
-> testWizardWin conn = TestLabel "testWizardWin" $ TestCase $ do
+> testWizardWin conn = testCase "testWizardWin" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1G     2       \n\
@@ -2080,7 +2119,7 @@ and target action views are empty.
 Draw works similarly to win, except it is detected the instant there
 are no wizards left.
 
-> testGameDraw conn = TestLabel "testGameDraw" $ TestCase $ do
+> testGameDraw conn = testCase "testGameDraw" $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \1G 2           \n\
@@ -2537,3 +2576,9 @@ keep running next_phase until we get to the cast phase
 >                                  (ptype,allegiance)
 >                                  (t "ptype", t "allegiance"))
 
+> checkCurrentWizardPhase :: Connection -> String -> String -> IO()
+> checkCurrentWizardPhase conn wiz phase = do
+>   wiz' <- readCurrentWizard conn
+>   phase' <- readTurnPhase conn
+>   assertEqual "current wizard" wiz wiz'
+>   assertEqual "current phase" phase' phase
