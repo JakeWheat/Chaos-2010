@@ -169,8 +169,9 @@ Run all the tests.
 >                       ,testImaginary conn
 >                       ]
 >        ,testGroup "move phase stuff" [
->           testGroup "move subphases" [
->                          testMoveSubphases1 conn
+>           testGroup "moveSubphases" [
+>                          testCancelFlyAttackRangedAttack conn
+
 >                         ,testMoveSubphases2 conn
 >                         ,testMoveSubphases3 conn
 >                         ,testMoveSubphases4 conn
@@ -1232,11 +1233,8 @@ is at least one success and failure of each checked
 
 see below for the misc move phase tests not included in these
 
-TODO: implement this plan
-Old move phase tests follow
-
-> testMoveSubphases1 conn = testCase "testMoveSubphases1" $ do
->     --test 1: move -> attack -> ranged -> unselected
+> testCancelFlyAttackRangedAttack conn =
+>   testCase "testCancelFlyAttackRangedAttack" $ do
 >     startNewGameReadyToMove conn ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
@@ -1267,6 +1265,23 @@ Old move phase tests follow
 >                              \where ptype='golden_dragon' and\n\
 >                              \  allegiance='Buddha'" []
 >     assertBool "piece not in ptm" (null v)
+
+testCancelWalkAttack
+testCancelFlyRangedAttack
+testCancelWalk
+testCancelAttack
+
+testFlyAttackRangedAttackDone
+testFlytackRangedAttack
+testWalkAttackDone
+testWalkcancelAttack
+testSkipDoneShadowWood
+testWalkSkipRangedAttack
+testFlySkipDone
+testWalkcancelSkipDone
+
+
+Old move phase tests follow
 
 > testMoveSubphases2 conn = testCase "testMoveSubphases2" $ do
 >     --test 2: move -> ranged -> unselected>
@@ -1739,7 +1754,7 @@ mount, dismount, enter, exit, etc.
 >                   [('W', [PieceDescription "shadow_tree" "Buddha" []]),
 >                    ('g', [PieceDescription "goblin" "dead" []])])
 
-== mounts
+== mount/enter
 
 Test that the first time when try to select a square with a mounted
 wizard we get the wizard, if we cancel then select again on that
@@ -1858,8 +1873,6 @@ move when already mounted
 
 todo: attack when dismounting, dismounting when flying
 
-== enter/exit
-
 > testExit conn = testCase "testExit" $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \ P     2      3\n\
@@ -1922,6 +1935,8 @@ todo: attack when dismounting, dismounting when flying
 >                    wizardPiecesList ++
 >                   [('P', [PieceDescription "wizard" "Buddha" [],
 >                           PieceDescription "dark_citadel" "Buddha" []])])
+
+== misc
 
 check when moving a mounted wizard, that the corpse on that square stays put
 
