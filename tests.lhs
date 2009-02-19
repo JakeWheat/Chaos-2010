@@ -125,7 +125,7 @@ to find a way of testing the database constraints themselves).
 > import Test.Framework
 > import Test.Framework.Providers.HUnit
 > import Test.Framework.Providers.QuickCheck
-
+> import Control.Exception
 
 ================================================================================
 
@@ -137,8 +137,8 @@ Run all the tests.
 >   conf <- getConfig
 >   withConn ("host=localhost dbname=" ++
 >             dbName conf ++ " user=" ++ username conf ++
->             " password=" ++ password conf) (\conn -> do
->     defaultMain [
+>             " password=" ++ password conf) $ \conn -> do
+>   defaultMain [
 >         testGroup "basics" [
 >                        testDatabaseStuff conn
 >                       ,testCursorMovement conn
@@ -169,23 +169,26 @@ Run all the tests.
 >                       ,testImaginary conn
 >                       ]
 >        ,testGroup "move phase stuff" [
->           testGroup "moveSubphases" [
+>           testGroup "cancelSubphases" [
 >                          testCancelFlyAttackRangedAttack conn
 >                         ,testCancelWalkAttack conn
 >                         ,testCancelFlyRangedAttack conn
 >                         ,testCancelWalk conn
 >                         ,testCancelAttack conn
-
 >                         ]
->          , testGroup "moving" [
+>          ,testGroup "nonCancelSubphases" [
+>                          testFlyAttackRangedAttackDone conn
+>                         ,testFlytackRangedAttack conn
+>                         ,testWalkAttackDone conn
+>                         ,testWalkcancelDone conn
+>                         ]
+>          ,testGroup "moving" [
 >                          testWalkOneSquare conn
 >                         ,testWalkTwoSquares conn
 >                         ,testFlyOverPieces conn
 >                         ]
 >           ,testGroup "attacking" [
->                          testAttackMonster conn
->                         ,testAttackMonsterResisted conn
->                         ,testAttackWizard conn
+>                          testAttackWizard conn
 >                         ,testFlyAttack conn
 >                         ,testFlyThenAttack conn
 >                         ,testRangedAttack conn
@@ -204,12 +207,19 @@ Run all the tests.
 >                        testWizardWin conn
 >                       ,testGameDraw conn
 >                       ]
->                 ])
+>                 ]
+
+>   return ()
 
 postgresql.conf  #track_functions = none # none, pl, all
 
  select * from pg_stat_user_functions ;
 http://www.depesz.com/index.php/2008/05/15/waiting-for-84-function-stats/
+
+> rollbackOnError conn f =
+>     bracketOnError (return())
+>                    (\_ -> runSql conn "rollback" [])
+>                    (\_ -> f)
 
 ================================================================================
 
@@ -220,7 +230,7 @@ http://www.depesz.com/index.php/2008/05/15/waiting-for-84-function-stats/
 First run the tests from the database, these are all the database
 functions whose name starts with 'check_code_'
 
-> testDatabaseStuff conn = testCase "testDatabaseStuff" $ do
+> testDatabaseStuff conn = testCase "testDatabaseStuff" $ rollbackOnError conn $ do
 >   res <- newIORef ([]::[(String,Bool)])
 >   selectTuples conn "select object_name\n\
 >                     \from module_objects\n\
@@ -267,7 +277,7 @@ TODO: we can usually only interact with the top piece on each square,
 but there are exceptions: mounted wizard who hasn't moved, wizard in
 magic tree or castle; add test for these.
 
-> testPiecesOnTop conn = testCase "testPiecesOnTop" $ do
+> testPiecesOnTop conn = testCase "testPiecesOnTop" $ rollbackOnError conn $ do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \b      c      d\n\
@@ -329,7 +339,7 @@ magic tree or castle; add test for these.
 Check the cursor movement and also the shortcut for the tests to move
 the cursor to a given position, also check the moveto code
 
-> testCursorMovement conn = testCase "testCursorMovement" $ do
+> testCursorMovement conn = testCase "testCursorMovement" $ rollbackOnError conn $ do
 >   --make sure there is a game running:
 >   startNewGame conn
 >   --reset the cursor position
@@ -440,7 +450,7 @@ move the cursor to x,y, using key presses
 Just run through the choose, cast and move phases for each wizard
 twice, check the turn_phase and current_wizard each time
 
-> testNextPhase conn = testCase "testNextPhase" $ do
+> testNextPhase conn = testCase "testNextPhase" $ rollbackOnError conn $ do
 >   startNewGame conn
 >   forM_ ["choose","cast","move","choose","cast","move"]
 >         (\phase ->
@@ -460,7 +470,7 @@ now test it works with one or more wizards dead:
 start at choose on first wizard and run though twice
 to do all variations is 256 tests
 
-> testNextPhaseWizardDead conn = testCase "testNextPhaseWizardDead" $
+> testNextPhaseWizardDead conn = testCase "testNextPhaseWizardDead" $ rollbackOnError conn $
 >   forM_ [0..7] (\j -> do
 >     startNewGame conn
 >     --kill wizard
@@ -477,7 +487,7 @@ to do all variations is 256 tests
 >              (sendKeyPress conn "Q")
 >         sendKeyPress conn "space")))
 
-> testNextPhaseTwoWizardsDead conn = testCase "testNextPhaseTwoWizardsDead" $
+> testNextPhaseTwoWizardsDead conn = testCase "testNextPhaseTwoWizardsDead" $ rollbackOnError conn $
 >   forM_ [0..7] (\j ->
 >     forM_ [(j + 1)..7] (\k -> do
 >       startNewGame conn
@@ -512,7 +522,7 @@ these are tested in the spell cast and move sections respectively
 
 = spell cast tests
 
-> testCastGoblin conn = testCase "testCastGoblin" $ do
+> testCastGoblin conn = testCase "testCastGoblin" $ rollbackOnError conn $ do
 
 setup the game, get to cast phase with the first wizard having
 chosen goblin
@@ -560,7 +570,7 @@ cast it and check the resulting board
 >   --check we are on the next wizard's phase
 >   checkCurrentWizardPhase conn "Kong Fuzi" "cast"
 
-> testFailCastGoblin conn = testCase "testFailCastGoblin" $ do
+> testFailCastGoblin conn = testCase "testFailCastGoblin" $ rollbackOnError conn $ do
 >   newGameReadyToCast conn "goblin"
 >   rigActionSuccess conn "cast" False
 >   goSquare conn 1 0
@@ -577,7 +587,7 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   wizardPiecesList)
 
-> testCastMagicWood conn = testCase "testCastMagicWood" $ do
+> testCastMagicWood conn = testCase "testCastMagicWood" $ rollbackOnError conn $ do
 >   newGameReadyToCast conn "magic_wood"
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
@@ -595,7 +605,7 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('W', [PieceDescription "magic_tree" "Buddha" []])]))
 
-> testCastShadowWood conn = testCase "testCastShadowWood" $ do
+> testCastShadowWood conn = testCase "testCastShadowWood" $ rollbackOnError conn $ do
 >   newGameReadyToCast conn "shadow_wood"
 >   checkValidSquares conn "\n\
 >                          \1XXXXXX2X     3\n\
@@ -625,7 +635,7 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('W', [PieceDescription "shadow_tree" "Buddha" []])]))
 
-> testCastMagicBolt conn = testCase "testCastMagicBolt" $ do
+> testCastMagicBolt conn = testCase "testCastMagicBolt" $ rollbackOnError conn $ do
 >   newGameReadyToCast conn "magic_bolt"
 >   checkValidSquares conn "\n\
 >                          \1      2      3\n\
@@ -654,7 +664,7 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   wizardPiecesList)
 
-> testCastMagicBoltResisted conn = testCase "testCastMagicBoltResisted" $ do
+> testCastMagicBoltResisted conn = testCase "testCastMagicBoltResisted" $ rollbackOnError conn $ do
 >   newGameReadyToCast conn "magic_bolt"
 >   checkValidSquares conn "\n\
 >                          \1      2      3\n\
@@ -684,7 +694,7 @@ cast it and check the resulting board
 >                   wizardPiecesList)
 
 
-> testCastVegeanceWizard conn = testCase "testCastVegeanceWizard" $ do
+> testCastVegeanceWizard conn = testCase "testCastVegeanceWizard" $ rollbackOnError conn $ do
 >   newGameWithBoardReadyToCast conn "vengeance"
 >                  ("\n\
 >                   \1G     2      3\n\
@@ -726,7 +736,7 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   wizardPiecesList)
 
-> testCastVegeanceMonster conn = testCase "testCastVegeanceMonster" $ do
+> testCastVegeanceMonster conn = testCase "testCastVegeanceMonster" $ rollbackOnError conn $ do
 >   newGameWithBoardReadyToCast conn "vengeance"
 >                 ("\n\
 >                   \1G     2      3\n\
@@ -770,7 +780,7 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
 > testCastVegeanceMonsterResisted conn =
->     testCase "testCastVegeanceMonsterResisted" $ do
+>     testCase "testCastVegeanceMonsterResisted" $ rollbackOnError conn $ do
 >   newGameWithBoardReadyToCast conn "vengeance"
 >                   ("\n\
 >                   \1G     2      3\n\
@@ -814,7 +824,7 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
 
-> testCastSubversion conn = testCase "testCastSubversion" $ do
+> testCastSubversion conn = testCase "testCastSubversion" $ rollbackOnError conn $ do
 >   newGameWithBoardReadyToCast conn "subversion"
 >                  ("\n\
 >                   \1G     2      3\n\
@@ -858,7 +868,7 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Buddha" []])]))
 
 
-> testCastSubversionResisted conn = testCase "testCastSubversionResisted" $ do
+> testCastSubversionResisted conn = testCase "testCastSubversionResisted" $ rollbackOnError conn $ do
 >   newGameWithBoardReadyToCast conn "subversion"
 >                  ("\n\
 >                   \1G     2      3\n\
@@ -902,7 +912,7 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
 
-> testCastDisbelieveReal conn = testCase "testCastDisbelieveReal" $ do
+> testCastDisbelieveReal conn = testCase "testCastDisbelieveReal" $ rollbackOnError conn $ do
 >   newGameWithBoardReadyToCast conn "disbelieve"
 >                 ("\n\
 >                   \1G     2      3\n\
@@ -943,7 +953,7 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
-> testCastDisbelieveImaginary conn = testCase "testCastDisbelieveImaginary" $ do
+> testCastDisbelieveImaginary conn = testCase "testCastDisbelieveImaginary" $ rollbackOnError conn $ do
 >   newGameWithBoardReadyToCast conn "disbelieve"
 >                   ("\n\
 >                   \1G     2      3\n\
@@ -985,7 +995,7 @@ cast it and check the resulting board
 >                   wizardPiecesList)
 >
 
-> testCastRaiseDead conn = testCase "testCastRaiseDead" $ do
+> testCastRaiseDead conn = testCase "testCastRaiseDead" $ rollbackOnError conn $ do
 >   newGameWithBoardReadyToCast conn "raise_dead"
 >                   ("\n\
 >                   \1G     2      3\n\
@@ -1028,7 +1038,7 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Buddha" [PUndead]])]))
 
 
-> testCastArmour conn = testCase "testCastArmour" $ do
+> testCastArmour conn = testCase "testCastArmour" $ rollbackOnError conn $ do
 >   newGameReadyToCast conn "magic_armour"
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
@@ -1048,7 +1058,7 @@ cast it and check the resulting board
 >                    wizardPiecesList))
 
 
-> testCastLaw conn = testCase "testCastLaw" $ do
+> testCastLaw conn = testCase "testCastLaw" $ rollbackOnError conn $ do
 >   newGameReadyToCast conn "law"
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
@@ -1059,7 +1069,7 @@ cast it and check the resulting board
 >              1 (read $ head dbAlign "world_alignment")
 
 
-> testImaginary conn = testCase "testImaginary" $ do
+> testImaginary conn = testCase "testImaginary" $ rollbackOnError conn $ do
 
 >   let setStuffUp1 = do
 >                     startNewGame conn
@@ -1239,7 +1249,7 @@ see below for the misc move phase tests not included in these
 === cancel tests
 
 > testCancelFlyAttackRangedAttack conn =
->   testCase "testCancelFlyAttackRangedAttack" $ do
+>   testCase "testCancelFlyAttackRangedAttack" $ rollbackOnError conn $ do
 >     startNewGameReadyToMove conn ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
@@ -1272,7 +1282,7 @@ see below for the misc move phase tests not included in these
 >     assertBool "piece not in ptm" (null v)
 
 > testCancelWalkAttack conn =
->   testCase "testCancelWalkAttack" $ do
+>   testCase "testCancelWalkAttack" $ rollbackOnError conn $ do
 >     startNewGameReadyToMove conn ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
@@ -1301,7 +1311,7 @@ see below for the misc move phase tests not included in these
 >     assertBool "piece not in ptm" (null v)
 
 > testCancelFlyRangedAttack conn =
->   testCase "testCancelFlyRangedAttack" $ do
+>   testCase "testCancelFlyRangedAttack" $ rollbackOnError conn $ do
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -1328,8 +1338,10 @@ see below for the misc move phase tests not included in these
 >                              \  allegiance='Buddha'" []
 >     assertBool "piece not in ptm" (null v)
 
+testwalkthencancelattackrangedattack
+
 > testCancelWalk conn =
->   testCase "testCancelWalk" $ do
+>   testCase "testCancelWalk" $ rollbackOnError conn $ do
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -1354,7 +1366,7 @@ see below for the misc move phase tests not included in these
 >                              \  allegiance='Buddha'" []
 >     assertBool "piece not in ptm" (null v)
 
-> testCancelAttack conn = testCase "testShadowWoodAttack" $ do
+> testCancelAttack conn = testCase "testShadowWoodAttack" $ rollbackOnError conn $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \1W     2      3\n\
 >                   \ G             \n\
@@ -1381,10 +1393,191 @@ see below for the misc move phase tests not included in these
 
 === non cancel tests
 
-testFlyAttackRangedAttackDone
-testFlytackRangedAttack
-testWalkAttackDone
+> testFlyAttackRangedAttackDone conn =
+>   testCase "testFlyAttackRangedAttackDone" $ rollbackOnError conn $ do
+>     let pl = wizardPiecesList ++
+>               [('G', [PieceDescription "golden_dragon" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
+>                ('r', [PieceDescription "giant_rat" "dead" []]),
+>                ('H', [PieceDescription "giant_rat" "dead" [],
+>                       PieceDescription "golden_dragon" "Buddha" []])]
+>     startNewGameReadyToMove conn ("\n\
+>                   \1GR    2      3\n\
+>                   \  R            \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "golden_dragon"
+>     goSquare conn 3 0
+>     checkBoard conn ("\n\
+>                   \1 RG   2      3\n\
+>                   \  R            \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     checkMoveSubphase conn "attack"
+>     rigActionSuccess conn "attack" True
+>     goSquare conn 2 0
+>     checkBoard conn ("\n\
+>                   \1 H    2      3\n\
+>                   \  R            \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     checkMoveSubphase conn "ranged-attack"
+>     rigActionSuccess conn "ranged_attack" True
+>     goSquare conn 2 1
+>     checkBoard conn ("\n\
+>                   \1 H    2      3\n\
+>                   \  r            \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     checkNoSelectedPiece conn
+>     v <- selectRelationValues conn
+>                              "select * from pieces_to_move\n\
+>                              \where ptype='golden_dragon' and\n\
+>                              \  allegiance='Buddha'" []
+>     assertBool "piece not in ptm" (null v)
+
+Flytack = flying and attacking at the same time, to distinguish from
+flying and then attacking.
+
+> testFlytackRangedAttack conn =
+>   testCase "testFlytackRangedAttack" $ rollbackOnError conn $ do
+>     let pl = wizardPiecesList ++
+>               [('G', [PieceDescription "golden_dragon" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
+>                ('r', [PieceDescription "giant_rat" "dead" []]),
+>                ('H', [PieceDescription "giant_rat" "dead" [],
+>                       PieceDescription "golden_dragon" "Buddha" []])]
+>     startNewGameReadyToMove conn ("\n\
+>                   \1G R   2      3\n\
+>                   \               \n\
+>                   \  R            \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "golden_dragon"
+>     rigActionSuccess conn "attack" True
+>     goSquare conn 3 0
+>     checkBoard conn ("\n\
+>                   \1  H   2      3\n\
+>                   \               \n\
+>                   \  R            \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     checkMoveSubphase conn "ranged-attack"
+>     rigActionSuccess conn "ranged_attack" False
+>     goSquare conn 2 1
+>     checkBoard conn ("\n\
+>                   \1  H   2      3\n\
+>                   \               \n\
+>                   \  R            \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     checkNoSelectedPiece conn
+>     v <- selectRelationValues conn
+>                              "select * from pieces_to_move\n\
+>                              \where ptype='golden_dragon' and\n\
+>                              \  allegiance='Buddha'" []
+>     assertBool "piece not in ptm" (null v)
+
+> testWalkAttackDone conn = testCase "testWalkAttackDone" $ rollbackOnError conn $ do
+>   startNewGameReadyToMove conn ("\n\
+>                   \1G     2      3\n\
+>                   \ G             \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",
+>                   (wizardPiecesList ++
+>                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
+>   goSquare conn 0 0
+>   rigActionSuccess conn "attack" False
+>   goSquare conn 1 0
+>   checkBoard conn ("\n\
+>                   \1G     2      3\n\
+>                   \ G             \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",
+>                    wizardPiecesList ++
+>                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])])
+
 testWalkcancelAttack
+
+can't walkcancelattack - when you hit cancel, it cancels the attack phase also
+so: test walkcancelautodone and walkcancelranged attack
+
+finish off after doing skip stuff
+
+> testWalkcancelDone conn = testCase "testWalkcancelDone" $ rollbackOnError conn $ do
+>   startNewGameReadyToMove conn ("\n\
+>                   \1 G    2      3\n\
+>                   \B              \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",
+>                   (wizardPiecesList ++
+>                   [('G', [PieceDescription "goblin" "Kong Fuzi" []]),
+>                    ('B', [PieceDescription "bear" "Buddha" []])]))
+>   goSquare conn 0 1
+>   goSquare conn 1 1
+>   checkMoveSubphase conn "motion"
+>   sendKeyPress conn "End"
+>   checkNoSelectedPiece conn
+
 testSkipDoneShadowWood
 testWalkSkipRangedAttack
 testFlySkipDone
@@ -1395,7 +1588,7 @@ Old move phase tests follow
 
 == moving
 
-> testWalkOneSquare conn = testCase "testWalkOneSquare" $ do
+> testWalkOneSquare conn = testCase "testWalkOneSquare" $ rollbackOnError conn $ do
 >     startNewGameReadyToMove conn ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -1427,7 +1620,7 @@ Old move phase tests follow
 >     --next wizards move
 >     checkCurrentWizardPhase conn "Kong Fuzi" "move"
 
-> testWalkTwoSquares conn = testCase "testWalkTwoSquares" $ do
+> testWalkTwoSquares conn = testCase "testWalkTwoSquares" $ rollbackOnError conn $ do
 >     let pk = (wizardPiecesList ++
 >                   [('B',[PieceDescription "bear" "Buddha" []])])
 >     startNewGameReadyToMove conn ("\n\
@@ -1472,7 +1665,7 @@ Old move phase tests follow
 >                   \6      7      8",
 >                   pk)
 
-> testFlyOverPieces conn = testCase "testFlyOverPieces" $ do
+> testFlyOverPieces conn = testCase "testFlyOverPieces" $ rollbackOnError conn $ do
 >     let pk = (wizardPiecesList ++
 >                   [('E', [PieceDescription "eagle" "Buddha" []]),
 >                    ('G', [PieceDescription "goblin" "Buddha" []])])
@@ -1503,75 +1696,14 @@ Old move phase tests follow
 >                   \6      7      8",
 >                   pk)
 
+
+
+
 == attacking
 
-> testAttackMonster conn = testCase "testAttackMonster" $ do
->   startNewGameReadyToMove conn ("\n\
->                   \1G     2      3\n\
->                   \ G             \n\
->                   \               \n\
->                   \               \n\
->                   \4             5\n\
->                   \               \n\
->                   \               \n\
->                   \               \n\
->                   \               \n\
->                   \6      7      8",
->                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
->   goSquare conn 0 0
->   rigActionSuccess conn "attack" True
->   goSquare conn 1 0
->   checkBoard conn ("\n\
->                   \ 1     2      3\n\
->                   \ G             \n\
->                   \               \n\
->                   \               \n\
->                   \4             5\n\
->                   \               \n\
->                   \               \n\
->                   \               \n\
->                   \               \n\
->                   \6      7      8",
->                   updateLookup '1'
->                    [PieceDescription "wizard" "Buddha" [],
->                     PieceDescription "goblin" "dead" []]
->                    wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])])
-
-> testAttackMonsterResisted conn = testCase "testAttackMonsterResisted" $ do
->   startNewGameReadyToMove conn ("\n\
->                   \1G     2      3\n\
->                   \ G             \n\
->                   \               \n\
->                   \               \n\
->                   \4             5\n\
->                   \               \n\
->                   \               \n\
->                   \               \n\
->                   \               \n\
->                   \6      7      8",
->                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
->   goSquare conn 0 0
->   rigActionSuccess conn "attack" False
->   goSquare conn 1 0
->   checkBoard conn ("\n\
->                   \1G     2      3\n\
->                   \ G             \n\
->                   \               \n\
->                   \               \n\
->                   \4             5\n\
->                   \               \n\
->                   \               \n\
->                   \               \n\
->                   \               \n\
->                   \6      7      8",
->                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
 
-> testAttackWizard conn = testCase "testAttackWizard" $ do
+> testAttackWizard conn = testCase "testAttackWizard" $ rollbackOnError conn $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \1G     2      3\n\
 >                   \ H             \n\
@@ -1604,7 +1736,7 @@ Old move phase tests follow
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
-> testFlyAttack conn = testCase "testFlyAttack" $ do
+> testFlyAttack conn = testCase "testFlyAttack" $ rollbackOnError conn $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \1 E    2      3\n\
 >                   \               \n\
@@ -1637,7 +1769,7 @@ Old move phase tests follow
 >                   [('E', [PieceDescription "eagle" "Buddha" [],
 >                           PieceDescription "goblin" "dead" []])]))
 
-> testFlyThenAttack conn = testCase "testFlyThenAttack" $ do
+> testFlyThenAttack conn = testCase "testFlyThenAttack" $ rollbackOnError conn $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \1 E    2      3\n\
 >                   \               \n\
@@ -1671,7 +1803,7 @@ Old move phase tests follow
 >                   [('E', [PieceDescription "eagle" "Buddha" [],
 >                           PieceDescription "goblin" "dead" []])]))
 
-> testRangedAttack conn = testCase "testRangedAttack" $ do
+> testRangedAttack conn = testCase "testRangedAttack" $ rollbackOnError conn $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \1 E    2      3\n\
 >                   \               \n\
@@ -1705,7 +1837,7 @@ Old move phase tests follow
 >                   [('E', [PieceDescription "elf" "Buddha" []]),
 >                    ('g', [PieceDescription "goblin" "dead" []])]))
 
-> testRangedAttackResisted conn = testCase "testRangedAttackResisted" $ do
+> testRangedAttackResisted conn = testCase "testRangedAttackResisted" $ rollbackOnError conn $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \1 E    2      3\n\
 >                   \               \n\
@@ -1746,7 +1878,7 @@ killing wizard removes creations
 mount, dismount, enter, exit, etc.
 
 
-> testShadowWoodAttack conn = testCase "testShadowWoodAttack" $ do
+> testShadowWoodAttack conn = testCase "testShadowWoodAttack" $ rollbackOnError conn $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \1W     2      3\n\
 >                   \ G             \n\
@@ -1787,7 +1919,7 @@ square, we should get the monster the wizards is mounted on. To reduce
 the number of tests we also test moving the monster whilst the wizard
 is mounted here.
 
-> testMoveWhenMounted conn = testCase "testMoveWhenMounted" $ do
+> testMoveWhenMounted conn = testCase "testMoveWhenMounted" $ rollbackOnError conn $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
@@ -1827,7 +1959,7 @@ is mounted here.
 
 dismount then move
 
-> testDismount conn = testCase "testDismount" $ do
+> testDismount conn = testCase "testDismount" $ rollbackOnError conn $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
@@ -1862,7 +1994,7 @@ dismount then move
 
 move when already mounted
 
-> testMoveWhenAlreadyMounted conn = testCase "testMoveWhenAlreadyMounted" $ do
+> testMoveWhenAlreadyMounted conn = testCase "testMoveWhenAlreadyMounted" $ rollbackOnError conn $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
@@ -1898,7 +2030,7 @@ move when already mounted
 
 todo: attack when dismounting, dismounting when flying
 
-> testExit conn = testCase "testExit" $ do
+> testExit conn = testCase "testExit" $ rollbackOnError conn $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
@@ -1930,7 +2062,7 @@ todo: attack when dismounting, dismounting when flying
 >                    wizardPiecesList ++
 >                   [('P', [PieceDescription "dark_citadel" "Buddha" []])])
 
-> testEnter conn = testCase "testEnter" $ do
+> testEnter conn = testCase "testEnter" $ rollbackOnError conn $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \1P     2      3\n\
 >                   \               \n\
@@ -1983,9 +2115,14 @@ moved if free'd that turn
 
 shadow form attack and moving, shadow form and magic wings at same time
 
-engaged stuff
+engaged stuff: engaged at start of move, and becoming engaged part way
+through walk for multiwalkers
 
 second monster dying on a square - the first corpse should disappear permanently
+
+test dismount and exit when has shadow form and moves three squares
+
+check moving 2 diagonal squares uses up three squares to move
 
 > startNewGameReadyToMove conn board = do
 >   startNewGame conn
@@ -2009,7 +2146,7 @@ chaos. We check that the win has been detected by seeing the win
 history item in the history table, and by checking the valid activate
 and target action views are empty.
 
-> testWizardWin conn = testCase "testWizardWin" $ do
+> testWizardWin conn = testCase "testWizardWin" $ rollbackOnError conn $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \1G     2       \n\
 >                   \               \n\
@@ -2041,7 +2178,7 @@ and target action views are empty.
 Draw works similarly to win, except it is detected the instant there
 are no wizards left.
 
-> testGameDraw conn = testCase "testGameDraw" $ do
+> testGameDraw conn = testCase "testGameDraw" $ rollbackOnError conn $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \1G 2           \n\
 >                   \               \n\

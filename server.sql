@@ -735,7 +735,6 @@ select create_var('in_next_phase_hack', 'boolean');
 insert into in_next_phase_hack_table values (false);
 select set_relvar_type('in_next_phase_hack_table', 'data');
 
-
 select create_var('creating_new_game', 'boolean');
 insert into creating_new_game_table values (true);
 select set_relvar_type('creating_new_game_table', 'data');
@@ -1148,6 +1147,18 @@ diagonal moves.
 */
 select create_var('squares_left_to_walk', 'int');
 select set_relvar_type('squares_left_to_walk_table', 'data');
+select add_constraint('squares_left_to_walk_only_motion',
+$$ (not exists(select 1 from squares_left_to_walk_table) or
+   exists(select 1 from creating_new_game_table
+      where creating_new_game = true) or
+   (select in_next_phase_hack from in_next_phase_hack_table) or
+   (exists(select 1 from selected_piece)
+      and (select move_phase = 'motion' from selected_piece)
+      and exists (select 1 from creature_pieces
+                  natural inner join selected_piece)
+      and (select not flying from creature_pieces
+           natural inner join selected_piece))) $$,
+  array['selected_piece', 'pieces_mr', 'squares_left_to_walk_table']);
 
 --this function is used to initialise the turn phase data.
 create function init_turn_stuff() returns void as $$
@@ -1654,7 +1665,7 @@ create view selected_piece_exitable_squares as
   select x,y from selected_piece_walk_squares
     cross join selected_piece_occupying;
 
---can only unmount if you've selected a monster that
+--can only dismount if you've selected a monster that
 --the wizard is mounted on and the monster hasn't moved yet
 create view selected_piece_dismountable_squares as
   select 1 as x,1 as y where false; --x,y from selected_piece_walk_squares
@@ -2681,7 +2692,7 @@ turn.
 
 === selection and subphase
 */
-create or replace function action_select_piece(pallegiance text,
+create function action_select_piece(pallegiance text,
                                                pptype text,ptag int)
   returns void as $$
 begin
@@ -2690,7 +2701,8 @@ begin
       where (ptype,allegiance,tag)=(ptype,pallegiance,ptag)),
     (select y from pieces_on_top
       where (ptype,allegiance,tag)=(ptype,pallegiance,ptag)));
-
+  update in_next_phase_hack_table
+    set in_next_phase_hack = true;
   insert into selected_piece (ptype, allegiance, tag, move_phase) values
     (pptype, pallegiance, ptag,
     --skip move or attack phases if the piece cannot move or attack
@@ -2715,7 +2727,16 @@ begin
       select speed from creature_pieces
         natural inner join selected_piece;
   end if;
-
+  update in_next_phase_hack_table
+    set in_next_phase_hack = false;
+  --for a piece that is in the attack phase, we skip to ranged or
+  --complete that piece's move automatically if there is nothing for
+  --them to attack
+  if (select move_phase from selected_piece) = 'attack' and
+     (select count(1) from valid_target_actions
+      where action = 'attack') = 0 then
+    perform action_next_move_subphase();
+  end if;
   --insert history
 end;
 $$ language plpgsql volatile strict;
@@ -2744,8 +2765,12 @@ begin
   delete from pieces_to_move where (ptype, allegiance, tag) =
     (select ptype, allegiance, tag from selected_piece);
   --empty selected piece, squares left_to_walk
+  update in_next_phase_hack_table
+    set in_next_phase_hack = true;
   delete from selected_piece;
   delete from squares_left_to_walk_table;
+  update in_next_phase_hack_table
+    set in_next_phase_hack = false;
   --if there are no more pieces that can be selected then move to next
   --phase automatically, todo: take into account monsters in blob
   if (select count(*) from pieces_to_move) = 0 then
@@ -2762,16 +2787,38 @@ declare
 begin
   --check if creature has just died - just bodge it for now this will
   --silently return instead of erroring under some circumstances where
-  --this function is incorrectly called
+  --this function is sort of incorrectly called, this can happen if
+  --a creature kills its own wizard
   if not exists (select 1 from selected_piece) then
     return;
   end if;
   perform check_can_run_action('next_move_subphase');
   select into r * from selected_piece
     natural inner join pieces;
-  if r.move_phase = 'motion' then
-    delete from squares_left_to_walk_table;
-  end if;
+
+--     --hack - if cancelling in motion phase with more squares to walk
+--     --or not flying, and adjacent enemies, the cancel also cancels the
+--     --attack as per the original chaos
+--     if (get_squares_left_to_walk() > 0
+--          or (select flying from selected_piece
+--              natural inner join creature_pieces))
+--        and (select count(*)
+--         from attackable_pieces_next_to_current_piece) > 0 then
+--       if (select count(*) from ranged_weapon_pieces
+--         natural inner join selected_piece) = 1 then
+--         update selected_piece set move_phase = 'ranged-attack';
+--         return;
+--       else
+--         perform action_unselect_piece();
+--         return;
+--       end if;
+--     else
+--       delete from squares_left_to_walk_table;
+--     end if;
+--   end if;
+  update in_next_phase_hack_table
+    set in_next_phase_hack = true;
+  delete from squares_left_to_walk_table;
   if r.move_phase = 'motion' and
      (select count(*)
       from attackable_pieces_next_to_current_piece) > 0 then
@@ -2783,6 +2830,8 @@ begin
   else
     perform action_unselect_piece();
   end if;
+  update in_next_phase_hack_table
+    set in_next_phase_hack = false;
 end;
 $$ language plpgsql volatile strict;
 
@@ -2909,6 +2958,7 @@ $$ language plpgsql volatile strict;
 /*
 === internals
 */
+
 
 create function is_walker(vptype text, vallegiance text, vtag int)
   returns boolean as $$

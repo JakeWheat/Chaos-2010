@@ -1279,7 +1279,6 @@ $$ language plpgsql volatile strict;
 */
 create function action_cancel() returns void as $$
 begin
-
   if (select count(1) from selected_piece) = 1 then
     perform action_next_move_subphase();
   end if;
