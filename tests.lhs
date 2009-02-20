@@ -169,7 +169,10 @@ Run all the tests.
 >                       ,testImaginary conn
 >                       ]
 >        ,testGroup "move phase stuff" [
->           testGroup "cancelSubphases" [
+>           testGroup "subphases" [
+>                          testWalkCancelAttackDone conn
+>                         ]
+>          ,testGroup "cancelSubphases" [
 >                          testCancelFlyAttackRangedAttack conn
 >                         ,testCancelWalkAttack conn
 >                         ,testCancelFlyRangedAttack conn
@@ -180,7 +183,7 @@ Run all the tests.
 >                          testFlyAttackRangedAttackDone conn
 >                         ,testFlytackRangedAttack conn
 >                         ,testWalkAttackDone conn
->                         ,testWalkcancelDone conn
+>                         --,testWalkcancelDone conn
 >                         ]
 >          ,testGroup "moving" [
 >                          testWalkOneSquare conn
@@ -1143,108 +1146,146 @@ check it's the next wizards turn
 
 Check that the game progresses through the subphases correctly, as
 well as the actions work, the subphases are move, attack, ranged
-attack, the program misses one out if it isn't relevant to a piece,
-moves to the next subphase when the piece can do no more in its
-current subphase, and unselects the piece automatically when it has no
-more move subphases.
+attack.
 
+Some rules about the subphases:
+
+
+A piece is unselected automatically when there are no more valid
+subphases for it.
+
+The program skips to next subphase if the selected piece can't do the current phase e.g. if the piece cannot walk or fly then it skips the motion subphase.
+
+When going to the attack subphase, if the monster is not next to an attackable enemy piece, the attack phase is skipped.
+
+Opposite to this, when going to ranged attack subphase, the subphase isn't skipped even if there are no enemy attackables the creature can attack (i.e. in range and in line of sight)
+
+Goes to the next subphase automatically if the piece has nothing left to do in the current one e.g. has completed all its walk, or has attacked.
+
+A piece can attack a square in walk or fly range during the motion subphase (going straight into attack without finishing motion).
+
+A piece can cancel the current subphase. To go with previous rule, if it cancels in the motion subphase, then it skips the attack phase also, even if it is next to an attackable enemy. Therefore if the motion subphase is cancelled, the piece skips to ranged attack if it has one or ends its selection.
+
+If a piece walks and can walk more that one square, it counts as cancel if you cancel at any point before moving all the available squares.
+
+Pieces walk one square at a time if they can walk multiple squares, but do a flight all in one go, i.e. for a walker you select the next adjacent square and then repeat until all the squares to move are used up, but for a flier you just select the end point of the flying.
+
+A wizard mounting a monster ends its motion subphase immediately even if it has squares left to walk.
+
+The selected piece relvar has exactly one row during the time a piece is selected and no rows otherwise
+
+The walk squares relvar has exactly one row when there is a selected piece, the selected piece: moves; walks rather than flies; and is in the motion subphase. otherwise it has no rows
+
+A piece can be killed whilst selected if it uses its ranged attack on its own wizard - so need to check for this.
+
+-----------------------------------------------
 
 our subphase progression options for different pieces depending on
 their capabilities are:
 
+1 motion-attack-done
+2 attack-done
+3 motion-attack-ranged-done
 
-1 walk-done
-2 walk-attack-done
-3 walk-ranged-done
-4 walk-attack-ranged-done
-5 attack-done (for shadow wood)
+We want to cover each variation of these, but we only need to cover each transition once (e.g. motion-rangedattack). E.g. for walking, if we test a one square walker which then attacks, for a two square walker, we can test it can walk to squares, and then check it is ready to attack and finish there (possibly we could skip the check it is ready to attack part).
 
-Want to check variations where each action is used or cancelled,
-substitute walk for fly in tests, and do variations for pieces which
-can walk more than one square.
+We want to include the variaions with cancel in one of the positions (since cancelling motion skips attack this reduces the numberof possibilities).
 
-If we expand these out to switch in the cancel variations, fly and
-walk one or more squares, we end up with way too many combinations,
-need a better way to get reasonable coverage.
+We also want to include walk one square for a two square walker and cancel, walk two squares for a two square walker, and fly for each motion variety.
 
-Hopefully, because of the database constraints, we can assume that
-e.g. attacking then ranged attacking is the same whether we've previously
-walked, flew or cancelled, so:
 
-* we only need to cover each unique neighbouring pair of actions from
-  the list above;
+So, the final list which should cover most transitions is
 
-* we can test multiple pairs in one go e.g. walk-attack-ranged-done
-  will cover walk-attack, attack-ranged and ranged-done;
+* piece has motion-attack potential, walks 1 square)
+walk1 cancelattack done
+cancelmotion done
+walk1 noavailableattack done
+attack-done
 
-* we can run through all cancel variations and not need to do any
-  other combos with cancel. e.g. instead of:
+* piece has motion-attack potential, walks 2 squares)
+walk2 done
+walk1cancel done
 
-** walk-attack-done
-** cancel-attack-done
-** walk-cancel-done
-** cancel-cancel-done
+* piece has motion-attack potential, flies)
+fly attack done
+attack done
+cancelfly done
+fly noavailableattack done
 
-with variations for flying and walking different amounts of squares,
-we just need to to cancel-cancel-done to cover them all.
+* piece has motion-attack-ranged, walks 1 square
+walk1 attack ranged done
+walk1 attack cancel done
+walk1 cancel ranged done
+cancelwalk ranged done
+walk1 noavailableattack ranged done
 
-Same idea about database constraints goes for walking: creatures with
-a one square walk work the same as creatures who have one square left
-to walk, and that e.g. cancelling after one square of walk for a two
-or more square walker, or two squares of walk for a three or more
-square walker are the same, etc., so for each walk variation we need
-one with a one square walker, one with a two square walker where we
-cancel after the first square, and one with a flyer.
+* piece has attack only
+attack done
+noavailableattack done
 
-A piece can also move straight into an attack, e.g. a walker in the
-moving subphase can select a neighbouring square an attack it without
-having to cancel the moving subphase first, and a flying creature can
-fly straight onto an enemy to attack it, so we need to test
-walk-attack and fly-attack as well, with the same reasoning as before,
-transitions from these attacks work the same as transitions from a
-normal attack and so these don't need any additional transition
-testing.
+=== tests
 
-From the implementation we know that a walk-attack works the same
-whether the piece has finished it's walk or not, so we don't need to
-test walk-attack separately from normal attacking.
+> testWalkCancelAttackDone conn = testCase "testWalkCancelAttackDone" $ rollbackOnError conn $ do
+>     startNewGameReadyToMove conn ("\n\
+>                   \1G R   2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",
+>                    (wizardPiecesList ++
+>                   [('G', [PieceDescription "goblin" "Buddha" []]),
+>                    ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])]))
+>     --select golbin
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "goblin"
+>     checkMoveSubphase conn "motion"
+>     goSquare conn 2 0
+>     checkMoveSubphase conn "attack"
+>     sendKeyPress conn "End"
+>     checkPieceDoneSelection conn "goblin" "Buddha"
 
-Final bits to take into account: the program skips the attack phase if
-there are no attackable squares, moving and ranged-attacking are not
-skipped automatically like this, so we want to test this skipping from
-walk, walk-cancel and fly, skipping to both ranged attack and done
-(but we don't need all the combinations)
+* piece has motion-attack potential, walks 1 square)
+walk1 cancelattack done
+cancelmotion done
+walk1 noavailableattack done
+attack-done
 
-Combine the subphase progression with testing the walk, fly, attack,
-fly-attack, and ranged-attack variations.
+* piece has motion-attack potential, walks 2 squares)
+walk2 done
+walk1cancel done
 
-Our final list of tests is
+* piece has motion-attack potential, flies)
+fly attack done
+attack done
+cancelfly done
+fly noavailableattack done
 
-all cancel versions:
+* piece has motion-attack-ranged, walks 1 square
+walk1 attack ranged done
+walk1 attack cancel done
+walk1 cancel ranged done
+cancelwalk ranged done
+walk1 noavailableattack ranged done
 
-fly-attack-ranged attack
-walk-attack
-fly-ranged attack
-walk
-attack (for shadow wood)
+* piece has attack only
+attack done
+noavailableattack done
 
-no cancel versions:
 
-fly-attack-ranged attack-done
-flyattack-ranged attack
-walk-attack-done
-walkcancel-attack
-skip-done (shadow wood)
-walk-skip-ranged attack
-fly-skip-done
-walkcancel-skip-done
 
-these should cover the subphase progression pretty well.
+== other move action tests
 
-we have at least two attacks and two ranged attacks, make sure there
-is at least one success and failure of each checked
+== misc todo
 
-see below for the misc move phase tests not included in these
+
+----------------------------------------------------------------
+old tests
+
 
 === cancel tests
 
@@ -2124,6 +2165,14 @@ test dismount and exit when has shadow form and moves three squares
 
 check moving 2 diagonal squares uses up three squares to move
 
+attack from move phase
+check mount ends move phase
+check attack when has mount moves wizard
+check attack,enter,mount from mount
+check move 2 diagonals
+
+
+
 > startNewGameReadyToMove conn board = do
 >   startNewGame conn
 >   setupBoard conn board
@@ -2640,6 +2689,14 @@ keep running next_phase until we get to the cast phase
 >   phase' <- readTurnPhase conn
 >   assertEqual "current wizard" wiz wiz'
 >   assertEqual "current phase" phase' phase
+
+> checkPieceDoneSelection conn ptype allegiance = do
+>     checkNoSelectedPiece conn
+>     v <- selectRelationValues conn
+>                              "select * from pieces_to_move\n\
+>                              \where ptype=? and\n\
+>                              \  allegiance=?" [ptype,allegiance]
+>     assertBool "piece not in ptm" (null v)
 
 ================================================================================
 

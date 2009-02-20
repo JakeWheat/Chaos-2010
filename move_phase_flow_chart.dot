@@ -1,0 +1,167 @@
+digraph simple_hierarchy {
+
+  subgraph cluster_subphase_control {
+    label="subphase progression"
+    subgraph cluster_control_entry {
+      label="entry"
+      action_select_piece [label="select piece\ninit selected_piece" shape="tripleoctagon"];
+      subphase_motion [label="finished motion"]
+      subphase_motion_cancelled [label="finished motion\nwith cancel"]
+      subphase_attack [label="finished attack"]
+      subphase_ranged [label="finished ranged attack"]
+    }
+    init_selection [label="init selected piece"]
+    moverp [label="mover?" shape="diamond"];
+    attackerp [label="attacker and\nadjacent to attackable?" shape="diamond"];
+    rangedp [label="ranged attacker?" shape="diamond"];
+    clear_selection [label="clear selected piece"]
+    subgraph cluster_control_exit {
+      label="exit";
+      goto_attack [label="goto attack"];
+      goto_motion [label="goto motion"];
+      goto_ranged [label="goto ranged"]
+      end_select [label="end selection" shape="tripleoctagon"]
+    }
+  }
+  action_select_piece->init_selection
+  init_selection->moverp
+  subphase_motion->attackerp
+  subphase_motion_cancelled->rangedp
+  subphase_attack->rangedp
+  subphase_ranged->clear_selection
+  clear_selection->end_select
+
+  moverp->goto_motion [label="yes"]
+  moverp->attackerp [label="no"]
+  attackerp->goto_attack [label="yes"]
+  attackerp->rangedp [label="no"]
+  rangedp->goto_ranged [label="yes"]
+  rangedp->clear_selection [label="no"]
+
+
+  subgraph cluster_move {
+    label="motion"
+    subgraph cluster_motion_entry {
+      label="entry"
+      start_walk [label="start walk"]
+      action_walk [label="action walk" shape="doubleoctagon"]
+      action_fly [shape="doubleoctagon"]
+      action_cancel [shape="doubleoctagon"]
+      action_enter [shape="doubleoctagon"]
+      action_exit [shape="doubleoctagon"]
+      action_mount [shape="doubleoctagon"]
+      action_dismount [shape="doubleoctagon"]
+      action_motion_attack [shape="doubleoctagon"]
+    }
+    init_motion [label="walker?" shape="diamond"]
+    init_walker [label="init walk_squares"]
+
+    do_move [label="call move routine"]
+    do_move1 [label="call move routine"]
+    continue [label="flier or walk_squares=0?" shape="diamond"]
+
+    end_move [label="clear walk_squares"]
+    end_move1 [label="clear walk_squares"]
+    end_to_attack [label="clear walk_squares\nset subphase=attack"]
+
+    subgraph cluster_motion_exit {
+      label="exit"
+      motion_wait_for_action [label="wait for action" shape="doubleoctagon"]
+      done_motion_cancelled [label="goto next subphase\n(cancelled motion)"]
+      done_motion [label="goto next subphase"]
+      motion_do_attack[label="goto do attack"]
+    }
+  }
+  start_walk->init_motion
+  init_motion->motion_wait_for_action [label="no"]
+  init_motion->init_walker [label="yes"]
+  init_walker->motion_wait_for_action
+
+  action_walk->do_move
+  action_fly->do_move
+  action_enter->do_move
+  action_exit->do_move
+  action_mount->do_move1
+  action_dismount->do_move
+  action_cancel->end_move1
+
+  do_move->continue
+  do_move1->end_move
+  continue->end_move[label="yes"]
+  continue->motion_wait_for_action[label="no"]
+  action_motion_attack->end_to_attack
+  end_to_attack->motion_do_attack
+  end_move->done_motion
+  end_move1->done_motion_cancelled
+
+  subgraph cluster_attack {
+    label="attack"
+    subgraph cluster_attack_entry {
+      label="entry"
+      action_attack [label="action attack" shaped="doubleoctagon"]
+      attack_from_motion [label="attack from motion"]
+    }
+    do_attack [label="do attack routine"]
+
+    subgraph cluster_attack_exit {
+      label="exit"
+      exit_attack [label="goto next subphase"]
+    }
+
+    action_attack->do_attack
+    attack_from_motion->do_attack
+    do_attack->exit_attack
+  }
+
+
+  subgraph cluster_ranged {
+    label="ranged attack"
+    subgraph cluster_ranged_entry {
+      label="entry"
+      action_ranged [label="action ranged attack" shaped="doubleoctagon"]
+    }
+    do_ranged [label="do ranged attack routine"]
+
+    subgraph cluster_ranged_exit {
+      label="exit"
+      exit_ranged [label="goto next subphase"]
+    }
+
+    action_ranged->do_ranged
+    do_ranged->exit_ranged
+  }
+  subgraph cluster_attack_routine {
+    label="attack routine";
+    ra_do_attack [label="attack successful?"]
+    ra_kill_piece [label="remove piece from pieces_mr"]
+    ra_move_killerp [label="attacker can move?"]
+    ra_finish_attack [label="finish and return"]
+    ra_attack_move_piece [label="call move routine"]
+  }
+
+  ra_do_attack->ra_kill_piece [label="yes"];
+  ra_do_attack->ra_finish_attack [label="no"];
+  ra_kill_piece->ra_move_killerp;
+  ra_move_killerp->ra_attack_move_piece[label="yes"]
+  ra_move_killerp->ra_finish_attack [label="no"];
+  ra_attack_move_piece->ra_finish_attack
+
+  subgraph cluster_move_piece_routine {
+    label="move routine";
+    rm_start_move [label="start move routine" shape="ellipse"]
+    rm_move_piece [label="piece mountable and\nwizard on same square?"]
+    rm_update_wizard [label="update wizard position"]
+    rm_update_piece [label="update piece position"]
+    rm_check_walker [label="is mover a walker and\nin the motion subphase?"]
+    rm_reduce [label="if walker then\nreduce squares\nleft to move"];
+    rm_finish_move [label="finish move"]
+  }
+  rm_start_move->rm_move_piece
+  rm_move_piece->rm_update_wizard [label="yes"]
+  rm_move_piece->rm_update_piece [label="no"]
+  rm_update_wizard->rm_update_piece
+  rm_update_piece->rm_check_walker [label="yes"]
+  rm_check_walker->rm_finish_move [label="no"]
+  rm_check_walker->rm_reduce [label="yes"]
+  rm_reduce->rm_finish_move
+}
