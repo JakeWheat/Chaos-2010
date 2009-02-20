@@ -529,7 +529,7 @@ create table spell_books (
 select add_key('spell_books', 'id');
 select add_foreign_key('spell_books', 'wizard_name', 'wizards');
 select add_constraint('no_spells_for_stiffs',
-  $$(select count(*) = 0 from spell_books
+  $$ not exists(select 1 from spell_books
   natural inner join wizards where expired = true)$$,
   array['spell_books', 'wizards']);
 select add_foreign_key('spell_books', 'spell_name', 'spells');
@@ -660,14 +660,14 @@ create view magic_attackable_pieces as
 
 --piece must be on the board, not outside it
 select add_constraint('piece_coordinates_valid',
-  '(select count(*) from pieces
+  ' not exists(select 1 from pieces
   cross join board_size
-  where x >= width or y >= height) = 0',
+  where x >= width or y >= height)',
   array['pieces_mr', 'board_size']);
 select add_foreign_key('pieces_mr', 'allegiance', 'allegiances');
 --temporary constraint while 'fks' to non base relvars are buggy
 select add_constraint('dead_wizard_army_empty',
-  $$(select count(*) = 0 from pieces
+  $$ not exists(select 1 from pieces
     inner join wizards
     on (allegiance = wizard_name)
     where expired = true)$$,
@@ -894,7 +894,7 @@ create table wizard_spell_choices_mr (
 );
 select add_key('wizard_spell_choices_mr', 'wizard_name');
 select add_constraint('dead_wizard_no_spell',
-  $$(select count(*) = 0 from wizard_spell_choices_mr
+  $$ not exists(select 1 from wizard_spell_choices_mr
     natural inner join wizards
     where expired = true)$$,
   array['wizards', 'pieces_mr']);
@@ -954,10 +954,9 @@ select set_relvar_type('spell_choice_hack_table', 'stack');
 
 select add_constraint('wizard_spell_choices_wizard_name_spell_name_fkey',
 $$((select spell_choice_hack from spell_choice_hack_table) or
-(select count(*) from
-(select wizard_name, spell_name from wizard_spell_choices
+not exists(select wizard_name, spell_name from wizard_spell_choices
   except
-select wizard_name, spell_name from spell_books) as a) = 0)$$,
+select wizard_name, spell_name from spell_books))$$,
 array['spell_choice_hack_table', 'wizard_spell_choices_mr', 'spell_books']);
 
 
@@ -982,7 +981,7 @@ or
   (select place from live_wizards
     inner join current_wizard_table
       on wizard_name = current_wizard))
-or (select count(*) = 0 from wizard_spell_choices)
+or not exists(select 1 from wizard_spell_choices)
 ))$$, array['turn_phase_table', 'current_wizard_table',
     'wizard_spell_choices_mr', 'wizards', 'in_next_phase_hack_table']);
 
@@ -1023,7 +1022,7 @@ select set_relvar_type('spell_parts_to_cast_table', 'data');
 
 select add_constraint('parts_to_cast_only', $$
   ((select turn_phase = 'cast' from turn_phase_table)
-  or (select count(*) = 0 from spell_parts_to_cast_table))
+  or not exists(select 1 from spell_parts_to_cast_table))
 $$, array['turn_phase_table', 'spell_parts_to_cast_table']);
 
 /*
@@ -1036,7 +1035,7 @@ select create_var('cast_success_checked', 'boolean');
 select set_relvar_type('cast_success_checked_table', 'data');
 select add_constraint('cast_checked_cast_only', $$
   ((select turn_phase = 'cast' from turn_phase_table)
-  or (select count(*) = 0 from cast_success_checked_table))
+  or not exists(select 1 from cast_success_checked_table))
 $$, array['cast_success_checked_table', 'turn_phase_table']);
 
 /*
@@ -1074,7 +1073,7 @@ select set_relvar_type('cast_alignment_table', 'stack');
 
 select add_constraint('cast_alignment_empty',
   $$((get_turn_phase() = 'cast') or
-  (select count(*) = 0 from cast_alignment_table))$$,
+  not exists(select 1 from cast_alignment_table))$$,
   array['turn_phase_table', 'cast_alignment_table']);
 
 create function adjust_world_alignment() returns void as $$
@@ -1119,7 +1118,7 @@ select add_foreign_key('pieces_to_move', 'allegiance',
 select set_relvar_type('pieces_to_move', 'data');
 select add_constraint('pieces_to_move_empty',
 $$((select turn_phase = 'move' from turn_phase_table) or
-(select count(*) = 0 from pieces_to_move))$$,
+not exists (select 1 from pieces_to_move))$$,
 array['pieces_to_move', 'turn_phase_table']);
 
 create domain move_phase as text
@@ -1157,20 +1156,20 @@ select create_var('remaining_walk_hack', 'boolean');
 select set_relvar_type('remaining_walk_hack_table', 'stack');
 insert into remaining_walk_hack_table values (false);
 
--- select add_constraint('remaining_walk_only_motion',
--- $$ ((not exists(select 1 from remaining_walk_table)) or
---    exists(select 1 from creating_new_game_table
---       where creating_new_game = true) or
---    (select remaining_walk_hack
---      from remaining_walk_hack_table) or
---    (exists(select 1 from selected_piece)
---       and (select move_phase = 'motion' from selected_piece)
---       and exists (select 1 from creature_pieces
---                   natural inner join selected_piece)
---       and (select not flying from creature_pieces
---            natural inner join selected_piece))) $$,
---   array['selected_piece', 'pieces_mr', 'remaining_walk_table',
---         'remaining_walk_hack_table', 'creating_new_game_table']);
+select add_constraint('remaining_walk_only_motion',
+$$ ((not exists(select 1 from remaining_walk_table)) or
+   exists(select 1 from creating_new_game_table
+      where creating_new_game = true) or
+   (select remaining_walk_hack
+     from remaining_walk_hack_table) or
+   (exists(select 1 from selected_piece)
+      and (select move_phase = 'motion' from selected_piece)
+      and exists (select 1 from creature_pieces
+                  natural inner join selected_piece)
+      and (select not flying from creature_pieces
+           natural inner join selected_piece))) $$,
+  array['selected_piece', 'pieces_mr', 'remaining_walk_table',
+        'remaining_walk_hack_table', 'creating_new_game_table']);
 
 create or replace function check_remaining() returns void as $$
 begin
@@ -1236,14 +1235,14 @@ remaining.)
 select create_var('game_completed', 'boolean');
 select set_relvar_type('game_completed_table', 'data');
 select add_constraint('game_completed_wizards',
-       $$((select count(1) = 0 from game_completed_table)
+       $$(not exists(select 1 from game_completed_table)
            or (select count(1) <= 1 from live_wizards))$$,
        array['game_completed_table']);
 
 create function game_completed() returns void as $$
 begin
   insert into game_completed_table
-    select true where (select count(1) = 0 from game_completed_table);
+    select true where not exists (select 1 from game_completed_table);
 end;
 $$ language plpgsql volatile strict;
 
@@ -1798,7 +1797,7 @@ select 'set_real'::text as action
 --cast activate spell
 union
 select 'cast_activate_spell'::text as action
-  where (select count(1) > 0
+  where exists (select 1
          from current_wizard_spell
          natural inner join activate_spells
          where get_turn_phase() = 'cast')
@@ -1849,8 +1848,8 @@ these views
 */
 create function check_can_run_action(action_name text) returns void as $$
 begin
-  if (select count(*) from valid_activate_actions
-     where action = action_name) = 0 then
+  if not exists (select 1 from valid_activate_actions
+     where action = action_name) then
     raise exception 'cannot run % here', action_name;
   end if;
 end;
@@ -1859,8 +1858,8 @@ $$ language plpgsql stable strict;
 create function check_can_run_action(action_name text, px int, py int)
   returns void as $$
 begin
-  if (select count(*) from valid_target_actions
-     where action = action_name and x = px and y = py) = 0 then
+  if not exists (select 1 from valid_target_actions
+     where action = action_name and x = px and y = py) then
     raise exception 'cannot run % on %,% here', action_name, px, py;
   end if;
 end;
@@ -1926,10 +1925,10 @@ since it will be called via skip spell.
 
 */
     -- if the current spell isn't completed, then skip it
-  if (select count(*) from wizard_spell_choices
+  if exists(select 1 from wizard_spell_choices
        inner join current_wizard_table
        on (current_wizard = wizard_name)
-       where get_turn_phase() = 'cast') > 0 then
+       where get_turn_phase() = 'cast') then
     perform action_skip_spell();
     return;
   end if;
@@ -2070,8 +2069,8 @@ begin
       (get_current_wizard(), vspell_name);
     --
     -- set imaginary to false if this is a monster spell
-    if (select count(1) from monster_spells
-      where spell_name = vspell_name) = 1 then
+    if exists(select 1 from monster_spells
+      where spell_name = vspell_name) then
       update wizard_spell_choices_mr
         set imaginary = false
         where wizard_name = get_current_wizard();
@@ -2159,7 +2158,7 @@ begin
   end if;
   --raise notice 'continuing with cast';
 
-  if (select count(1) > 0 from current_wizard_spell
+  if exists(select 1 from current_wizard_spell
       natural inner join monster_spells) then
     perform cast_monster_spell(px, py);
   else
@@ -2210,7 +2209,7 @@ begin
       natural inner join current_wizard_spell) then
     perform action_cast_wizard_spell(get_current_wizard(),
       get_current_wizard_spell());
-  elseif (select count(*) > 0 from spells
+  elseif exists(select 1 from spells
       natural inner join current_wizard_spell
       where spell_name in('law', 'chaos', 'large_law',
       'large_chaos')) then
@@ -2695,7 +2694,7 @@ begin
       where index = pos_in_square;
 --    s := 'checking ' || ip.x || ',' || ip.y;
     --raise notice 'checking %,%', ip.x, ip.y;
-    if (select count(1) = 1 from cast_magic_wood_available_squares
+    if exists(select 1 from cast_magic_wood_available_squares
        where x = r.x and y = r.y) then
        --raise notice 'yes';
        insert into cast_magic_wood_squares(x,y) values (r.x, r.y);
@@ -2757,29 +2756,13 @@ begin
     --nothing to do
     delete from pieces_to_move
       where (ptype, allegiance, tag) = (pptype, pallegiance, ptag);
-    if (select count(*) from pieces_to_move) = 0 then
+    if not exists(select 1 from pieces_to_move) then
       perform action_next_phase();
     end if;
     return;
   end if;
   insert into selected_piece (ptype, allegiance, tag, move_phase) values
     (pptype, pallegiance, ptag, nextp);
---     --skip move or attack phases if the piece cannot move or attack
---     --todo: also skip attack phase if nothing in range
---     --need to deal with possibility that the piece is automatically
---     --unselected because it can't do anything
---     (select * from (
---       select 'motion' as o from creature_pieces
---         where (ptype,allegiance,tag) = (pptype, pallegiance, ptag)
---       union all --welll dodgy, use union all to keep the rows in the
---                 --order they are written down in so that the limit 1
---                 --keeps the correct row.
---       select 'attack' from attacking_pieces
---         where (ptype,allegiance,tag) = (pptype, pallegiance, ptag)
---       union all
---       select 'ranged-attack' from ranged_weapon_pieces
---         where (ptype,allegiance,tag) = (pptype, pallegiance, ptag)) as a
---      limit 1));
 
   if nextp = 'motion' and
        exists(select 1 from selected_piece
@@ -2795,15 +2778,6 @@ begin
     update remaining_walk_hack_table
       set remaining_walk_hack = false;
   end if;
-  --for a piece that is in the attack phase, we skip to ranged or
-  --complete that piece's move automatically if there is nothing for
-  --them to attack
-  --if (select move_phase from selected_piece) = 'attack' and
-  --   (select count(1) from valid_target_actions
-  --    where action = 'attack') = 0 then
-  -- perform action_next_move_subphase();
-  --end if;
-  --insert history
 end;
 $$ language plpgsql volatile strict;
 
@@ -2841,7 +2815,7 @@ begin
     set remaining_walk_hack = false;
   --if there are no more pieces that can be selected then move to next
   --phase automatically, todo: take into account monsters in blob
-  if (select count(*) from pieces_to_move) = 0 then
+  if not exists(select 1 from pieces_to_move) then
     perform action_next_phase();
   end if;
 
@@ -3036,18 +3010,6 @@ declare
 begin
   select into r x,y from pieces
     where (ptype,allegiance,tag)=(pptype,pallegiance,ptag);
---   raise notice 'attacker %',(exists(select 1 from attacking_pieces
---                 where (ptype,allegiance,tag)=(pptype,pallegiance,ptag)));
---   raise notice 'attackable % ', (exists(select 1 from attackable_pieces ap
---            natural inner join pieces_on_top
---            --want to keep rows where the attack piece is range 1 from
---            --the piece in question, so the board range source x,y is the
---            --x,y of the piece in question, and the target x,y is the
---            --x,y positions of the enemy attackable pieces
---            inner join board_ranges b on (b.x,b.y,tx,ty)=(r.x,r.y,ap.x,ap.y)
---            where allegiance <> pallegiance
---              and range = 1));
-
   if current_subphase = 'start' and
       exists(select 1 from creature_pieces
              where (ptype,allegiance,tag)=(pptype,pallegiance,ptag)) then
@@ -3103,11 +3065,11 @@ begin
   -- along with his mount in one place
   if
      --this is a rideable monster
-     (select count(*) = 1 from selected_piece
+     exists(select 1 from selected_piece
        natural inner join monster_pieces
        where rideable) and
      --there is also a wizard on this square
-     (select count(*) = 1
+     exists(select 1
       from (select x,y from pieces
             natural inner join selected_piece) as a
       natural inner join pieces
@@ -3177,7 +3139,7 @@ begin
   --   to use here and for magic trees
   -- todo: turmoil can only be received from a magic tree
   --       - a wizard cannot start with this spell
-  if ((select count(*) from spell_books where wizard_name = vname) != 0) then
+  if exists(select 1 from spell_books where wizard_name = vname) then
     raise exception 'creating wizard %, spell book not empty', vname;
   end if;
   insert into spell_books (wizard_name, spell_name)
@@ -3204,7 +3166,7 @@ create function create_object(vptype text, vallegiance text, x int, y int)
   returns void as $$
 begin
   --assert ptype is an object ptype
-  if ((select count(*) from object_piece_types where ptype = vptype) = 0) then
+  if not exists(select 1 from object_piece_types where ptype = vptype) then
     raise exception 'called create object on % which is not an object', vptype;
   end if;
   perform create_piece_internal(vptype, vallegiance, x, y, false);
@@ -3215,7 +3177,7 @@ $$ language plpgsql volatile strict;
 create function create_monster(vptype text, allegiance text, x int, y int,
                                imaginary boolean) returns void as $$
 begin
-  if ((select count(*) from monster_prototypes where ptype = vptype) = 0) then
+  if not exists(select 1 from monster_prototypes where ptype = vptype) then
     raise exception 'called create monster on % which is not a monster', vptype;
   end if;
   perform create_piece_internal(vptype, allegiance, x, y, imaginary);
@@ -3227,7 +3189,7 @@ create function create_corpse(vptype text, px int, py int, imaginary boolean)
 declare
   vtag int;
 begin
-  if ((select count(*) from monster_prototypes where ptype = vptype) = 0) then
+  if not exists(select count(*) from monster_prototypes where ptype = vptype) then
     raise exception 'called create corpse on % which is not a monster', vptype;
   end if;
   perform create_piece_internal(vptype,
@@ -3258,11 +3220,11 @@ TODO: use rules on piece-view to support inserts and updates on it
   use an insert/ select from piece-prototype view to do insert
   solve problem with null attributes cos this will be useful in many places
 */
-  if ((select count(*) from piece_prototypes where ptype = vptype) = 0) then
+  if not exists(select count(*) from piece_prototypes where ptype = vptype) then
     raise exception
       'called create piece with % but there is no such piece type.', vptype;
   end if;
-  if ((select count(*) from wizards where wizard_name = vallegiance) = 0) then
+  if not exists(select count(*) from wizards where wizard_name = vallegiance) then
     raise exception
       'called create piece with allegiance % but there is no such wizard',
       vallegiance;
@@ -3358,10 +3320,10 @@ begin
   --raise notice 'kill';
   if (select (undead is not null and undead = true) from pieces_mr
     where (ptype, allegiance, tag) = (pptype, pallegiance, ptag)) or
-    (select count(*) > 0 from object_piece_types
+    exists(select 1 from object_piece_types
     where ptype = pptype) then
     perform disintegrate(pptype, pallegiance, ptag);
-  elseif (select count(*) > 0 from monster_prototypes where ptype = pptype) then
+  elseif exists(select 1 from monster_prototypes where ptype = pptype) then
     perform kill_monster(pptype, pallegiance, ptag);
   elseif pptype = 'wizard' then
     perform kill_wizard(pallegiance);
@@ -3450,8 +3412,8 @@ create table wizard_starting_positions ( --tags: readonly
 select add_key('wizard_starting_positions', array['wizard_count', 'place']);
 select add_key('wizard_starting_positions', array['wizard_count', 'x', 'y']);
 select add_constraint('wizard_starting_positions_place_valid',
-  '(select count(*) from wizard_starting_positions
-    where place >= wizard_count ) = 0',
+  'not exists(select 1 from wizard_starting_positions
+    where place >= wizard_count)',
   array['wizard_starting_positions']);
 select set_relvar_type('wizard_starting_positions', 'readonly');
 

@@ -344,9 +344,9 @@ create table cursor_position (
   y int
 );
 select add_constraint('cursor_position_coordinates_valid',
-$$(select count(*) from cursor_position
+$$ not exists (select 1 from cursor_position
   cross join board_size
-  where x >= width or y >= height) = 0$$,
+  where x >= width or y >= height)$$,
 array['cursor_position', 'board_size']);
 select constrain_to_zero_or_one_tuple('cursor_position');
 select set_relvar_type('cursor_position', 'data');
@@ -972,8 +972,8 @@ select add_key('new_game_widget_state', 'sprite');
 select add_key('new_game_widget_state', 'colour');
 select add_foreign_key('new_game_widget_state', 'sprite', 'sprites');
 select add_constraint('new_game_widget_state_line_valid',
-'(select count(*) from new_game_widget_state
-  where line >= 8) = 0',
+' not exists(select 1 from new_game_widget_state
+  where line >= 8)',
 array['new_game_widget_state']);
 select set_relvar_type('new_game_widget_state', 'data');
 
@@ -1196,13 +1196,13 @@ then a strategy of taking an action and
 */
   --raise notice 'action_key_pressed %', pkeycode;
   for r in select * from key_control_settings where key_code = pkeycode loop
-    if (select count(*) from client_valid_activate_actions
-        where action=r.action_name) = 1 then
+    if exists (select 1 from client_valid_activate_actions
+        where action=r.action_name) then
       --raise notice 'running %', r.action_name;
       execute 'select action_' || r.action_name || '();';
-    elseif (select count(*) from client_valid_target_actions
+    elseif exists(select 1 from client_valid_target_actions
             natural inner join cursor_position
-            where action = r.action_name) = 1 then
+            where action = r.action_name) then
       execute 'select action_' || r.action_name ||
               '(' || (select x from cursor_position) ||
               ', ' || (select y from cursor_position) || ');';
@@ -1328,11 +1328,11 @@ begin
 
   --populate window data,
   -- preserve settings from previous game if there are some
-  if (select count(window_name) from windows) = 0 then
+  if not exists(select 1 from windows) then
     perform action_reset_windows();
   end if;
 
-  if ((select count(*) from spell_book_show_all_table) = 0) then
+  if not exists(select 1 from spell_book_show_all_table) then
     insert into spell_book_show_all_table values (false);
   end if;
 

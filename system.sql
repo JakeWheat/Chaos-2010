@@ -386,7 +386,7 @@ foreign keys to views, and to non key columns.
 */
 -- this function is used in the add foreign key function
 create function attrs_are_key(text, text[]) returns boolean as $$
-  select count(*) > 0 from
+  select exists
   (select constraint_name, count(attribute_name)
     from base_relvar_keys
     natural inner join base_relvar_key_attributes
@@ -398,7 +398,7 @@ create function attrs_are_key(text, text[]) returns boolean as $$
     natural inner join base_relvar_key_attributes
     where relvar_name = $1
       and attribute_name = any ($2)
-    group by constraint_name) as a;
+    group by constraint_name);
 $$ language sql stable strict;
 insert into system_implementation_objects
   (object_name,object_type) values
@@ -431,13 +431,13 @@ documentation to display in end user programs for user friendliness)
   --TODO: rewrite this to use max instead of looping
   -- if target is a base relvar and the target attributes are a key then
   -- pg accelerate it
-  if (select count(*) from database_constraints where
-        constraint_name = vcn) > 0 then
+  if exists(select 1 from database_constraints where
+        constraint_name = vcn) then
     i := 1;
 -- I must be going mad cos I can't find the convert
 -- int to string in base 10 function in pg...
-    while (select count(*) from database_constraints where
-      constraint_name = vcn || to_hex(i)) > 0 loop
+    while exists(select 1 from database_constraints where
+      constraint_name = vcn || to_hex(i)) loop
       i := i + 1;
     end loop;
     vcn := vcn || to_hex(i);
@@ -447,8 +447,8 @@ documentation to display in end user programs for user friendliness)
   -- I think this means that references involving views are a bit
   --broken...
   --TODO: get to the bottom of this, and fix it if neccessary
-  if (select count(*) from base_relvars
-      where relvar_name = reftable) > 0 then
+  if exists(select 1 from base_relvars
+      where relvar_name = reftable) then
     bt := array[vtable, reftable];
   else
     bt := array[vtable];
@@ -457,12 +457,12 @@ documentation to display in end user programs for user friendliness)
 
   accel := attrs_are_key(reftable, ref_attr);
   -- add constraint
-  perform add_constraint_internal(vcn, '(select count(*) from
+  perform add_constraint_internal(vcn, 'not exists
 (select ' || array_to_string(src_attr, ', ') ||
   ' from ' || vtable || '
   except
 select ' || array_to_string(ref_attr, ', ') ||
-  ' from ' || reftable || ') as a) = 0',
+  ' from ' || reftable || ')',
 bt, accel);
   if accel then
     perform set_pg_fk(vcn, vtable, src_attr, reftable, ref_attr);
@@ -882,10 +882,10 @@ select add_key('system_implementation_objects',
 --run it as a test so at least we keep checking it
 create function check_code_slow_si_objects_constraints() returns boolean as $$
 begin
-  if (select count(*) from
+  if not exists
      (select object_name, object_type from system_implementation_objects
       except
-      select object_name, object_type from all_database_objects) as a) = 0 then
+      select object_name, object_type from all_database_objects) then
     return true;
   else
     return false;
@@ -1176,7 +1176,7 @@ begin
            where nspname = 'public')
            and relkind = 'r'
            --don't touch 'multirelations'
-           and (select count(1) from regexp_matches(relname, '_mr$')) = 0)
+           and not exists(select 1 from regexp_matches(relname, '_mr$')))
     and attnum >= 1;
 end;
 $$ language plpgsql volatile strict;
@@ -1201,7 +1201,7 @@ begin
         on (table_name = relvar_name)
       where is_nullable='YES'
         --ignore touch multirelations
-        and (select count(1) from regexp_matches(table_name, '_mr$')) = 0 loop
+        and not exists(select 1 from regexp_matches(table_name, '_mr$')) loop
     success := false;
     raise notice '%.% - nullable column', r.table_name, r.column_name;
   end loop;
