@@ -3216,7 +3216,7 @@ todo: add all relvars which aren't readonly to this
 >                                       "cast_alignment_table",
 >                                       "pieces_to_move",
 >                                       "selected_piece",
->                                       "squares_left_to_walk_table"]
+>                                       "remaining_walk_table"]
 
 == some helper functions
 

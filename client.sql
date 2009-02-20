@@ -308,7 +308,7 @@ select add_foreign_key('init_wizard_display_info_argument',
                        'wizard_name', 'wizards');
 select add_foreign_key('init_wizard_display_info_argument',
                        'sprite', 'sprites');
-select set_relvar_type('init_wizard_display_info_argument', 'argument');
+select set_relvar_type('init_wizard_display_info_argument', 'stack');
 
 create function init_wizard_display_info() returns void as $$ --tags: init
 declare
@@ -613,10 +613,7 @@ create view cursor_piece_details as
 create view selected_piece_details as
   select * from piece_details
       natural inner join selected_piece
-      natural full outer join squares_left_to_walk_table;
-
-select create_var('prompt', 'text');
-select set_relvar_type('prompt_table', 'data');
+      natural full outer join remaining_walk_table;
 
 select set_module_for_preceding_objects('board_widget');
 
@@ -1313,7 +1310,7 @@ select add_constraint('action_client_new_game_place_valid',
   where place >=
   (select count(*) from action_client_new_game_argument)) = 0',
  array['action_client_new_game_argument']);
-select set_relvar_type('action_client_new_game_argument', 'argument');
+select set_relvar_type('action_client_new_game_argument', 'stack');
 
 --this calls server new game
 create function action_client_new_game() returns void as $$

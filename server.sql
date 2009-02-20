@@ -4,7 +4,7 @@ Copyright 2009 Jake Wheat
 
 = Overview
 
-metadata - the readonly,data,argument tags for relvars
+metadata - the readonly,data,stack tags for relvars
 read only data - piece prototypes and spells revlars
 game data - mainly wizards, spellbooks and pieces relvars
 turn sequence - relvars for turn sequence progression
@@ -26,7 +26,7 @@ select new_module('metadata', 'server');
 
 create table base_relvar_metadata (
   relvar_name text,
-  type text check (type in('readonly', 'data', 'argument'))
+  type text check (type in('readonly', 'data', 'stack'))
 );
 select add_key('base_relvar_metadata', 'relvar_name');
 select add_foreign_key('base_relvar_metadata', 'relvar_name', 'base_relvars');
@@ -65,7 +65,7 @@ begin
     except select relvar_name from base_relvar_metadata loop
     success := false;
       raise notice
-        'table % is not tagged with one of readonly, data, argument',
+        'table % is not tagged with one of readonly, data, stack',
         r.object_name;
   end loop;
   return success;
@@ -94,6 +94,12 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
+/*
+
+todo: find way to enforce stack tables empty outside transaction, or
+some sort of partial tests on this
+
+*/
 
 /*
 == callback notes
@@ -733,11 +739,11 @@ in_next_phase_hack_table in the relvar list for the constraint.
 */
 select create_var('in_next_phase_hack', 'boolean');
 insert into in_next_phase_hack_table values (false);
-select set_relvar_type('in_next_phase_hack_table', 'data');
+select set_relvar_type('in_next_phase_hack_table', 'stack');
 
 select create_var('creating_new_game', 'boolean');
 insert into creating_new_game_table values (true);
-select set_relvar_type('creating_new_game_table', 'data');
+select set_relvar_type('creating_new_game_table', 'stack');
 
 --Turn number, starts at 0 goes up 1 each full turn, just used to provide
 --info on how long the game has been going.
@@ -944,7 +950,7 @@ writing out the fk by hand and adding the in next phase hack.
 */
 select create_var('spell_choice_hack', 'boolean');
 insert into spell_choice_hack_table values (false);
-select set_relvar_type('spell_choice_hack_table', 'data');
+select set_relvar_type('spell_choice_hack_table', 'stack');
 
 select add_constraint('wizard_spell_choices_wizard_name_spell_name_fkey',
 $$((select spell_choice_hack from spell_choice_hack_table) or
@@ -1064,7 +1070,7 @@ by two in the absence of any other spells.
 
 */
 select create_var('cast_alignment', 'integer');
-select set_relvar_type('cast_alignment_table', 'data');
+select set_relvar_type('cast_alignment_table', 'stack');
 
 select add_constraint('cast_alignment_empty',
   $$((get_turn_phase() = 'cast') or
@@ -1145,20 +1151,62 @@ diagonal, second diagonal move all move used up, can't do three
 diagonal moves.
 
 */
-select create_var('squares_left_to_walk', 'int');
-select set_relvar_type('squares_left_to_walk_table', 'data');
-select add_constraint('squares_left_to_walk_only_motion',
-$$ (not exists(select 1 from squares_left_to_walk_table) or
-   exists(select 1 from creating_new_game_table
-      where creating_new_game = true) or
-   (select in_next_phase_hack from in_next_phase_hack_table) or
-   (exists(select 1 from selected_piece)
-      and (select move_phase = 'motion' from selected_piece)
-      and exists (select 1 from creature_pieces
-                  natural inner join selected_piece)
-      and (select not flying from creature_pieces
-           natural inner join selected_piece))) $$,
-  array['selected_piece', 'pieces_mr', 'squares_left_to_walk_table']);
+select create_var('remaining_walk', 'int');
+select set_relvar_type('remaining_walk_table', 'data');
+select create_var('remaining_walk_hack', 'boolean');
+select set_relvar_type('remaining_walk_hack_table', 'stack');
+insert into remaining_walk_hack_table values (false);
+
+-- select add_constraint('remaining_walk_only_motion',
+-- $$ ((not exists(select 1 from remaining_walk_table)) or
+--    exists(select 1 from creating_new_game_table
+--       where creating_new_game = true) or
+--    (select remaining_walk_hack
+--      from remaining_walk_hack_table) or
+--    (exists(select 1 from selected_piece)
+--       and (select move_phase = 'motion' from selected_piece)
+--       and exists (select 1 from creature_pieces
+--                   natural inner join selected_piece)
+--       and (select not flying from creature_pieces
+--            natural inner join selected_piece))) $$,
+--   array['selected_piece', 'pieces_mr', 'remaining_walk_table',
+--         'remaining_walk_hack_table', 'creating_new_game_table']);
+
+create or replace function check_remaining() returns void as $$
+begin
+  --  raise notice '***********************************************************\n**********************************************check remaining: % \ncheck con % \ncheck tbl %',
+--      (not exists(select 1 from remaining_walk_table) or
+--                    exists(select 1 from creating_new_game_table
+--                       where creating_new_game = true) or
+--                    (select remaining_walk_hack
+--                      from remaining_walk_hack_table) or
+--                    (exists(select 1 from selected_piece)
+--                      and (select move_phase = 'motion' from selected_piece)
+--                       and exists (select 1 from creature_pieces
+--                                   natural inner join selected_piece)
+--                       and (select not flying from creature_pieces
+--                            natural inner join selected_piece))),
+--      check_con_remaining_walk_only_motion(),
+--      rwgtcto();
+
+end;
+$$ language plpgsql volatile strict;
+
+create or replace function rwgtcto() returns boolean as $$
+begin
+                 return  ((not exists(select 1 from remaining_walk_table)) or
+                  exists(select 1 from creating_new_game_table
+                     where creating_new_game = true) or
+                  (select remaining_walk_hack
+                    from remaining_walk_hack_table) or
+                  (exists(select 1 from selected_piece)
+                     and (select move_phase = 'motion' from selected_piece)
+                     and exists (select 1 from creature_pieces
+                                 natural inner join selected_piece)
+                     and (select not flying from creature_pieces
+                          natural inner join selected_piece)));
+end;
+$$ language plpgsql volatile strict;
 
 --this function is used to initialise the turn phase data.
 create function init_turn_stuff() returns void as $$
@@ -1588,7 +1636,7 @@ select tx as x, ty as y from board_ranges
 --exclude flying creatures
   where range = 1 and not flying
 -- only if the selected piece has squares left to walk
-  and get_squares_left_to_walk() > 0;
+  and get_remaining_walk() > 0;
 
 create view squares_within_selected_piece_flight_range as
   select tx as x, ty as y from board_ranges
@@ -2531,7 +2579,7 @@ create table cast_magic_wood_squares (
   y int,
   unique (x,y)
 );
-select set_relvar_type('cast_magic_wood_squares', 'data');
+select set_relvar_type('cast_magic_wood_squares', 'stack');
 
 create view adjacent_to_new_tree_squares as
   select tx as x, ty as y from
@@ -2692,6 +2740,7 @@ turn.
 
 === selection and subphase
 */
+
 create function action_select_piece(pallegiance text,
                                                pptype text,ptag int)
   returns void as $$
@@ -2701,8 +2750,9 @@ begin
       where (ptype,allegiance,tag)=(ptype,pallegiance,ptag)),
     (select y from pieces_on_top
       where (ptype,allegiance,tag)=(ptype,pallegiance,ptag)));
-  update in_next_phase_hack_table
-    set in_next_phase_hack = true;
+  perform check_remaining();
+  update remaining_walk_hack_table
+    set remaining_walk_hack = true;
   insert into selected_piece (ptype, allegiance, tag, move_phase) values
     (pptype, pallegiance, ptag,
     --skip move or attack phases if the piece cannot move or attack
@@ -2722,13 +2772,16 @@ begin
         where (ptype,allegiance,tag) = (pptype, pallegiance, ptag)) as a
      limit 1));
 
-  if (is_walker(pptype, pallegiance, ptag)) then
-    insert into squares_left_to_walk_table
+  if exists(select 1 from selected_piece
+            natural inner join creature_pieces
+            where flying) then
+    insert into remaining_walk_table
       select speed from creature_pieces
         natural inner join selected_piece;
   end if;
-  update in_next_phase_hack_table
-    set in_next_phase_hack = false;
+  perform check_remaining();
+  update remaining_walk_hack_table
+    set remaining_walk_hack = false;
   --for a piece that is in the attack phase, we skip to ranged or
   --complete that piece's move automatically if there is nothing for
   --them to attack
@@ -2765,12 +2818,14 @@ begin
   delete from pieces_to_move where (ptype, allegiance, tag) =
     (select ptype, allegiance, tag from selected_piece);
   --empty selected piece, squares left_to_walk
-  update in_next_phase_hack_table
-    set in_next_phase_hack = true;
+  perform check_remaining();
+  update remaining_walk_hack_table
+    set remaining_walk_hack = true;
   delete from selected_piece;
-  delete from squares_left_to_walk_table;
-  update in_next_phase_hack_table
-    set in_next_phase_hack = false;
+  delete from remaining_walk_table;
+  perform check_remaining();
+  update remaining_walk_hack_table
+    set remaining_walk_hack = false;
   --if there are no more pieces that can be selected then move to next
   --phase automatically, todo: take into account monsters in blob
   if (select count(*) from pieces_to_move) = 0 then
@@ -2799,7 +2854,7 @@ begin
 --     --hack - if cancelling in motion phase with more squares to walk
 --     --or not flying, and adjacent enemies, the cancel also cancels the
 --     --attack as per the original chaos
---     if (get_squares_left_to_walk() > 0
+--     if (get_remaining_walk() > 0
 --          or (select flying from selected_piece
 --              natural inner join creature_pieces))
 --        and (select count(*)
@@ -2813,12 +2868,13 @@ begin
 --         return;
 --       end if;
 --     else
---       delete from squares_left_to_walk_table;
+--       delete from remaining_walk_table;
 --     end if;
 --   end if;
-  update in_next_phase_hack_table
-    set in_next_phase_hack = true;
-  delete from squares_left_to_walk_table;
+  perform check_remaining();
+  update remaining_walk_hack_table
+    set remaining_walk_hack = true;
+  delete from remaining_walk_table;
   if r.move_phase = 'motion' and
      (select count(*)
       from attackable_pieces_next_to_current_piece) > 0 then
@@ -2830,8 +2886,9 @@ begin
   else
     perform action_unselect_piece();
   end if;
-  update in_next_phase_hack_table
-    set in_next_phase_hack = false;
+  perform check_remaining();
+  update remaining_walk_hack_table
+    set remaining_walk_hack = false;
 end;
 $$ language plpgsql volatile strict;
 
@@ -2842,9 +2899,7 @@ create function action_walk(px int, py int) returns void as $$
 begin
   perform check_can_run_action('walk', px, py);
   perform selected_piece_move_to(px, py);
-  update squares_left_to_walk_table
-    set squares_left_to_walk = squares_left_to_walk - 1;
-  if get_squares_left_to_walk() = 0 then
+  if get_remaining_walk() = 0 then
     perform action_next_move_subphase();
   end if;
 end;
@@ -2916,6 +2971,7 @@ begin
     from pieces_on_top
     where x = px and y = py;
   perform kill_piece(r.ptype, r.allegiance, r.tag);
+
   --move to the square if walker
   if exists(select 1 from creature_prototypes
               natural inner join selected_piece) then
@@ -2957,21 +3013,48 @@ $$ language plpgsql volatile strict;
 
 /*
 === internals
+
+subphase progression
+
+if start and mover -> motion
+elseif attacking and attackable and not cancelled -> attack
+elseif range -> ranged
+else end
 */
 
+create view attackable_pieces_next_to_piece as
+select x,y,allegiance
+  from attackable_pieces
+  natural inner join pieces_on_top;
 
-create function is_walker(vptype text, vallegiance text, vtag int)
-  returns boolean as $$
+create function piece_next_subphase(current_subphase text, pptype text, pallegiance text, ptag int) returns text as $$
+declare
+  r record;
 begin
-  if (select count(*) from creature_pieces
-     where (ptype, allegiance, tag) = (vptype, vallegiance, vtag)
-     and flying = false) = 1 then
-    return true;
-  else
-    return false;
+  select into r x,y from pieces where (ptype,allegiance,tag)=(pptype,pallegiance,ptag);
+  if current_subphase = 'start' and
+      exists(select 1 from creature_pieces
+             where (ptype,allegiance,tag)=(pptype,pallegiance,ptag)) then
+    return 'motion';
+  elseif --add cancelled motion
+         exists(select 1 from attacking_pieces
+                where (ptype,allegiance,tag)=(pptype,pallegiance,ptag))
+         and exists(select 1 from attackable_pieces ap
+           natural inner join pieces_on_top
+           --want to keep rows where the attack piece is range 1 from
+           --the piece in question, so the board range source x,y is the
+           --x,y of the piece in question, and the target x,y is the
+           --x,y positions of the enemy attackable pieces
+           inner join board_ranges on (x,y,tx,ty)=(r.x,r.y,ap.x,ap.y)
+           where allegiance <> pallegiance
+             and range = 1) then
+    return 'attack';
+  elseif exists(select 1 from range_attacking_pieces
+                where (ptype,allegiance,tag)=(pptype,pallegiance,ptag)) then
+    return 'ranged-attack';
   end if;
 end;
-$$ language plpgsql stable strict;
+$$ language plpgsql volatile strict;
 
 create function add_chinned_history(px int, py int) returns void as $$
 begin
@@ -3026,6 +3109,16 @@ begin
         y = py
     where (ptype,allegiance,tag) =
       (select ptype,allegiance,tag from selected_piece);
+
+  --todo: if diagonal, reduce by 1.5
+  if exists(select 1 from creature_pieces
+            natural inner join selected_piece
+            where not flying) and
+     (select move_phase from selected_piece)='motion' then
+    perform check_remaining();
+    update remaining_walk_table
+    set remaining_walk = remaining_walk - 1;
+  end if;
 
 end;
 $$ language plpgsql volatile strict;
@@ -3396,7 +3489,7 @@ select add_constraint('action_new_game_argument_place_valid',
     where place >= (select count(*) from action_new_game_argument)) = 0',
   array['action_new_game_argument']);
 
-select set_relvar_type('action_new_game_argument', 'argument');
+select set_relvar_type('action_new_game_argument', 'stack');
 
 /*
 new game action - fill in action_new_game_argument first
@@ -3416,7 +3509,7 @@ begin
   --turn data
   delete from game_completed_table;
   delete from cast_alignment_table;
-  delete from squares_left_to_walk_table;
+  delete from remaining_walk_table;
   delete from selected_piece;
   delete from pieces_to_move;
   delete from spell_parts_to_cast_table;

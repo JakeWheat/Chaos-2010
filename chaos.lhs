@@ -335,7 +335,7 @@ to see imaginary of monsters that aren't yours.
 >         let pieceBoolStats = flip filter booleanStats (\s -> pi s == "true")
 >         when (length pieceBoolStats > 0)
 >                  (ibc $ '\n' : intercalate ", " pieceBoolStats)
->         forM_ ["squares_left_to_walk",
+>         forM_ ["remaining_walk",
 >                "move_phase",
 >                "attack_strength",
 >                "physical_defense",

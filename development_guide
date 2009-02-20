@@ -66,9 +66,12 @@ All the base relvars in the database are tagged as one of
 * data: holds data specific to the current game, including client/ ui
   stuff
 
-* argument: table to hold relation valued arguments to operators - to
-  work around the inability to pass a relation value as an argument to
-  a function in sql.
+* stack: tables to hold relvars which would be 'on the stack' if
+  plpgsql supported this - either relvars local to a function, or
+  relations passed as argument to a function. plpgsql does effectively
+  support returning a relation from a function, so this is used
+  directly. These relvars should always be empty outside a
+  transaction.
 
 All updates to the relvars use 'actions' which are the stored procs
 which update the database. (The reason for this is that most of the

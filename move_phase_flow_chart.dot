@@ -43,7 +43,7 @@ digraph simple_hierarchy {
     label="motion"
     subgraph cluster_motion_entry {
       label="entry"
-      start_walk [label="start walk"]
+      start_motion [label="start motion"]
       action_walk [label="action walk" shape="doubleoctagon"]
       action_fly [shape="doubleoctagon"]
       action_cancel [shape="doubleoctagon"]
@@ -72,7 +72,7 @@ digraph simple_hierarchy {
       motion_do_attack[label="goto do attack"]
     }
   }
-  start_walk->init_motion
+  start_motion->init_motion
   init_motion->motion_wait_for_action [label="no"]
   init_motion->init_walker [label="yes"]
   init_walker->motion_wait_for_action

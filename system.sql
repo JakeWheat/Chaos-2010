@@ -817,6 +817,7 @@ for them.
     f := $f$create function $f$ || table_trigger_function ||
 $f$() returns trigger as $a$
 begin
+--    raise notice 'in constraint op for $f$ || r.relvar_name || $f$';
 $f$;
     -- loop through the constraints
     for s in select distinct constraint_name, expression
@@ -832,7 +833,9 @@ $f$  if not $f$ || s.expression  || $f$ then
 $f$;
     end loop;
     f := f ||
-$f$return OLD;
+$f$
+--  raise notice 'complete constraint op for $f$ || r.relvar_name || $f$';
+  return OLD;
 end;
 $a$ language plpgsql;$f$;
     --create the function
@@ -855,7 +858,6 @@ $f$();$f$;
       (operator_name)
       values(table_trigger_function);
   end loop;
-
 end;
 $$ language plpgsql volatile strict;
 insert into system_implementation_objects(object_name, object_type)
