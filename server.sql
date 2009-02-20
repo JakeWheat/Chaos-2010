@@ -1815,7 +1815,7 @@ select 'unselect_piece'::text as action
   from selected_piece
 --next subphase
 union
-select 'next_move_subphase'::text as action
+select 'cancel'::text as action
   from selected_piece
 union
 /*
@@ -2742,54 +2742,67 @@ turn.
 */
 
 create function action_select_piece(pallegiance text,
-                                               pptype text,ptag int)
+                                    pptype text,ptag int)
   returns void as $$
+declare
+  nextp text;
 begin
   perform check_can_run_action('select_piece_at_position',
     (select x from pieces_on_top
       where (ptype,allegiance,tag)=(ptype,pallegiance,ptag)),
     (select y from pieces_on_top
       where (ptype,allegiance,tag)=(ptype,pallegiance,ptag)));
-  perform check_remaining();
-  update remaining_walk_hack_table
-    set remaining_walk_hack = true;
+  nextp:= piece_next_subphase('start', false, pptype, pallegiance, ptag);
+  if nextp = 'end' then
+    --nothing to do
+    delete from pieces_to_move
+      where (ptype, allegiance, tag) = (pptype, pallegiance, ptag);
+    if (select count(*) from pieces_to_move) = 0 then
+      perform action_next_phase();
+    end if;
+    return;
+  end if;
   insert into selected_piece (ptype, allegiance, tag, move_phase) values
-    (pptype, pallegiance, ptag,
-    --skip move or attack phases if the piece cannot move or attack
-    --todo: also skip attack phase if nothing in range
-    --need to deal with possibility that the piece is automatically
-    --unselected because it can't do anything
-    (select * from (
-      select 'motion' as o from creature_pieces
-        where (ptype,allegiance,tag) = (pptype, pallegiance, ptag)
-      union all --welll dodgy, use union all to keep the rows in the
-                --order they are written down in so that the limit 1
-                --keeps the correct row.
-      select 'attack' from attacking_pieces
-        where (ptype,allegiance,tag) = (pptype, pallegiance, ptag)
-      union all
-      select 'ranged-attack' from ranged_weapon_pieces
-        where (ptype,allegiance,tag) = (pptype, pallegiance, ptag)) as a
-     limit 1));
+    (pptype, pallegiance, ptag, nextp);
+--     --skip move or attack phases if the piece cannot move or attack
+--     --todo: also skip attack phase if nothing in range
+--     --need to deal with possibility that the piece is automatically
+--     --unselected because it can't do anything
+--     (select * from (
+--       select 'motion' as o from creature_pieces
+--         where (ptype,allegiance,tag) = (pptype, pallegiance, ptag)
+--       union all --welll dodgy, use union all to keep the rows in the
+--                 --order they are written down in so that the limit 1
+--                 --keeps the correct row.
+--       select 'attack' from attacking_pieces
+--         where (ptype,allegiance,tag) = (pptype, pallegiance, ptag)
+--       union all
+--       select 'ranged-attack' from ranged_weapon_pieces
+--         where (ptype,allegiance,tag) = (pptype, pallegiance, ptag)) as a
+--      limit 1));
 
-  if exists(select 1 from selected_piece
-            natural inner join creature_pieces
-            where flying) then
+  if nextp = 'motion' and
+       exists(select 1 from selected_piece
+              natural inner join creature_pieces
+              where not flying) then
+    perform check_remaining();
+    update remaining_walk_hack_table
+      set remaining_walk_hack = true;
     insert into remaining_walk_table
       select speed from creature_pieces
         natural inner join selected_piece;
+    perform check_remaining();
+    update remaining_walk_hack_table
+      set remaining_walk_hack = false;
   end if;
-  perform check_remaining();
-  update remaining_walk_hack_table
-    set remaining_walk_hack = false;
   --for a piece that is in the attack phase, we skip to ranged or
   --complete that piece's move automatically if there is nothing for
   --them to attack
-  if (select move_phase from selected_piece) = 'attack' and
-     (select count(1) from valid_target_actions
-      where action = 'attack') = 0 then
-    perform action_next_move_subphase();
-  end if;
+  --if (select move_phase from selected_piece) = 'attack' and
+  --   (select count(1) from valid_target_actions
+  --    where action = 'attack') = 0 then
+  -- perform action_next_move_subphase();
+  --end if;
   --insert history
 end;
 $$ language plpgsql volatile strict;
@@ -2836,61 +2849,46 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
-create function action_next_move_subphase() returns void as $$
+create or replace function action_cancel() returns void as $$
+begin
+  perform check_can_run_action('cancel');
+  perform do_next_move_subphase(true);
+end;
+$$ language plpgsql volatile strict;
+/*
+==== internals
+*/
+create or replace function do_next_move_subphase(skip_attack boolean) returns void as $$
 declare
   r record;
+  nextp text;
 begin
-  --check if creature has just died - just bodge it for now this will
-  --silently return instead of erroring under some circumstances where
-  --this function is sort of incorrectly called, this can happen if
-  --a creature kills its own wizard
   if not exists (select 1 from selected_piece) then
     return;
   end if;
-  perform check_can_run_action('next_move_subphase');
   select into r * from selected_piece
     natural inner join pieces;
-
---     --hack - if cancelling in motion phase with more squares to walk
---     --or not flying, and adjacent enemies, the cancel also cancels the
---     --attack as per the original chaos
---     if (get_remaining_walk() > 0
---          or (select flying from selected_piece
---              natural inner join creature_pieces))
---        and (select count(*)
---         from attackable_pieces_next_to_current_piece) > 0 then
---       if (select count(*) from ranged_weapon_pieces
---         natural inner join selected_piece) = 1 then
---         update selected_piece set move_phase = 'ranged-attack';
---         return;
---       else
---         perform action_unselect_piece();
---         return;
---       end if;
---     else
---       delete from remaining_walk_table;
---     end if;
---   end if;
-  perform check_remaining();
-  update remaining_walk_hack_table
-    set remaining_walk_hack = true;
-  delete from remaining_walk_table;
-  if r.move_phase = 'motion' and
-     (select count(*)
-      from attackable_pieces_next_to_current_piece) > 0 then
-    update selected_piece set move_phase = 'attack';
-  elseif r.move_phase in ('motion','attack') and
-      (select count(*) from ranged_weapon_pieces
-       natural inner join selected_piece) = 1 then
-    update selected_piece set move_phase = 'ranged-attack';
-  else
-    perform action_unselect_piece();
+  nextp := piece_next_subphase((select move_phase from selected_piece),
+             skip_attack, r.ptype, r.allegiance, r.tag);
+  --raise notice 'next_move_subphase % % % % -> %', r.ptype, r.allegiance, r.tag, r.move_phase, nextp;
+  if r.move_phase = 'motion' then
+    perform check_remaining();
+    update remaining_walk_hack_table
+      set remaining_walk_hack = true;
+      delete from remaining_walk_table;
+    perform check_remaining();
+    update remaining_walk_hack_table
+      set remaining_walk_hack = false;
   end if;
-  perform check_remaining();
-  update remaining_walk_hack_table
-    set remaining_walk_hack = false;
+
+  if nextp = 'end' then
+    perform action_unselect_piece();
+  else
+    update selected_piece set move_phase = nextp;
+  end if;
 end;
 $$ language plpgsql volatile strict;
+
 
 /*
 === movement
@@ -2900,7 +2898,7 @@ begin
   perform check_can_run_action('walk', px, py);
   perform selected_piece_move_to(px, py);
   if get_remaining_walk() = 0 then
-    perform action_next_move_subphase();
+    perform do_next_move_subphase(false);
   end if;
 end;
 $$ language plpgsql volatile strict;
@@ -2909,7 +2907,7 @@ create function action_fly(px int, py int) returns void as $$
 begin
   perform check_can_run_action('fly', px, py);
   perform selected_piece_move_to(px, py);
-  perform action_next_move_subphase();
+  perform do_next_move_subphase(false);
 end;
 $$ language plpgsql volatile strict;
 
@@ -2917,7 +2915,7 @@ create function action_enter(px int, py int) returns void as $$
 begin
   perform check_can_run_action('enter', px, py);
   perform selected_piece_move_to(px, py);
-  perform action_next_move_subphase();
+  perform do_next_move_subphase(false);
 end;
 $$ language plpgsql volatile strict;
 
@@ -2925,7 +2923,7 @@ create function action_exit(px int, py int) returns void as $$
 begin
   perform check_can_run_action('exit', px, py);
   perform selected_piece_move_to(px, py);
-  perform action_next_move_subphase();
+  perform do_next_move_subphase(false);
 end;
 $$ language plpgsql volatile strict;
 
@@ -2945,7 +2943,7 @@ $$ language plpgsql volatile strict;
 /*
 === attacking
 */
-create function action_attack(px int, py int) returns void as $$
+create or replace function action_attack(px int, py int) returns void as $$
 declare
   r record;
   att int;
@@ -2964,6 +2962,7 @@ begin
 
   if not check_random_success('attack', max((att - def) * 10, 10)) then
     --failure
+    perform do_next_move_subphase(true);
     return;
   end if;
 
@@ -2977,11 +2976,11 @@ begin
               natural inner join selected_piece) then
     perform selected_piece_move_to(px, py);
   end if;
-  perform action_next_move_subphase();
+  perform do_next_move_subphase(true);
 end;
 $$ language plpgsql volatile strict;
 
-create function action_ranged_attack(px int, py int) returns void as $$
+create or replace function action_ranged_attack(px int, py int) returns void as $$
 declare
   r record;
   att int;
@@ -3000,6 +2999,7 @@ begin
 
   if not check_random_success('ranged_attack', max((att - def) * 10, 10)) then
     --failure
+    perform do_next_move_subphase(false);
     return;
   end if;
 
@@ -3007,7 +3007,7 @@ begin
     from pieces_on_top
     where x = px and y = py;
   perform kill_piece(r.ptype, r.allegiance, r.tag);
-  perform action_next_move_subphase();
+  perform do_next_move_subphase(false);
 end;
 $$ language plpgsql volatile strict;
 
@@ -3016,10 +3016,10 @@ $$ language plpgsql volatile strict;
 
 subphase progression
 
-if start and mover -> motion
-elseif attacking and attackable and not cancelled -> attack
-elseif range -> ranged
-else end
+skip attack is used to tell this routine to skip the attack sub
+phase. this is if either the motion subphase was just cancelled, or if
+the piece attacked when it was in the motion subphase
+
 */
 
 create view attackable_pieces_next_to_piece as
@@ -3027,17 +3027,34 @@ select x,y,allegiance
   from attackable_pieces
   natural inner join pieces_on_top;
 
-create function piece_next_subphase(current_subphase text, pptype text, pallegiance text, ptag int) returns text as $$
+create or replace function piece_next_subphase(
+  current_subphase text, skip_attack boolean,
+  pptype text, pallegiance text, ptag int)
+  returns text as $$
 declare
   r record;
 begin
-  select into r x,y from pieces where (ptype,allegiance,tag)=(pptype,pallegiance,ptag);
+  select into r x,y from pieces
+    where (ptype,allegiance,tag)=(pptype,pallegiance,ptag);
+--   raise notice 'attacker %',(exists(select 1 from attacking_pieces
+--                 where (ptype,allegiance,tag)=(pptype,pallegiance,ptag)));
+--   raise notice 'attackable % ', (exists(select 1 from attackable_pieces ap
+--            natural inner join pieces_on_top
+--            --want to keep rows where the attack piece is range 1 from
+--            --the piece in question, so the board range source x,y is the
+--            --x,y of the piece in question, and the target x,y is the
+--            --x,y positions of the enemy attackable pieces
+--            inner join board_ranges b on (b.x,b.y,tx,ty)=(r.x,r.y,ap.x,ap.y)
+--            where allegiance <> pallegiance
+--              and range = 1));
+
   if current_subphase = 'start' and
       exists(select 1 from creature_pieces
              where (ptype,allegiance,tag)=(pptype,pallegiance,ptag)) then
     return 'motion';
-  elseif --add cancelled motion
-         exists(select 1 from attacking_pieces
+  elseif current_subphase not in ('attack','ranged-attack')
+         and not skip_attack
+         and exists(select 1 from attacking_pieces
                 where (ptype,allegiance,tag)=(pptype,pallegiance,ptag))
          and exists(select 1 from attackable_pieces ap
            natural inner join pieces_on_top
@@ -3045,13 +3062,16 @@ begin
            --the piece in question, so the board range source x,y is the
            --x,y of the piece in question, and the target x,y is the
            --x,y positions of the enemy attackable pieces
-           inner join board_ranges on (x,y,tx,ty)=(r.x,r.y,ap.x,ap.y)
+           inner join board_ranges b on (b.x,b.y,tx,ty)=(r.x,r.y,ap.x,ap.y)
            where allegiance <> pallegiance
              and range = 1) then
     return 'attack';
-  elseif exists(select 1 from range_attacking_pieces
+  elseif current_subphase not in ('ranged-attack')
+    and exists(select 1 from ranged_weapon_pieces
                 where (ptype,allegiance,tag)=(pptype,pallegiance,ptag)) then
     return 'ranged-attack';
+  else
+    return 'end';
   end if;
 end;
 $$ language plpgsql volatile strict;

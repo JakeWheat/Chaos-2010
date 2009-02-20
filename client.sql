@@ -1088,7 +1088,6 @@ union select 'move_cursor_up_left'
 union select 'move_cursor_down_left'
 union select 'move_cursor_up_right'
 union select 'move_cursor_down_right'
-union select 'cancel' from selected_piece
 union select 'print_widget_info'
 union select 'refresh_windows'
 union select 'spell_book_show_all_update_on'
@@ -1267,18 +1266,6 @@ begin
     end if;
   end if;
   return ;
-end;
-$$ language plpgsql volatile strict;
-
-/*
-=== cancel action
-
-*/
-create function action_cancel() returns void as $$
-begin
-  if (select count(1) from selected_piece) = 1 then
-    perform action_next_move_subphase();
-  end if;
 end;
 $$ language plpgsql volatile strict;
 

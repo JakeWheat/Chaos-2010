@@ -188,39 +188,41 @@ Run all the tests.
 >                         ,testAttackDone conn
 >                         ,testNoAvailAttackDone conn
 >                         ]
->          ,testGroup "cancelSubphases" [
->                          testCancelFlyAttackRangedAttack conn
->                         ,testCancelWalkAttack conn
->                         ,testCancelFlyRangedAttack conn
->                         ,testCancelWalk conn
->                         ,testCancelAttack conn
->                         ]
->          ,testGroup "nonCancelSubphases" [
->                          testFlyAttackRangedAttackDone conn
->                         ,testFlytackRangedAttack conn
->                         ,testWalkAttackDone conn
->                         --,testWalkcancelDone conn
->                         ]
->          ,testGroup "moving" [
->                          testWalkOneSquare conn
->                         ,testWalkTwoSquares conn
->                         ,testFlyOverPieces conn
->                         ]
->           ,testGroup "attacking" [
->                          testAttackWizard conn
->                         ,testFlyAttack conn
->                         ,testFlyThenAttack conn
->                         ,testRangedAttack conn
->                         ,testRangedAttackResisted conn
->                         ,testShadowWoodAttack conn
->                         ]
->           ,testGroup "mount,enter,etc." [
->                         testMoveWhenMounted conn
->                        ,testDismount conn
->                        ,testMoveWhenAlreadyMounted conn
->                        ,testEnter conn
->                        ,testExit conn
->                        ]
+
+-- >          ,testGroup "cancelSubphases" [
+-- >                          testCancelFlyAttackRangedAttack conn
+-- >                         ,testCancelWalkAttack conn
+-- >                         ,testCancelFlyRangedAttack conn
+-- >                         ,testCancelWalk conn
+-- >                         ,testCancelAttack conn
+-- >                         ]
+-- >          ,testGroup "nonCancelSubphases" [
+-- >                          testFlyAttackRangedAttackDone conn
+-- >                         ,testFlytackRangedAttack conn
+-- >                         ,testWalkAttackDone conn
+-- >                         --,testWalkcancelDone conn
+-- >                         ]
+-- >          ,testGroup "moving" [
+-- >                          testWalkOneSquare conn
+-- >                         ,testWalkTwoSquares conn
+-- >                         ,testFlyOverPieces conn
+-- >                         ]
+-- >           ,testGroup "attacking" [
+-- >                          testAttackWizard conn
+-- >                         ,testFlyAttack conn
+-- >                         ,testFlyThenAttack conn
+-- >                         ,testRangedAttack conn
+-- >                         ,testRangedAttackResisted conn
+-- >                         ,testShadowWoodAttack conn
+-- >                         ]
+-- >           ,testGroup "mount,enter,etc." [
+-- >                         testMoveWhenMounted conn
+-- >                        ,testDismount conn
+-- >                        ,testMoveWhenAlreadyMounted conn
+-- >                        ,testEnter conn
+-- >                        ,testExit conn
+-- >                        ]
+
 >           ]
 >        ,testGroup "game complete" [
 >                        testWizardWin conn
@@ -1263,9 +1265,6 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >     checkSelectedPiece conn "Buddha" "goblin"
 >     checkMoveSubphase conn "motion"
 >     goSquare conn 2 0
->     checkMoveSubphase conn "attack"
->     sendKeyPress conn "End"
->     checkPieceDoneSelection conn "goblin" "Buddha"
 >     checkBoard conn ("\n\
 >                   \1 GR   2      3\n\
 >                   \               \n\
@@ -1277,6 +1276,9 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
+>     checkMoveSubphase conn "attack"
+>     sendKeyPress conn "End"
+>     checkPieceDoneSelection conn "goblin" "Buddha"
 
 
 > testCancelMotionDone conn = testCase "testCancelMotionDone" $ rollbackOnError conn $ do
@@ -1346,7 +1348,9 @@ Because of the way the tests are written, we also test successful and unsuccessf
 > testWAttackDone conn = testCase "testWAttackDone" $ rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "goblin" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
+>                ('E', [PieceDescription "goblin" "Buddha" [],
+>                       PieceDescription "giant_rat" "dead" []])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
@@ -1365,7 +1369,7 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >     goSquare conn 2 0
 >     checkPieceDoneSelection conn "goblin" "Buddha"
 >     checkBoard conn ("\n\
->                   \1 G    2      3\n\
+>                   \1 E    2      3\n\
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
@@ -1392,10 +1396,10 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "goblin"
+>     checkSelectedPiece conn "Buddha" "bear"
 >     checkMoveSubphase conn "motion"
 >     goSquare conn 2 0
->     checkSelectedPiece conn "Buddha" "goblin"
+>     checkSelectedPiece conn "Buddha" "bear"
 >     checkMoveSubphase conn "motion"
 >     checkBoard conn ("\n\
 >                   \1 B  R 2      3\n\
@@ -1438,10 +1442,10 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "goblin"
+>     checkSelectedPiece conn "Buddha" "bear"
 >     checkMoveSubphase conn "motion"
 >     goSquare conn 2 0
->     checkSelectedPiece conn "Buddha" "goblin"
+>     checkSelectedPiece conn "Buddha" "bear"
 >     checkMoveSubphase conn "motion"
 >     checkBoard conn ("\n\
 >                   \1 BR   2      3\n\
@@ -1460,7 +1464,9 @@ Because of the way the tests are written, we also test successful and unsuccessf
 > testFlyAttackDone conn = testCase "testFlyAttackDone" $ rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "eagle" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
+>                ('H', [PieceDescription "eagle" "Buddha" [],
+>                       PieceDescription "giant_rat" "dead" []])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G  R  2      3\n\
 >                   \               \n\
@@ -1492,7 +1498,7 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >     goSquare conn 4 0
 >     checkPieceDoneSelection conn "eagle" "Buddha"
 >     checkBoard conn ("\n\
->                   \1   G  2      3\n\
+>                   \1   H  2      3\n\
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
@@ -1607,7 +1613,10 @@ Because of the way the tests are written, we also test successful and unsuccessf
 > testWalkAttackRangedDone conn = testCase "testWalkAttackRangedDone" $ rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "elf" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
+>                ('H', [PieceDescription "elf" "Buddha" [],
+>                       PieceDescription "giant_rat" "dead" []]),
+>                ('r', [PieceDescription "giant_rat" "dead" []])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G R   2      3\n\
 >                   \   R           \n\
@@ -1625,7 +1634,7 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >     goSquare conn 2 0
 >     checkMoveSubphase conn "attack"
 >     checkBoard conn ("\n\
->                   \1 GR    2      3\n\
+>                   \1 GR   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
 >                   \               \n\
@@ -1639,7 +1648,7 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >     goSquare conn 3 0
 >     checkMoveSubphase conn "ranged-attack"
 >     checkBoard conn ("\n\
->                   \1  G   2      3\n\
+>                   \1  H   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
 >                   \               \n\
@@ -1651,10 +1660,9 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "ranged_attack" True
 >     goSquare conn 3 1
->     checkPieceDoneSelection conn "elf" "Buddha"
 >     checkBoard conn ("\n\
->                   \1  G   2      3\n\
->                   \               \n\
+>                   \1  H   2      3\n\
+>                   \   r           \n\
 >                   \               \n\
 >                   \               \n\
 >                   \4             5\n\
@@ -1663,11 +1671,14 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
+>     checkPieceDoneSelection conn "elf" "Buddha"
 
 > testWalkAttackCancelDone conn = testCase "testWalkAttackCancelDone" $ rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "elf" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
+>                ('H', [PieceDescription "elf" "Buddha" [],
+>                       PieceDescription "giant_rat" "dead" []])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G R   2      3\n\
 >                   \   R           \n\
@@ -1685,7 +1696,7 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >     goSquare conn 2 0
 >     checkMoveSubphase conn "attack"
 >     checkBoard conn ("\n\
->                   \1 GR    2      3\n\
+>                   \1 GR   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
 >                   \               \n\
@@ -1699,7 +1710,7 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >     goSquare conn 3 0
 >     checkMoveSubphase conn "ranged-attack"
 >     checkBoard conn ("\n\
->                   \1  G   2      3\n\
+>                   \1  H   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
 >                   \               \n\
@@ -1712,7 +1723,7 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >     sendKeyPress conn "End"
 >     checkPieceDoneSelection conn "elf" "Buddha"
 >     checkBoard conn ("\n\
->                   \1  G   2      3\n\
+>                   \1  H   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
 >                   \               \n\
@@ -1744,7 +1755,7 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >     goSquare conn 2 0
 >     checkMoveSubphase conn "attack"
 >     checkBoard conn ("\n\
->                   \1 GR    2      3\n\
+>                   \1 GR   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
 >                   \               \n\
@@ -1772,7 +1783,7 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >     checkPieceDoneSelection conn "elf" "Buddha"
 >     checkBoard conn ("\n\
 >                   \1 GR   2      3\n\
->                   \   R            \n\
+>                   \   R           \n\
 >                   \               \n\
 >                   \               \n\
 >                   \4             5\n\
@@ -1786,7 +1797,8 @@ Because of the way the tests are written, we also test successful and unsuccessf
 > testCancelRangedDone conn = testCase "testCancelRangedDone" $ rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "elf" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
+>                ('r', [PieceDescription "giant_rat" "dead" []])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
@@ -1798,7 +1810,7 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 1 0
+>     goSquare conn 2 0
 >     checkSelectedPiece conn "Buddha" "elf"
 >     checkMoveSubphase conn "motion"
 >     sendKeyPress conn "End"
@@ -1819,7 +1831,7 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >     checkPieceDoneSelection conn "elf" "Buddha"
 >     checkBoard conn ("\n\
 >                   \1 GR   2      3\n\
->                   \               \n\
+>                   \   r           \n\
 >                   \               \n\
 >                   \               \n\
 >                   \4             5\n\
@@ -1850,7 +1862,7 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >     checkMoveSubphase conn "motion"
 >     goSquare conn 2 0
 >     checkBoard conn ("\n\
->                   \1 G R    2      3\n\
+>                   \1 G R  2      3\n\
 >                   \    R          \n\
 >                   \               \n\
 >                   \               \n\
@@ -1862,8 +1874,8 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >                   \6      7      8",pl)
 >     checkMoveSubphase conn "ranged-attack"
 >     checkBoard conn ("\n\
->                   \1 GR   2      3\n\
->                   \   R           \n\
+>                   \1 G R  2      3\n\
+>                   \    R          \n\
 >                   \               \n\
 >                   \               \n\
 >                   \4             5\n\
@@ -1893,7 +1905,8 @@ Because of the way the tests are written, we also test successful and unsuccessf
 > testAttackDone conn = testCase "testAttackDone" $ rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('W', [PieceDescription "shadow_tree" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
+>                ('r', [PieceDescription "giant_rat" "dead" []])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1WR    2      3\n\
 >                   \    R          \n\
@@ -1911,7 +1924,7 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >     rigActionSuccess conn "attack" True
 >     goSquare conn 2 0
 >     checkBoard conn ("\n\
->                   \1W       2      3\n\
+>                   \1Wr    2      3\n\
 >                   \    R          \n\
 >                   \               \n\
 >                   \               \n\
@@ -3233,18 +3246,20 @@ shorthands to check data in the database
 
 > checkSelectedPiece conn allegiance ptype = do
 >   v <- selectRelation conn "select * from selected_piece" []
+>   when (length v == 0) $ error "checking selected piece, relvar empty"
 >   messageIfError "read selected piece" $
 >     assertEqual "selected piece" (allegiance,ptype)
 >               (head v "allegiance", head v "ptype")
 
 > checkMoveSubphase conn sp = do
 >   ms <- selectRelation conn "select move_phase from selected_piece" []
+>   when (length ms == 0) $ error $ "checking move phase, select_piece empty" ++ sp
 >   messageIfError "read move_phase" $
 >     assertEqual "move subphase" sp (head ms "move_phase")
 
 > checkNoSelectedPiece conn = do
 >   v <- selectRelation conn "select * from selected_piece" []
->   assertBool "no selected piece" (null v)
+>   assertBool "there should be no selected piece" (null v)
 
 ================================================================================
 
