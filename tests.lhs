@@ -171,6 +171,22 @@ Run all the tests.
 >        ,testGroup "move phase stuff" [
 >           testGroup "subphases" [
 >                          testWalkCancelAttackDone conn
+>                         ,testCancelMotionDone conn
+>                         ,testWalkNoAvailAttackDone conn
+>                         ,testWAttackDone conn
+>                         ,testWalk2Done conn
+>                         ,testWalk1CancelDone conn
+>                         ,testFlyAttackDone conn
+>                         ,testFAttackDone conn
+>                         ,testCancelFlyDone conn
+>                         ,testFlyNoAvailAttackDone conn
+>                         ,testWalkAttackRangedDone conn
+>                         ,testWalkAttackCancelDone conn
+>                         ,testWalkCancelRangedDone conn
+>                         ,testCancelRangedDone conn
+>                         ,testWalkNoAvailAttackRangedDone conn
+>                         ,testAttackDone conn
+>                         ,testNoAvailAttackDone conn
 >                         ]
 >          ,testGroup "cancelSubphases" [
 >                          testCancelFlyAttackRangedAttack conn
@@ -1148,7 +1164,7 @@ Check that the game progresses through the subphases correctly, as
 well as the actions work, the subphases are move, attack, ranged
 attack.
 
-Some rules about the subphases:
+=== Some rules about the subphases:
 
 
 A piece is unselected automatically when there are no more valid
@@ -1178,7 +1194,7 @@ The walk squares relvar has exactly one row when there is a selected piece, the 
 
 A piece can be killed whilst selected if it uses its ranged attack on its own wizard - so need to check for this.
 
------------------------------------------------
+=== test outline
 
 our subphase progression options for different pieces depending on
 their capabilities are:
@@ -1225,7 +1241,12 @@ noavailableattack done
 
 === tests
 
+Because of the way the tests are written, we also test successful and unsuccessful attack and ranged attack here, so we don't need to check them elsewhere.
+
 > testWalkCancelAttackDone conn = testCase "testWalkCancelAttackDone" $ rollbackOnError conn $ do
+>     let pl = (wizardPiecesList ++
+>               [('G', [PieceDescription "goblin" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G R   2      3\n\
 >                   \               \n\
@@ -1236,11 +1257,8 @@ noavailableattack done
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",
->                    (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Buddha" []]),
->                    ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])]))
->     --select golbin
+>                   \6      7      8",pl)
+>     --select goblin
 >     goSquare conn 1 0
 >     checkSelectedPiece conn "Buddha" "goblin"
 >     checkMoveSubphase conn "motion"
@@ -1248,33 +1266,681 @@ noavailableattack done
 >     checkMoveSubphase conn "attack"
 >     sendKeyPress conn "End"
 >     checkPieceDoneSelection conn "goblin" "Buddha"
+>     checkBoard conn ("\n\
+>                   \1 GR   2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
 
-* piece has motion-attack potential, walks 1 square)
-walk1 cancelattack done
-cancelmotion done
-walk1 noavailableattack done
-attack-done
 
-* piece has motion-attack potential, walks 2 squares)
-walk2 done
-walk1cancel done
+> testCancelMotionDone conn = testCase "testCancelMotionDone" $ rollbackOnError conn $ do
+>     let pl = (wizardPiecesList ++
+>               [('G', [PieceDescription "goblin" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>     startNewGameReadyToMove conn ("\n\
+>                   \1GR    2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "goblin"
+>     checkMoveSubphase conn "motion"
+>     sendKeyPress conn "End"
+>     checkPieceDoneSelection conn "goblin" "Buddha"
+>     checkBoard conn ("\n\
+>                   \1GR    2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
 
-* piece has motion-attack potential, flies)
-fly attack done
-attack done
-cancelfly done
-fly noavailableattack done
+> testWalkNoAvailAttackDone conn = testCase "testWalkNoAvailAttackDone" $ rollbackOnError conn $ do
+>     let pl = (wizardPiecesList ++
+>               [('G', [PieceDescription "goblin" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>     startNewGameReadyToMove conn ("\n\
+>                   \1G  R  2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "goblin"
+>     checkMoveSubphase conn "motion"
+>     goSquare conn 2 0
+>     checkPieceDoneSelection conn "goblin" "Buddha"
+>     checkBoard conn ("\n\
+>                   \1 G R  2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+
+> testWAttackDone conn = testCase "testWAttackDone" $ rollbackOnError conn $ do
+>     let pl = (wizardPiecesList ++
+>               [('G', [PieceDescription "goblin" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>     startNewGameReadyToMove conn ("\n\
+>                   \1GR    2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "goblin"
+>     checkMoveSubphase conn "motion"
+>     rigActionSuccess conn "attack" True
+>     goSquare conn 2 0
+>     checkPieceDoneSelection conn "goblin" "Buddha"
+>     checkBoard conn ("\n\
+>                   \1 G    2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+
+> testWalk2Done conn = testCase "testWalk2Done" $ rollbackOnError conn $ do
+>     let pl = (wizardPiecesList ++
+>               [('B', [PieceDescription "bear" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>     startNewGameReadyToMove conn ("\n\
+>                   \1B   R 2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "goblin"
+>     checkMoveSubphase conn "motion"
+>     goSquare conn 2 0
+>     checkSelectedPiece conn "Buddha" "goblin"
+>     checkMoveSubphase conn "motion"
+>     checkBoard conn ("\n\
+>                   \1 B  R 2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 3 0
+>     checkPieceDoneSelection conn "bear" "Buddha"
+>     checkBoard conn ("\n\
+>                   \1  B R 2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+
+> testWalk1CancelDone conn = testCase "testWalk1CancelDone" $ rollbackOnError conn $ do
+>     let pl = (wizardPiecesList ++
+>               [('B', [PieceDescription "bear" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>     startNewGameReadyToMove conn ("\n\
+>                   \1B R   2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "goblin"
+>     checkMoveSubphase conn "motion"
+>     goSquare conn 2 0
+>     checkSelectedPiece conn "Buddha" "goblin"
+>     checkMoveSubphase conn "motion"
+>     checkBoard conn ("\n\
+>                   \1 BR   2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     sendKeyPress conn "End"
+>     checkPieceDoneSelection conn "bear" "Buddha"
+
+> testFlyAttackDone conn = testCase "testFlyAttackDone" $ rollbackOnError conn $ do
+>     let pl = (wizardPiecesList ++
+>               [('G', [PieceDescription "eagle" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>     startNewGameReadyToMove conn ("\n\
+>                   \1G  R  2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "eagle"
+>     checkMoveSubphase conn "motion"
+>     goSquare conn 3 0
+>     checkBoard conn ("\n\
+>                   \1  GR  2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     checkMoveSubphase conn "attack"
+>     rigActionSuccess conn "attack" True
+>     goSquare conn 4 0
+>     checkPieceDoneSelection conn "eagle" "Buddha"
+>     checkBoard conn ("\n\
+>                   \1   G  2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+
+> testFAttackDone conn = testCase "testFAttackDone" $ rollbackOnError conn $ do
+>     let pl = (wizardPiecesList ++
+>               [('G', [PieceDescription "eagle" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>     startNewGameReadyToMove conn ("\n\
+>                   \1G  R  2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "eagle"
+>     checkMoveSubphase conn "motion"
+>     rigActionSuccess conn "attack" False
+>     goSquare conn 4 0
+>     checkPieceDoneSelection conn "eagle" "Buddha"
+>     checkBoard conn ("\n\
+>                   \1G  R  2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+
+> testCancelFlyDone conn = testCase "testCancelFlyDone" $ rollbackOnError conn $ do
+>     let pl = (wizardPiecesList ++
+>               [('G', [PieceDescription "eagle" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>     startNewGameReadyToMove conn ("\n\
+>                   \1GR    2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "eagle"
+>     checkMoveSubphase conn "motion"
+>     sendKeyPress conn "End"
+>     checkPieceDoneSelection conn "eagle" "Buddha"
+>     checkBoard conn ("\n\
+>                   \1GR    2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+
+
+> testFlyNoAvailAttackDone conn = testCase "testFlyNoAvailAttackDone" $ rollbackOnError conn $ do
+>     let pl = (wizardPiecesList ++
+>               [('G', [PieceDescription "eagle" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>     startNewGameReadyToMove conn ("\n\
+>                   \1G    R2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "eagle"
+>     checkMoveSubphase conn "motion"
+>     goSquare conn 3 0
+>     checkPieceDoneSelection conn "eagle" "Buddha"
+>     checkBoard conn ("\n\
+>                   \1  G  R2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+
 
 * piece has motion-attack-ranged, walks 1 square
-walk1 attack ranged done
-walk1 attack cancel done
-walk1 cancel ranged done
-cancelwalk ranged done
-walk1 noavailableattack ranged done
+
+> testWalkAttackRangedDone conn = testCase "testWalkAttackRangedDone" $ rollbackOnError conn $ do
+>     let pl = (wizardPiecesList ++
+>               [('G', [PieceDescription "elf" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>     startNewGameReadyToMove conn ("\n\
+>                   \1G R   2      3\n\
+>                   \   R           \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "elf"
+>     checkMoveSubphase conn "motion"
+>     goSquare conn 2 0
+>     checkMoveSubphase conn "attack"
+>     checkBoard conn ("\n\
+>                   \1 GR    2      3\n\
+>                   \   R           \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     rigActionSuccess conn "attack" True
+>     goSquare conn 3 0
+>     checkMoveSubphase conn "ranged-attack"
+>     checkBoard conn ("\n\
+>                   \1  G   2      3\n\
+>                   \   R           \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     rigActionSuccess conn "ranged_attack" True
+>     goSquare conn 3 1
+>     checkPieceDoneSelection conn "elf" "Buddha"
+>     checkBoard conn ("\n\
+>                   \1  G   2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+
+> testWalkAttackCancelDone conn = testCase "testWalkAttackCancelDone" $ rollbackOnError conn $ do
+>     let pl = (wizardPiecesList ++
+>               [('G', [PieceDescription "elf" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>     startNewGameReadyToMove conn ("\n\
+>                   \1G R   2      3\n\
+>                   \   R           \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "elf"
+>     checkMoveSubphase conn "motion"
+>     goSquare conn 2 0
+>     checkMoveSubphase conn "attack"
+>     checkBoard conn ("\n\
+>                   \1 GR    2      3\n\
+>                   \   R           \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     rigActionSuccess conn "attack" True
+>     goSquare conn 3 0
+>     checkMoveSubphase conn "ranged-attack"
+>     checkBoard conn ("\n\
+>                   \1  G   2      3\n\
+>                   \   R           \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     sendKeyPress conn "End"
+>     checkPieceDoneSelection conn "elf" "Buddha"
+>     checkBoard conn ("\n\
+>                   \1  G   2      3\n\
+>                   \   R           \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+
+> testWalkCancelRangedDone conn = testCase "testWalkCancelRangedDone" $ rollbackOnError conn $ do
+>     let pl = (wizardPiecesList ++
+>               [('G', [PieceDescription "elf" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>     startNewGameReadyToMove conn ("\n\
+>                   \1G R   2      3\n\
+>                   \   R           \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "elf"
+>     checkMoveSubphase conn "motion"
+>     goSquare conn 2 0
+>     checkMoveSubphase conn "attack"
+>     checkBoard conn ("\n\
+>                   \1 GR    2      3\n\
+>                   \   R           \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     sendKeyPress conn "End"
+>     checkMoveSubphase conn "ranged-attack"
+>     checkBoard conn ("\n\
+>                   \1 GR   2      3\n\
+>                   \   R           \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     rigActionSuccess conn "ranged_attack" False
+>     goSquare conn 3 1
+>     checkPieceDoneSelection conn "elf" "Buddha"
+>     checkBoard conn ("\n\
+>                   \1 GR   2      3\n\
+>                   \   R            \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+
+
+> testCancelRangedDone conn = testCase "testCancelRangedDone" $ rollbackOnError conn $ do
+>     let pl = (wizardPiecesList ++
+>               [('G', [PieceDescription "elf" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>     startNewGameReadyToMove conn ("\n\
+>                   \1 GR   2      3\n\
+>                   \   R           \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "elf"
+>     checkMoveSubphase conn "motion"
+>     sendKeyPress conn "End"
+>     checkMoveSubphase conn "ranged-attack"
+>     checkBoard conn ("\n\
+>                   \1 GR   2      3\n\
+>                   \   R           \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     rigActionSuccess conn "ranged_attack" True
+>     goSquare conn 3 1
+>     checkPieceDoneSelection conn "elf" "Buddha"
+>     checkBoard conn ("\n\
+>                   \1 GR   2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+
+
+> testWalkNoAvailAttackRangedDone conn = testCase "testWalkNoAvailAttackRangedDone" $ rollbackOnError conn $ do
+>     let pl = (wizardPiecesList ++
+>               [('G', [PieceDescription "elf" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>     startNewGameReadyToMove conn ("\n\
+>                   \1G  R  2      3\n\
+>                   \    R          \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "elf"
+>     checkMoveSubphase conn "motion"
+>     goSquare conn 2 0
+>     checkBoard conn ("\n\
+>                   \1 G R    2      3\n\
+>                   \    R          \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     checkMoveSubphase conn "ranged-attack"
+>     checkBoard conn ("\n\
+>                   \1 GR   2      3\n\
+>                   \   R           \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     rigActionSuccess conn "ranged_attack" False
+>     goSquare conn 3 1
+>     checkPieceDoneSelection conn "elf" "Buddha"
+>     checkBoard conn ("\n\
+>                   \1 G R  2      3\n\
+>                   \    R          \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+
 
 * piece has attack only
-attack done
-noavailableattack done
+
+> testAttackDone conn = testCase "testAttackDone" $ rollbackOnError conn $ do
+>     let pl = (wizardPiecesList ++
+>               [('W', [PieceDescription "shadow_tree" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>     startNewGameReadyToMove conn ("\n\
+>                   \1WR    2      3\n\
+>                   \    R          \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "shadow_tree"
+>     checkMoveSubphase conn "attack"
+>     rigActionSuccess conn "attack" True
+>     goSquare conn 2 0
+>     checkBoard conn ("\n\
+>                   \1W       2      3\n\
+>                   \    R          \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     checkPieceDoneSelection conn "shadow_tree" "Buddha"
+
+
+> testNoAvailAttackDone conn = testCase "testNoAvailAttackDone" $ rollbackOnError conn $ do
+>     let pl = (wizardPiecesList ++
+>               [('W', [PieceDescription "shadow_tree" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>     startNewGameReadyToMove conn ("\n\
+>                   \1W     2      3\n\
+>                   \    R          \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkPieceDoneSelection conn "shadow_tree" "Buddha"
 
 
 
@@ -1431,6 +2097,8 @@ testwalkthencancelattackrangedattack
 >                              \where ptype='shadow_tree' and\n\
 >                              \  allegiance='Buddha'" []
 >   assertBool "piece not in ptm" (null v)
+
+
 
 === non cancel tests
 
