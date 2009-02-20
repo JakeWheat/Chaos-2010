@@ -446,7 +446,7 @@ documentation to display in end user programs for user friendliness)
   --that this constraint depends on
   -- I think this means that references involving views are a bit
   --broken...
-  --TODO: get to the bottom of this, and fix it if neccessary
+  --TODO: get to the bottom of this, and fix it if necessary
   if exists(select 1 from base_relvars
       where relvar_name = reftable) then
     bt := array[vtable, reftable];

@@ -64,13 +64,13 @@
 >       Just x -> x
 >       Nothing -> error $ errMsg ++ " missing key: " ++ show key
 
-> time f = do
->   bracket (getClockTime)
+> time =
+>   bracket getClockTime
 >           (\st -> do
 >              et <- getClockTime
 >              let tdiff = diffClockTimes et st
 >              putStrLn $ "time taken: " ++ timeDiffToString tdiff)
->           (\_ -> f)
+>           . const
 
 > for = flip map
 
@@ -100,7 +100,7 @@
 >                 ExitFailure e -> e
 >                 _             -> 0
 
-> deleteIfExists fn = do
+> deleteIfExists fn =
 >    doesFileExist fn >>=
 >      flip when (removeFile fn)
 
@@ -114,7 +114,7 @@ This doesn't work for some reason - doesn't print the message if there
 is an error:
 
 > messageIfError :: String -> IO a -> IO a
-> messageIfError message f =
+> messageIfError message =
 >     bracketOnError (return())
->                    (\ _ -> putStrLn message)
->                    (\ _ -> f)
+>                    (const $ putStrLn message)
+>                    . const

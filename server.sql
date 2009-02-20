@@ -794,7 +794,8 @@ squares left to walk
 
 create view next_wizard as
 select wizard_name, new_wizard_name from
-  (select wizard_name as new_wizard_name, place from live_wizards) as a inner join
+  (select wizard_name as new_wizard_name, place
+     from live_wizards) as a inner join
   (select wizard_name,
      (place + 1) %
        (select max(place) + 1 from live_wizards)
@@ -1170,42 +1171,6 @@ $$ ((not exists(select 1 from remaining_walk_table)) or
            natural inner join selected_piece))) $$,
   array['selected_piece', 'pieces_mr', 'remaining_walk_table',
         'remaining_walk_hack_table', 'creating_new_game_table']);
-
-create or replace function check_remaining() returns void as $$
-begin
-  --  raise notice '***********************************************************\n**********************************************check remaining: % \ncheck con % \ncheck tbl %',
---      (not exists(select 1 from remaining_walk_table) or
---                    exists(select 1 from creating_new_game_table
---                       where creating_new_game = true) or
---                    (select remaining_walk_hack
---                      from remaining_walk_hack_table) or
---                    (exists(select 1 from selected_piece)
---                      and (select move_phase = 'motion' from selected_piece)
---                       and exists (select 1 from creature_pieces
---                                   natural inner join selected_piece)
---                       and (select not flying from creature_pieces
---                            natural inner join selected_piece))),
---      check_con_remaining_walk_only_motion(),
---      rwgtcto();
-
-end;
-$$ language plpgsql volatile strict;
-
-create or replace function rwgtcto() returns boolean as $$
-begin
-                 return  ((not exists(select 1 from remaining_walk_table)) or
-                  exists(select 1 from creating_new_game_table
-                     where creating_new_game = true) or
-                  (select remaining_walk_hack
-                    from remaining_walk_hack_table) or
-                  (exists(select 1 from selected_piece)
-                     and (select move_phase = 'motion' from selected_piece)
-                     and exists (select 1 from creature_pieces
-                                 natural inner join selected_piece)
-                     and (select not flying from creature_pieces
-                          natural inner join selected_piece)));
-end;
-$$ language plpgsql volatile strict;
 
 --this function is used to initialise the turn phase data.
 create function init_turn_stuff() returns void as $$
@@ -2768,13 +2733,11 @@ begin
        exists(select 1 from selected_piece
               natural inner join creature_pieces
               where not flying) then
-    perform check_remaining();
     update remaining_walk_hack_table
       set remaining_walk_hack = true;
     insert into remaining_walk_table
       select speed from creature_pieces
         natural inner join selected_piece;
-    perform check_remaining();
     update remaining_walk_hack_table
       set remaining_walk_hack = false;
   end if;
@@ -2805,12 +2768,10 @@ begin
   delete from pieces_to_move where (ptype, allegiance, tag) =
     (select ptype, allegiance, tag from selected_piece);
   --empty selected piece, squares left_to_walk
-  perform check_remaining();
   update remaining_walk_hack_table
     set remaining_walk_hack = true;
   delete from selected_piece;
   delete from remaining_walk_table;
-  perform check_remaining();
   update remaining_walk_hack_table
     set remaining_walk_hack = false;
   --if there are no more pieces that can be selected then move to next
@@ -2832,7 +2793,8 @@ $$ language plpgsql volatile strict;
 /*
 ==== internals
 */
-create or replace function do_next_move_subphase(skip_attack boolean) returns void as $$
+create or replace function do_next_move_subphase(skip_attack boolean)
+    returns void as $$
 declare
   r record;
   nextp text;
@@ -2844,13 +2806,10 @@ begin
     natural inner join pieces;
   nextp := piece_next_subphase((select move_phase from selected_piece),
              skip_attack, r.ptype, r.allegiance, r.tag);
-  --raise notice 'next_move_subphase % % % % -> %', r.ptype, r.allegiance, r.tag, r.move_phase, nextp;
   if r.move_phase = 'motion' then
-    perform check_remaining();
     update remaining_walk_hack_table
       set remaining_walk_hack = true;
       delete from remaining_walk_table;
-    perform check_remaining();
     update remaining_walk_hack_table
       set remaining_walk_hack = false;
   end if;
@@ -2954,7 +2913,8 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
-create or replace function action_ranged_attack(px int, py int) returns void as $$
+create or replace function action_ranged_attack(px int, py int)
+    returns void as $$
 declare
   r record;
   att int;
@@ -3097,7 +3057,6 @@ begin
             natural inner join selected_piece
             where not flying) and
      (select move_phase from selected_piece)='motion' then
-    perform check_remaining();
     update remaining_walk_table
     set remaining_walk = remaining_walk - 1;
   end if;
@@ -3189,7 +3148,8 @@ create function create_corpse(vptype text, px int, py int, imaginary boolean)
 declare
   vtag int;
 begin
-  if not exists(select count(*) from monster_prototypes where ptype = vptype) then
+  if not exists(select count(*) from monster_prototypes
+                where ptype = vptype) then
     raise exception 'called create corpse on % which is not a monster', vptype;
   end if;
   perform create_piece_internal(vptype,
@@ -3224,7 +3184,8 @@ TODO: use rules on piece-view to support inserts and updates on it
     raise exception
       'called create piece with % but there is no such piece type.', vptype;
   end if;
-  if not exists(select count(*) from wizards where wizard_name = vallegiance) then
+  if not exists(select count(*) from wizards
+                where wizard_name = vallegiance) then
     raise exception
       'called create piece with allegiance % but there is no such wizard',
       vallegiance;

@@ -33,8 +33,7 @@ todo: get this tree into speedbar
 
 > getSourceFiles = do
 >   entries <- getDirectoryContents "."
->   files <- filterM doesFileExist entries
->   return files
+>   filterM doesFileExist entries
 
 Create the tree widget and do a bunch of red tape.
 

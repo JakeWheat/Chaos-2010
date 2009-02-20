@@ -955,7 +955,7 @@ window and update the database
 >             onDestroy ww mainQuit
 >             return ()
 >           else do
->             onDelete ww (\_ -> do
+>             onDelete ww (const $ do
 >               --hide the window and return true so that
 >               -- gtk doesn't destroy the window
 >               widgetHideAll ww
@@ -994,7 +994,8 @@ way to unhide them).
 >               textViewInsertWidgetAtCursor wm but
 >               textBufferInsertAtCursor buf "\n"
 >               toggleButtonSetActive but $ wi "state" /= "hidden"
->               let (ww,wrefresh) = safeLookup "window manager refresh" name widgetData
+>               let (ww,wrefresh) = safeLookup
+>                                     "window manager refresh" name widgetData
 
 setup the handler so that clicking the button toggles the window visibility
 

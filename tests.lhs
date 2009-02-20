@@ -212,8 +212,8 @@ http://www.depesz.com/index.php/2008/05/15/waiting-for-84-function-stats/
 
 > rollbackOnError conn f =
 >     bracketOnError (return())
->                    (\_ -> runSql conn "rollback" [])
->                    (\_ -> f)
+>                    (const $ runSql conn "rollback" [])
+>                    (const f)
 
 ================================================================================
 
@@ -224,7 +224,8 @@ http://www.depesz.com/index.php/2008/05/15/waiting-for-84-function-stats/
 First run the tests from the database, these are all the database
 functions whose name starts with 'check_code_'
 
-> testDatabaseStuff conn = testCase "testDatabaseStuff" $ rollbackOnError conn $ do
+> testDatabaseStuff conn = testCase "testDatabaseStuff" $
+>                            rollbackOnError conn $ do
 >   res <- newIORef ([]::[(String,Bool)])
 >   selectTuples conn "select object_name\n\
 >                     \from module_objects\n\
@@ -333,7 +334,8 @@ magic tree or castle; add test for these.
 Check the cursor movement and also the shortcut for the tests to move
 the cursor to a given position, also check the moveto code
 
-> testCursorMovement conn = testCase "testCursorMovement" $ rollbackOnError conn $ do
+> testCursorMovement conn = testCase "testCursorMovement" $
+>                             rollbackOnError conn $ do
 >   --make sure there is a game running:
 >   startNewGame conn
 >   --reset the cursor position
@@ -464,7 +466,8 @@ now test it works with one or more wizards dead:
 start at choose on first wizard and run though twice
 to do all variations is 256 tests
 
-> testNextPhaseWizardDead conn = testCase "testNextPhaseWizardDead" $ rollbackOnError conn $
+> testNextPhaseWizardDead conn = testCase "testNextPhaseWizardDead" $
+>                                  rollbackOnError conn $
 >   forM_ [0..7] (\j -> do
 >     startNewGame conn
 >     --kill wizard
@@ -481,7 +484,8 @@ to do all variations is 256 tests
 >              (sendKeyPress conn "Q")
 >         sendKeyPress conn "space")))
 
-> testNextPhaseTwoWizardsDead conn = testCase "testNextPhaseTwoWizardsDead" $ rollbackOnError conn $
+> testNextPhaseTwoWizardsDead conn = testCase "testNextPhaseTwoWizardsDead" $
+>                                      rollbackOnError conn $
 >   forM_ [0..7] (\j ->
 >     forM_ [(j + 1)..7] (\k -> do
 >       startNewGame conn
@@ -564,7 +568,8 @@ cast it and check the resulting board
 >   --check we are on the next wizard's phase
 >   checkCurrentWizardPhase conn "Kong Fuzi" "cast"
 
-> testFailCastGoblin conn = testCase "testFailCastGoblin" $ rollbackOnError conn $ do
+> testFailCastGoblin conn = testCase "testFailCastGoblin" $
+>                             rollbackOnError conn $ do
 >   newGameReadyToCast conn "goblin"
 >   rigActionSuccess conn "cast" False
 >   goSquare conn 1 0
@@ -581,7 +586,8 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   wizardPiecesList)
 
-> testCastMagicWood conn = testCase "testCastMagicWood" $ rollbackOnError conn $ do
+> testCastMagicWood conn = testCase "testCastMagicWood" $
+>                            rollbackOnError conn $ do
 >   newGameReadyToCast conn "magic_wood"
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
@@ -599,7 +605,8 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('W', [PieceDescription "magic_tree" "Buddha" []])]))
 
-> testCastShadowWood conn = testCase "testCastShadowWood" $ rollbackOnError conn $ do
+> testCastShadowWood conn = testCase "testCastShadowWood" $
+>                             rollbackOnError conn $ do
 >   newGameReadyToCast conn "shadow_wood"
 >   checkValidSquares conn "\n\
 >                          \1XXXXXX2X     3\n\
@@ -613,7 +620,7 @@ cast it and check the resulting board
 >                          \XXX            \n\
 >                          \6      7      8"
 >   rigActionSuccess conn "cast" True
->   mapM_ (\(x,y) -> goSquare conn x y)
+>   mapM_ (uncurry $ goSquare conn)
 >         [(1,0),(3,0),(5,0),(0,2),(2,2),(4,2),(1,4),(3,4)]
 >   checkBoard conn ("\n\
 >                   \1W W W 2      3\n\
@@ -629,7 +636,8 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('W', [PieceDescription "shadow_tree" "Buddha" []])]))
 
-> testCastMagicBolt conn = testCase "testCastMagicBolt" $ rollbackOnError conn $ do
+> testCastMagicBolt conn = testCase "testCastMagicBolt" $
+>                            rollbackOnError conn $ do
 >   newGameReadyToCast conn "magic_bolt"
 >   checkValidSquares conn "\n\
 >                          \1      2      3\n\
@@ -658,7 +666,8 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   wizardPiecesList)
 
-> testCastMagicBoltResisted conn = testCase "testCastMagicBoltResisted" $ rollbackOnError conn $ do
+> testCastMagicBoltResisted conn = testCase "testCastMagicBoltResisted" $
+>                                    rollbackOnError conn $ do
 >   newGameReadyToCast conn "magic_bolt"
 >   checkValidSquares conn "\n\
 >                          \1      2      3\n\
@@ -688,7 +697,8 @@ cast it and check the resulting board
 >                   wizardPiecesList)
 
 
-> testCastVegeanceWizard conn = testCase "testCastVegeanceWizard" $ rollbackOnError conn $ do
+> testCastVegeanceWizard conn = testCase "testCastVegeanceWizard" $
+>                                 rollbackOnError conn $ do
 >   newGameWithBoardReadyToCast conn "vengeance"
 >                  ("\n\
 >                   \1G     2      3\n\
@@ -730,7 +740,8 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   wizardPiecesList)
 
-> testCastVegeanceMonster conn = testCase "testCastVegeanceMonster" $ rollbackOnError conn $ do
+> testCastVegeanceMonster conn = testCase "testCastVegeanceMonster" $
+>                                  rollbackOnError conn $ do
 >   newGameWithBoardReadyToCast conn "vengeance"
 >                 ("\n\
 >                   \1G     2      3\n\
@@ -818,7 +829,8 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
 
-> testCastSubversion conn = testCase "testCastSubversion" $ rollbackOnError conn $ do
+> testCastSubversion conn = testCase "testCastSubversion" $
+>                             rollbackOnError conn $ do
 >   newGameWithBoardReadyToCast conn "subversion"
 >                  ("\n\
 >                   \1G     2      3\n\
@@ -862,7 +874,8 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Buddha" []])]))
 
 
-> testCastSubversionResisted conn = testCase "testCastSubversionResisted" $ rollbackOnError conn $ do
+> testCastSubversionResisted conn = testCase "testCastSubversionResisted" $
+>                                     rollbackOnError conn $ do
 >   newGameWithBoardReadyToCast conn "subversion"
 >                  ("\n\
 >                   \1G     2      3\n\
@@ -906,7 +919,8 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
 
-> testCastDisbelieveReal conn = testCase "testCastDisbelieveReal" $ rollbackOnError conn $ do
+> testCastDisbelieveReal conn = testCase "testCastDisbelieveReal" $
+>                                 rollbackOnError conn $ do
 >   newGameWithBoardReadyToCast conn "disbelieve"
 >                 ("\n\
 >                   \1G     2      3\n\
@@ -947,7 +961,8 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
-> testCastDisbelieveImaginary conn = testCase "testCastDisbelieveImaginary" $ rollbackOnError conn $ do
+> testCastDisbelieveImaginary conn = testCase "testCastDisbelieveImaginary" $
+>                                      rollbackOnError conn $ do
 >   newGameWithBoardReadyToCast conn "disbelieve"
 >                   ("\n\
 >                   \1G     2      3\n\
@@ -989,7 +1004,8 @@ cast it and check the resulting board
 >                   wizardPiecesList)
 >
 
-> testCastRaiseDead conn = testCase "testCastRaiseDead" $ rollbackOnError conn $ do
+> testCastRaiseDead conn = testCase "testCastRaiseDead" $
+>                            rollbackOnError conn $ do
 >   newGameWithBoardReadyToCast conn "raise_dead"
 >                   ("\n\
 >                   \1G     2      3\n\
@@ -1145,29 +1161,51 @@ attack.
 A piece is unselected automatically when there are no more valid
 subphases for it.
 
-The program skips to next subphase if the selected piece can't do the current phase e.g. if the piece cannot walk or fly then it skips the motion subphase.
+The program skips to next subphase if the selected piece can't do the
+current phase e.g. if the piece cannot walk or fly then it skips the
+motion subphase.
 
-When going to the attack subphase, if the monster is not next to an attackable enemy piece, the attack phase is skipped.
+When going to the attack subphase, if the monster is not next to an
+attackable enemy piece, the attack phase is skipped.
 
-Opposite to this, when going to ranged attack subphase, the subphase isn't skipped even if there are no enemy attackables the creature can attack (i.e. in range and in line of sight)
+Opposite to this, when going to ranged attack subphase, the subphase
+isn't skipped even if there are no enemy attackables the creature can
+attack (i.e. in range and in line of sight)
 
-Goes to the next subphase automatically if the piece has nothing left to do in the current one e.g. has completed all its walk, or has attacked.
+Goes to the next subphase automatically if the piece has nothing left
+to do in the current one e.g. has completed all its walk, or has
+attacked.
 
-A piece can attack a square in walk or fly range during the motion subphase (going straight into attack without finishing motion).
+A piece can attack a square in walk or fly range during the motion
+subphase (going straight into attack without finishing motion).
 
-A piece can cancel the current subphase. To go with previous rule, if it cancels in the motion subphase, then it skips the attack phase also, even if it is next to an attackable enemy. Therefore if the motion subphase is cancelled, the piece skips to ranged attack if it has one or ends its selection.
+A piece can cancel the current subphase. To go with previous rule, if
+it cancels in the motion subphase, then it skips the attack phase
+also, even if it is next to an attackable enemy. Therefore if the
+motion subphase is cancelled, the piece skips to ranged attack if it
+has one or ends its selection.
 
-If a piece walks and can walk more that one square, it counts as cancel if you cancel at any point before moving all the available squares.
+If a piece walks and can walk more that one square, it counts as
+cancel if you cancel at any point before moving all the available
+squares.
 
-Pieces walk one square at a time if they can walk multiple squares, but do a flight all in one go, i.e. for a walker you select the next adjacent square and then repeat until all the squares to move are used up, but for a flier you just select the end point of the flying.
+Pieces walk one square at a time if they can walk multiple squares,
+but do a flight all in one go, i.e. for a walker you select the next
+adjacent square and then repeat until all the squares to move are used
+up, but for a flier you just select the end point of the flying.
 
-A wizard mounting a monster ends its motion subphase immediately even if it has squares left to walk.
+A wizard mounting a monster ends its motion subphase immediately even
+if it has squares left to walk.
 
-The selected piece relvar has exactly one row during the time a piece is selected and no rows otherwise
+The selected piece relvar has exactly one row during the time a piece
+is selected and no rows otherwise
 
-The walk squares relvar has exactly one row when there is a selected piece, the selected piece: moves; walks rather than flies; and is in the motion subphase. otherwise it has no rows
+The walk squares relvar has exactly one row when there is a selected
+piece, the selected piece: moves; walks rather than flies; and is in
+the motion subphase. otherwise it has no rows
 
-A piece can be killed whilst selected if it uses its ranged attack on its own wizard - so need to check for this.
+A piece can be killed whilst selected if it uses its ranged attack on
+its own wizard - so need to check for this.
 
 === test outline
 
@@ -1178,11 +1216,20 @@ their capabilities are:
 2 attack-done
 3 motion-attack-ranged-done
 
-We want to cover each variation of these, but we only need to cover each transition once (e.g. motion-rangedattack). E.g. for walking, if we test a one square walker which then attacks, for a two square walker, we can test it can walk to squares, and then check it is ready to attack and finish there (possibly we could skip the check it is ready to attack part).
+We want to cover each variation of these, but we only need to cover
+each transition once (e.g. motion-rangedattack). E.g. for walking, if
+we test a one square walker which then attacks, for a two square
+walker, we can test it can walk to squares, and then check it is ready
+to attack and finish there (possibly we could skip the check it is
+ready to attack part).
 
-We want to include the variaions with cancel in one of the positions (since cancelling motion skips attack this reduces the numberof possibilities).
+We want to include the variations with cancel in one of the positions
+(since cancelling motion skips attack this reduces the number of
+possibilities).
 
-We also want to include walk one square for a two square walker and cancel, walk two squares for a two square walker, and fly for each motion variety.
+We also want to include walk one square for a two square walker and
+cancel, walk two squares for a two square walker, and fly for each
+motion variety.
 
 
 So, the final list which should cover most transitions is
@@ -1216,9 +1263,12 @@ noavailableattack done
 
 === tests
 
-Because of the way the tests are written, we also test successful and unsuccessful attack and ranged attack here, so we don't need to check them elsewhere.
+Because of the way the tests are written, we also test successful and
+unsuccessful attack and ranged attack here, and walk and fly
+variations, so we don't need to test them elsewhere.
 
-> testWalkCancelAttackDone conn = testCase "testWalkCancelAttackDone" $ rollbackOnError conn $ do
+> testWalkCancelAttackDone conn = testCase "testWalkCancelAttackDone" $
+>                                   rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "goblin" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1254,7 +1304,8 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >     checkPieceDoneSelection conn "goblin" "Buddha"
 
 
-> testCancelMotionDone conn = testCase "testCancelMotionDone" $ rollbackOnError conn $ do
+> testCancelMotionDone conn = testCase "testCancelMotionDone" $
+>                               rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "goblin" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1286,7 +1337,8 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >                   \               \n\
 >                   \6      7      8",pl)
 
-> testWalkNoAvailAttackDone conn = testCase "testWalkNoAvailAttackDone" $ rollbackOnError conn $ do
+> testWalkNoAvailAttackDone conn = testCase "testWalkNoAvailAttackDone" $
+>                                    rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "goblin" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1399,7 +1451,8 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >                   \               \n\
 >                   \6      7      8",pl)
 
-> testWalk1CancelDone conn = testCase "testWalk1CancelDone" $ rollbackOnError conn $ do
+> testWalk1CancelDone conn = testCase "testWalk1CancelDone" $
+>                              rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('B', [PieceDescription "bear" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1434,7 +1487,8 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >     sendKeyPress conn "End"
 >     checkPieceDoneSelection conn "bear" "Buddha"
 
-> testFlyAttackDone conn = testCase "testFlyAttackDone" $ rollbackOnError conn $ do
+> testFlyAttackDone conn = testCase "testFlyAttackDone" $
+>                            rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "eagle" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
@@ -1515,7 +1569,8 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >                   \               \n\
 >                   \6      7      8",pl)
 
-> testCancelFlyDone conn = testCase "testCancelFlyDone" $ rollbackOnError conn $ do
+> testCancelFlyDone conn = testCase "testCancelFlyDone" $
+>                            rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "eagle" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1548,7 +1603,8 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >                   \6      7      8",pl)
 
 
-> testFlyNoAvailAttackDone conn = testCase "testFlyNoAvailAttackDone" $ rollbackOnError conn $ do
+> testFlyNoAvailAttackDone conn = testCase "testFlyNoAvailAttackDone" $
+>                                   rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "eagle" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1583,7 +1639,8 @@ Because of the way the tests are written, we also test successful and unsuccessf
 
 * piece has motion-attack-ranged, walks 1 square
 
-> testWalkAttackRangedDone conn = testCase "testWalkAttackRangedDone" $ rollbackOnError conn $ do
+> testWalkAttackRangedDone conn = testCase "testWalkAttackRangedDone" $
+>                                   rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "elf" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
@@ -1646,7 +1703,8 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >                   \6      7      8",pl)
 >     checkPieceDoneSelection conn "elf" "Buddha"
 
-> testWalkAttackCancelDone conn = testCase "testWalkAttackCancelDone" $ rollbackOnError conn $ do
+> testWalkAttackCancelDone conn = testCase "testWalkAttackCancelDone" $
+>                                   rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "elf" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
@@ -1707,7 +1765,8 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >                   \               \n\
 >                   \6      7      8",pl)
 
-> testWalkCancelRangedDone conn = testCase "testWalkCancelRangedDone" $ rollbackOnError conn $ do
+> testWalkCancelRangedDone conn = testCase "testWalkCancelRangedDone" $
+>                                   rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "elf" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1767,7 +1826,8 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >                   \6      7      8",pl)
 
 
-> testCancelRangedDone conn = testCase "testCancelRangedDone" $ rollbackOnError conn $ do
+> testCancelRangedDone conn = testCase "testCancelRangedDone" $
+>                               rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "elf" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
@@ -1815,7 +1875,8 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >                   \6      7      8",pl)
 
 
-> testWalkNoAvailAttackRangedDone conn = testCase "testWalkNoAvailAttackRangedDone" $ rollbackOnError conn $ do
+> testWalkNoAvailAttackRangedDone conn =
+>   testCase "testWalkNoAvailAttackRangedDone" $ rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "elf" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1910,7 +1971,8 @@ Because of the way the tests are written, we also test successful and unsuccessf
 >     checkPieceDoneSelection conn "shadow_tree" "Buddha"
 
 
-> testNoAvailAttackDone conn = testCase "testNoAvailAttackDone" $ rollbackOnError conn $ do
+> testNoAvailAttackDone conn = testCase "testNoAvailAttackDone" $
+>                                rollbackOnError conn $ do
 >     let pl = (wizardPiecesList ++
 >               [('W', [PieceDescription "shadow_tree" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1932,7 +1994,8 @@ Because of the way the tests are written, we also test successful and unsuccessf
 
 == other move action tests
 
-> testAttackWizard conn = testCase "testAttackWizard" $ rollbackOnError conn $ do
+> testAttackWizard conn = testCase "testAttackWizard" $
+>                           rollbackOnError conn $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \1G     2      3\n\
 >                   \ H             \n\
@@ -2004,7 +2067,8 @@ square, we should get the monster the wizards is mounted on. To reduce
 the number of tests we also test moving the monster whilst the wizard
 is mounted here.
 
-> testMoveWhenMounted conn = testCase "testMoveWhenMounted" $ rollbackOnError conn $ do
+> testMoveWhenMounted conn = testCase "testMoveWhenMounted" $
+>                              rollbackOnError conn $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
@@ -2079,7 +2143,8 @@ dismount then move
 
 move when already mounted
 
-> testMoveWhenAlreadyMounted conn = testCase "testMoveWhenAlreadyMounted" $ rollbackOnError conn $ do
+> testMoveWhenAlreadyMounted conn = testCase "testMoveWhenAlreadyMounted" $
+>                                     rollbackOnError conn $ do
 >   startNewGameReadyToMove conn ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
@@ -2210,10 +2275,9 @@ test dismount and exit when has shadow form and moves three squares
 check moving 2 diagonal squares uses up three squares to move
 
 attack from move phase
-check mount ends move phase
+check mount ends motion subphase for wizard
 check attack when has mount moves wizard
 check attack,enter,mount from mount
-check move 2 diagonals
 
 
 
@@ -2609,14 +2673,15 @@ shorthands to check data in the database
 
 > checkSelectedPiece conn allegiance ptype = do
 >   v <- selectRelation conn "select * from selected_piece" []
->   when (length v == 0) $ error "checking selected piece, relvar empty"
+>   when (null v) $ error "checking selected piece, relvar empty"
 >   messageIfError "read selected piece" $
 >     assertEqual "selected piece" (allegiance,ptype)
 >               (head v "allegiance", head v "ptype")
 
 > checkMoveSubphase conn sp = do
 >   ms <- selectRelation conn "select move_phase from selected_piece" []
->   when (length ms == 0) $ error $ "checking move phase, select_piece empty" ++ sp
+>   when (null ms) $ error $
+>                             "checking move phase, select_piece empty" ++ sp
 >   messageIfError "read move_phase" $
 >     assertEqual "move subphase" sp (head ms "move_phase")
 
@@ -2719,7 +2784,8 @@ keep running next_phase until we get to the cast phase
 
 > readCurrentWizard :: Connection -> IO String
 > readCurrentWizard conn = do
->   r <- selectTupleRet conn "select current_wizard from current_wizard_table" []
+>   r <- selectTupleRet conn
+>          "select current_wizard from current_wizard_table" []
 >   return $ r "current_wizard"
 
 > assertSelectedPiece :: Connection -> String -> String -> IO()
@@ -2764,7 +2830,9 @@ understand
 >                         ]
 
 > keyChooseSpell :: String -> String
-> keyChooseSpell spellName = safeLookup "get key for spell" spellName lookupChooseSpellKeys
+> keyChooseSpell spellName = safeLookup
+>                              "get key for spell" spellName
+>                              lookupChooseSpellKeys
 
 --------------------------------------------------------------
 
@@ -2798,7 +2866,7 @@ cast 4 spells.
 
 Check any actions which don't have tests and write them.
 
-Use a quickcheck style spec to generate more exaustive tests?
+Use a quickcheck style spec to generate more exhaustive tests?
 
 some other todos:
 
