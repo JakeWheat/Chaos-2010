@@ -189,8 +189,8 @@ create some shortcuts
 >       st q = selectTupleIf conn q []
 >       mst q = makeSelectTupleIf conn q []
 >       sts q = selectTuples conn q []
->       --sprite s = let (pb,_,_) = safeMLookup ("show sprite " ++ s) s spriteMap
->       --           in TPixbuf $ head pb
+>       sprite s = let (pb,_,_) = safeMLookup ("show sprite " ++ s) s spriteMap
+>                  in Pixbuf $ head pb
 
 redraw the contents
 
@@ -212,37 +212,40 @@ TODO: add some text to tell the player what options he has or what he is
 supposed to be doing
 
 >       drawTurnPhaseInfo = [
+
 >         D.SelectValueIf "select * from turn_number_table" [] $
 >           \tn -> [Text $ "Turn " ++ tn ++ ", "]
+
 >        ,D.SelectValueIf "select format_alignment(world_alignment)\n\
 >                         \    as alignment\n\
 >                         \  from world_alignment_table" [] $
 >           \wa -> [Text $ "world alignment " ++ wa ++ ", "]
+
 >        ,D.SelectValueIf "select turn_phase from turn_phase_table" [] $
 >           \tp -> [Text $ "turn_phase " ++ tp ++ "\t"]
 
--- >        ,do
--- >           but <- buttonNewWithLabel "continue"
--- >           onClicked but (dbAction conn "next_phase" [])
--- >           return $ Just $ TWidget $ castToWidget but
--- >        ,mst "select current_wizard,colour,allegiance,sprite \n\
--- >             \  from current_wizard_table\n\
--- >             \  inner join allegiance_colours\n\
--- >             \  on current_wizard = allegiance\n\
--- >             \  natural inner join wizard_sprites;" $
--- >             \wi -> TList [
--- >                     Just $ TText "\nWizard up: "
--- >                    ,Just $ TTaggedText (wi "current_wizard")
--- >                              (filter (/="none") [wi "colour"])
--- >                    ,Just $ sprite $ wi "sprite"
--- >                    ]
--- >        ,msv "select count from\n\
--- >             \    (select count(*) from pieces_to_move) as a\n\
--- >             \cross join turn_phase_table\n\
--- >             \where turn_phase='move';" $
--- >             \ptm -> TText $ "\nPieces left to move: " ++ ptm
--- >        ]
+>        ,D.IOI $ do
+>           but <- buttonNewWithLabel "continue"
+>           onClicked but (dbAction conn "next_phase" [])
+>           return [Widget $ castToWidget but]
 
+>        ,D.SelectTupleIf "select current_wizard,colour,allegiance,sprite \n\
+>                         \  from current_wizard_table\n\
+>                         \  inner join allegiance_colours\n\
+>                         \  on current_wizard = allegiance\n\
+>                         \  natural inner join wizard_sprites;" [] $
+>             \wi -> [
+>                     Text "\nWizard up: "
+>                    ,TaggedText (wi "current_wizard")
+>                                (filter (/="none") [wi "colour"])
+>                    ,sprite $ wi "sprite"
+>                    ]
+
+>        ,D.SelectValueIf "select count from\n\
+>                         \    (select count(*) from pieces_to_move) as a\n\
+>                         \cross join turn_phase_table\n\
+>                         \where turn_phase='move';" [] $
+>                         \ptm -> [Text $ "\nPieces left to move: " ++ ptm]
 >        ]
 
 == spell info:
