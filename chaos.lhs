@@ -104,6 +104,7 @@ move
 > import Utils
 > import FileAdmin
 > import Control.Concurrent
+> import MyTextView
 
 ================================================================================
 
@@ -178,17 +179,21 @@ create some shortcuts
 >   let ibc = textBufferInsertAtCursor buf
 >       ibct = textBufferInsertAtCursorWithTags buf
 >       ibs sn = textBufferInsertSpriteAtCursor buf sn spriteMap
->       iw = textViewInsertWidgetAtCursor tv
+>       --iw = textViewInsertWidgetAtCursor tv
 >       sv q = selectValueIf conn q []
+>       msv q = makeSelectValueIf conn q []
 >       st q = selectTupleIf conn q []
+>       mst q = makeSelectTupleIf conn q []
 >       sts q = selectTuples conn q []
+>       sprite s = let (pb,_,_) = safeMLookup ("show sprite " ++ s) s spriteMap
+>                  in TPixbuf $ head pb
 
 redraw the contents
 
 >
 >       refresh = do
 >         textBufferClear buf
->         drawTurnPhaseInfo
+>         render tv drawTurnPhaseInfo
 >         drawSpellInfo
 >         drawCursorInfo
 >         drawCursorPieces
@@ -201,30 +206,35 @@ if move phase, say how many pieces are left to move
 TODO: add some text to tell the player what options he has or what he is
 supposed to be doing
 
->       drawTurnPhaseInfo = do
->         sv "select * from turn_number_table"
->                         (\tn -> ibc ("Turn " ++ tn ++ ", "))
->         sv "select format_alignment(world_alignment) as alignment\n\
->                               \from world_alignment_table"
->                         (\wa -> ibc ("world alignment " ++ wa ++ ", "))
->         sv "select turn_phase from turn_phase_table"
->                     (\tp -> ibc ("turn_phase " ++ tp ++ "\t"))
->         but <- buttonNewWithLabel "continue"
->         onClicked but (dbAction conn "next_phase" [])
->         iw but
->         st "select current_wizard,colour,allegiance \n\
->                          \from current_wizard_table\n\
->                          \inner join allegiance_colours\n\
->                          \on current_wizard = allegiance"
->                          (\wi -> do
->                             ibc "\nWizard up: "
->                             ibct (wi "current_wizard")
->                                  (filter (/="none") [wi "colour"])
->                             ibs $ wi "allegiance")
->         sv "select turn_phase from turn_phase_table"
->              (\tp -> when (tp == "move")
->                        (sv "select count(*) from pieces_to_move"
->                        (\ptm -> ibc $ "\nPieces left to move: " ++ ptm)))
+>       drawTurnPhaseInfo = [
+>         msv "select * from turn_number_table" $
+>            \tn -> TText $ "Turn " ++ tn ++ ", "
+>        ,msv "select format_alignment(world_alignment) as alignment\n\
+>                               \from world_alignment_table" $
+>                         \wa -> TText $ "world alignment " ++ wa ++ ", "
+>        ,msv "select turn_phase from turn_phase_table" $
+>                     \tp -> TText $ "turn_phase " ++ tp ++ "\t"
+>        ,do
+>           but <- buttonNewWithLabel "continue"
+>           onClicked but (dbAction conn "next_phase" [])
+>           return $ Just $ TWidget $ castToWidget but
+>        ,mst "select current_wizard,colour,allegiance,sprite \n\
+>             \  from current_wizard_table\n\
+>             \  inner join allegiance_colours\n\
+>             \  on current_wizard = allegiance\n\
+>             \  natural inner join wizard_sprites;" $
+>             \wi -> TList [
+>                     Just $ TText "\nWizard up: "
+>                    ,Just $ TTaggedText (wi "current_wizard")
+>                              (filter (/="none") [wi "colour"])
+>                    ,Just $ sprite $ wi "sprite"
+>                    ]
+>        ,msv "select count from\n\
+>             \    (select count(*) from pieces_to_move) as a\n\
+>             \cross join turn_phase_table\n\
+>             \where turn_phase='move';" $
+>             \ptm -> TText $ "\nPieces left to move: " ++ ptm
+>        ]
 
 == spell info:
 only displayed if the current wizard has selected a spell

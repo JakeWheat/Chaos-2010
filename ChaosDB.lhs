@@ -33,6 +33,8 @@ Select functions
 >                 selectRelation,
 >                 selectRelationValues,
 >                 selectLookup,
+>                 makeSelectValueIf,
+>                 makeSelectTupleIf,
 
 update function
 
@@ -57,6 +59,7 @@ and updates
 
 > type SqlRow = M.Map String SqlValue
 > type SelectCallback = (String -> String) -> IO ()
+> type SelectCallback1 a = (String -> String) -> a
 
 > withConn cs = bracket (connectPostgreSQL cs) disconnect
 
@@ -117,6 +120,22 @@ there is none
 >       callback $ fromSql $ head t
 >     _ -> error $ "select value on " ++ query ++
 >              " returned " ++ (show $ length r) ++ " tuples, expected 0 or 1."
+
+> makeSelectValueIf :: Connection -> String -> [String] -> (String -> a) ->
+>                      IO (Maybe a)
+> makeSelectValueIf conn query args callback = handleSqlError $ do
+>   r <- quickQuery' conn query $ map toSql args
+>   case length r of
+>     0 -> return Nothing
+>     1 -> do
+>       let t = head r
+>       when (length t /= 1)
+>         (error $ "select value on " ++ query ++
+>              " returned " ++ (show $ length t) ++ " attributes, expected 1.")
+>       return $ Just $ callback $ fromSql $ head t
+>     _ -> error $ "select value on " ++ query ++
+>              " returned " ++ (show $ length r) ++ " tuples, expected 0 or 1."
+
 
 > selectValue :: Connection -> String -> IO String
 > selectValue conn query = handleSqlError $ do
@@ -182,6 +201,22 @@ errors if more than one tuple is returned from the query
 >            _ -> error ("expected query " ++ query ++
 >                 " to return onne relvar but it returned " ++
 >                 show (length v))
+
+> makeSelectTupleIf :: Connection -> String -> [String] -> SelectCallback1 a ->
+>                      IO (Maybe a)
+> makeSelectTupleIf conn query args callback = handleSqlError $ do
+>   sth <- prepare conn query
+>   execute sth $ map toSql args
+>   cn <- getColumnNames sth
+>   v <- fetchAllRows' sth
+>   case length v of
+>            0 -> return Nothing
+>            1 -> return $ Just $ callback $ flip lookupAtt $
+>                        convertRow cn $ head v
+>            _ -> error ("expected query " ++ query ++
+>                 " to return onne relvar but it returned " ++
+>                 show (length v))
+
 
 === select tuples
 

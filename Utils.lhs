@@ -122,11 +122,7 @@ is an error:
 >                    . const
 
 > whenA1 :: IO a -> (a -> Bool) -> IO () -> IO ()
-> whenA1 feed cond f = do
->   -- can't figure out how to liftM this
->   x <- feed
->   when (cond x) f
-
+> whenA1 feed cond f = (cond `liftM` feed) >>= (flip when f)
 
 > whenA :: IO Bool -> IO () -> IO ()
 > whenA cond f = cond >>= (flip when f)
