@@ -60,10 +60,10 @@ and you have that one available to test whilst you fix the errors.
 
 > installDbTo :: Conf -> String -> IO()
 > installDbTo conf dbName = do
->   c <- getCount conf
->          "select count(1) from pg_language where lanname='plpgsql';"
->          dbName "check plpgsql"
->   when (c == 0) $ systemWithCheck
+>   whenA1 (getCount conf
+>             "select count(1) from pg_language where lanname='plpgsql';"
+>             dbName "check plpgsql")
+>          (== 0) $ systemWithCheck
 >             ("psql -c \"create procedural language plpgsql;\"" ++
 >              upargs conf dbName)
 >             ("init plpgsql " ++ dbName) >> return ()
@@ -72,7 +72,6 @@ and you have that one available to test whilst you fix the errors.
 >   mapM_ (runSqlScript conf dbName) ["system.sql",
 >                                            "server.sql",
 >                                            "client.sql"]
-
 
 
 > runSqlScript :: Conf -> String -> String -> IO ()
@@ -104,11 +103,11 @@ and you have that one available to test whilst you fix the errors.
 
 > dropDbIfExists :: Conf -> String -> IO ()
 > dropDbIfExists conf dbName =
->   dbExists conf dbName >>=
->     flip when (systemWithCheck
->                    ("psql -c \"drop database " ++ dbName ++ "\"" ++
->                     upargs conf "template1")
->                    ("dropping database " ++ dbName) >> return())
+>   whenA (dbExists conf dbName) $
+>         systemWithCheck
+>            ("psql -c \"drop database " ++ dbName ++ "\"" ++
+>             upargs conf "template1")
+>            ("dropping database " ++ dbName) >> return()
 
 > getCount conf query dbName message = do
 >    text <- systemWithCheck

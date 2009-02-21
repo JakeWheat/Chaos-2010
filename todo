@@ -1,26 +1,22 @@
-= milestone pre alpha 3
-
-tests to complete and get passing: limited subphase transition tests
-                                   automatic next phase/subphase tests
-                                   check volatile,stable,immutable on all sql
-
-================================================================================
-
 = milestone pre alpha 4+
 
+uses subfolders for files
 basic ai
 line of sight
 prompt
 autonomous phase tests and code
-finish simplistic tests for all spells - e.g. missing wizard upgrades, and test every single spell
+finish simplistic tests for all spells - e.g. missing wizard upgrades,
+and test every single spell
+finish move phase todo tests
+check volatile,stable,immutable on all sql
 
 ================================================================================
 
 = milestone alpha 0.1
 
-intended to be feature complete for 0.2 wrt playing, but not installation
-listen/notify if feasible
-basic installation help
+intended to be feature complete for 0.2 wrt playing, but not
+installation
+listen/notify if feasible basic installation help
 mouse controls?
 
 ================================================================================

@@ -455,9 +455,9 @@ twice, check the turn_phase and current_wizard each time
 >                --so we don't skip the cast phase, make sure
 >                -- each wizard has a spell chosen, use disbelieve
 >                --cos wizards always have this spell available
->                tp <- readTurnPhase conn
->                when (tp == "choose")
->                     (sendKeyPress conn "Q")
+>                whenA1 (readTurnPhase conn)
+>                       (=="choose")
+>                       (sendKeyPress conn "Q")
 >                sendKeyPress conn "space"))
 
 test next phase with some wizards not choosing spells
@@ -476,12 +476,9 @@ to do all variations is 256 tests
 >     forM_ ["choose","cast","move","choose","cast","move"] (\phase ->
 >       forM_ [0..6] (\i -> do
 >         checkCurrentWizardPhase conn (theseWizards !! i) phase
->         --so we don't skip the cast phase, make sure
->         -- each wizard has a spell chosen, use disbelieve
->         --cos wizards always have this spell available
->         tp <- readTurnPhase conn
->         when (tp == "choose")
->              (sendKeyPress conn "Q")
+>         whenA1 (readTurnPhase conn)
+>                (=="choose")
+>                (sendKeyPress conn "Q")
 >         sendKeyPress conn "space")))
 
 > testNextPhaseTwoWizardsDead conn = testCase "testNextPhaseTwoWizardsDead" $
@@ -499,9 +496,9 @@ to do all variations is 256 tests
 >           --so we don't skip the cast phase, make sure
 >           -- each wizard has a spell chosen, use disbelieve
 >           --cos wizards always have this spell available
->           tp <- readTurnPhase conn
->           when (tp == "choose")
->                (sendKeyPress conn "Q")
+>           whenA1 (readTurnPhase conn)
+>                  (=="choose")
+>                  (sendKeyPress conn "Q")
 >           sendKeyPress conn "space"))))
 
 
@@ -2765,8 +2762,8 @@ keep running next_phase until we get to the cast phase
 > skipToPhase conn phase = do
 >   unless (phase `elem` ["choose","cast","move"])
 >          (error $ "unrecognised phase: " ++ phase)
->   t <- readTurnPhase conn
->   when (t /= phase) $ do
+>   whenA1 (readTurnPhase conn)
+>          (/= phase) $ do
 >          sendKeyPress conn "space"
 >          skipToPhase conn phase
 

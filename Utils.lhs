@@ -11,6 +11,8 @@
 >               uncurry3,
 >               uncurry5,
 >               toLower,
+>               whenA,
+>               whenA1,
 >               run,
 >               deleteIfExists,
 >               trim) where
@@ -101,8 +103,8 @@
 >                 _             -> 0
 
 > deleteIfExists fn =
->    doesFileExist fn >>=
->      flip when (removeFile fn)
+>    whenA (doesFileExist fn)
+>          (removeFile fn)
 
 > dropItemN :: [a] -> Int -> [a]
 > dropItemN [] i = []
@@ -118,3 +120,13 @@ is an error:
 >     bracketOnError (return())
 >                    (const $ putStrLn message)
 >                    . const
+
+> whenA1 :: IO a -> (a -> Bool) -> IO () -> IO ()
+> whenA1 feed cond f = do
+>   -- can't figure out how to liftM this
+>   x <- feed
+>   when (cond x) f
+
+
+> whenA :: IO Bool -> IO () -> IO ()
+> whenA cond f = cond >>= (flip when f)

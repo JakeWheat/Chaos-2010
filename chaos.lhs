@@ -747,8 +747,7 @@ or not present
 when a button is clicked then update the new_game_widget_state relvar
 
 >                      onToggled r $ do
->                        active <- toggleButtonGetActive r
->                        when active $ do
+>                        whenA (toggleButtonGetActive r) $ do
 >                          label <- buttonGetLabel r
 >                          runSql conn
 >                            "update new_game_widget_state\n\
@@ -1059,7 +1058,9 @@ lookup which contains the widget and refresh functions
 Until the notify stuff is working just do a full refresh after every
 action as a kludge
 
->                       mapM_ (\(_,(_,r)) -> r) widgetData'
+>                       --mapM_ (\(_,(_,r)) -> r) widgetData'
+>                       let (_,r) = fromJust $ lookup "board" widgetData'
+>                       r
 
 >                  _ -> error "key press handler got non key event"
 
