@@ -19,6 +19,7 @@ a TList object in one go.
 >     | SelectTupleIf String [String] ((String->String) -> [T.Item])
 >     | SelectTuples String [String] ((String->String) -> [T.Item])
 >     | IOI (IO [T.Item])
+>     | SelectTuplesIO String [String] ((String->String) -> IO [T.Item])
 
  > convI :: Item -> IO (Maybe [T.Item])
  > convI (Items l) = return $ Just $ l
@@ -52,6 +53,9 @@ a TList object in one go.
 >                                makeSelectTupleIf conn query args callback
 >                            SelectTuples query args callback -> do
 >                                x <- makeSelectTuples conn query args callback
+>                                return $ Just $ concat x
+>                            SelectTuplesIO query args callback -> do
+>                                x <- makeSelectTuplesIO conn query args callback
 >                                return $ Just $ concat x
 >                            IOI a -> do
 >                                x <- a

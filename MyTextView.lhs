@@ -93,6 +93,9 @@ attempt to get hold of the adjustments, couldn't get it working
 >     | TaggedText String [String]
 >     | Pixbuf Pixbuf
 >     | Widget Widget
+>     | ToggleButton String Bool ToggleButtonCallback
+
+> type ToggleButtonCallback = Bool -> IO()
 
 > render :: TextView -> [Item] -> IO ()
 > render tv irl = do
@@ -103,5 +106,13 @@ attempt to get hold of the adjustments, couldn't get it working
 >                           textBufferInsertAtCursorWithTags tb s t
 >                      Pixbuf p -> textBufferInsertPixbufAtCursor tb p
 >                      Widget w -> textViewInsertWidgetAtCursor tv w
+>                      ToggleButton s t c -> do
+>                             but <- toggleButtonNewWithLabel s
+>                             textViewInsertWidgetAtCursor tv but
+>                             toggleButtonSetActive but t
+>                             onClicked but $ do
+>                               active <- toggleButtonGetActive but
+>                               c active
+>                             return ()
 >   mapM_ renderIt irl
 

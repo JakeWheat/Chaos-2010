@@ -36,6 +36,7 @@ Select functions
 >                 makeSelectValueIf,
 >                 makeSelectTupleIf,
 >                 makeSelectTuples,
+>                 makeSelectTuplesIO,
 
 update function
 
@@ -61,6 +62,7 @@ and updates
 > type SqlRow = M.Map String SqlValue
 > type SelectCallback = (String -> String) -> IO ()
 > type SelectCallback1 a = (String -> String) -> a
+> type SelectCallback1IO a = (String -> String) -> IO a
 
 > withConn cs = bracket (connectPostgreSQL cs) disconnect
 
@@ -242,6 +244,15 @@ query
 >   cn <- getColumnNames sth
 >   v <- fetchAllRows' sth
 >   return $ map (callback . (\r -> flip lookupAtt (convertRow cn r))) v
+
+> makeSelectTuplesIO :: Connection -> String -> [String] -> SelectCallback1IO a ->
+>                     IO [a]
+> makeSelectTuplesIO conn query args callback = handleSqlError $ do
+>   sth <- prepare conn query
+>   execute sth $ map toSql args
+>   cn <- getColumnNames sth
+>   v <- fetchAllRows' sth
+>   mapM (callback . (\r -> flip lookupAtt (convertRow cn r))) v
 
 
 > selectSingleColumn :: Connection -> String -> [String] -> IO [String]

@@ -638,11 +638,11 @@ red 10-20
 >   return (tv, refresh)
 >     where
 
+
 show help text
 
 >       items = [D.SelectValueIf "select * from spell_book_show_all_table" [] $
->                     \s ->
->                         [Text $ (if s == "True"
+>                     \s -> [Text $ (if s == "True"
 >                                    then "hide unavailable spells - DELETE"
 >                                    else "show all spells - INSERT") ++
 >                                           "\n0 - unselect spell"]
@@ -982,38 +982,12 @@ widget is visible or not (the windows can also be hidden by clicking
 the close button also, clicking the window manager button is the only
 way to unhide them).
 
->     let refresh = do
->         textBufferClear buf
->         selectTuples conn "select window_name,px,py,sx,sy,state \n\
->                           \from windows" [] (\wi -> do
->               let name = wi "window_name"
->               --first add the buttons to the window manager widget
->               let niceName = niceNameF name
->               but <- toggleButtonNewWithLabel niceName
->               textViewInsertWidgetAtCursor wm but
->               textBufferInsertAtCursor buf "\n"
->               toggleButtonSetActive but $ wi "state" /= "hidden"
->               let (ww,wrefresh) = safeLookup
->                                     "window manager refresh" name widgetData
-
-setup the handler so that clicking the button toggles the window visibility
-
->               onClicked but $ do
->                     active <- toggleButtonGetActive but
->                     if active
->                       then do
->                         widgetShowAll ww
->                         --reposition the window since it's position is reset
->                         -- when the window is hidden
->                         windowMove ww (read $ wi "px") (read $ wi "py")
->                         wrefresh
->                         runSql conn
->                                "update windows set state='normal'\n\
->                                \where window_name=?;" [name]
->                       else unless (name == "window_manager") $ do
->                           widgetHideAll ww
->                           runSql conn "update windows set state='hidden'\n\
->                                       \where window_name=?;" [name]
+>     let items = D.SelectTuplesIO "select window_name,px,py,sx,sy,state \n\
+>                                \from windows" [] $ \wi -> do
+>                   let name = wi "window_name"
+>                       niceName = niceNameF name
+>                       (ww,wrefresh) = safeLookup
+>                                       "window manager refresh" name widgetData
 
 now fix up the windows that contain the other widgets the window
 manager handles all the window position, size and visibility so none
@@ -1021,13 +995,40 @@ of the widgets have to worry about this when the resize and reposition
 is hooked up to the database it will be hooked up in the window
 manager ctor (this function)
 
->               if name == "window_manager" || wi "state" /= "hidden"
->                 then widgetShowAll ww >> wrefresh
->                 else widgetHideAll ww
->               --fix up the size and position
->               windowMove ww (read $ wi "px") (read $ wi "py")
->               windowResize ww (read $ wi "sx") (read $ wi "sy"))
->
+
+>                   if name == "window_manager" || wi "state" /= "hidden"
+>                     then widgetShowAll ww >> wrefresh
+>                     else widgetHideAll ww
+>                   --fix up the size and position
+>                   windowMove ww (read $ wi "px") (read $ wi "py")
+>                   windowResize ww (read $ wi "sx") (read $ wi "sy")
+
+>                   return [ToggleButton niceName
+>                            (wi "state" /= "hidden")
+
+setup the handler so that clicking the button toggles the window visibility
+
+>                            (\i -> if i
+>                                  then do
+>                                    widgetShowAll ww
+>                                    --reposition the window since
+>                                    --it's position is reset
+>                                    -- when the window is hidden
+>                                    windowMove ww (read $ wi "px")
+>                                                  (read $ wi "py")
+>                                    wrefresh
+>                                    runSql conn
+>                                      "update windows set state='normal'\n\
+>                                      \where window_name=?;" [name]
+>                                  else unless (name == "window_manager") $ do
+>                                    widgetHideAll ww
+>                                    runSql conn
+>                                      "update windows set state='hidden'\n\
+>                                      \where window_name=?;" [name])
+>                          ,Text "\n"]
+>         refresh = do
+>           textBufferClear buf
+>           D.run conn [items] >>= render wm
 
 now we have our window manager refresh function, stick it into the
 lookup which contains the widget and refresh functions
