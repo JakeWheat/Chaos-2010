@@ -13,40 +13,44 @@ the api design is probably a bit crap.
 
 reexported HDBC stuff:
 
->                 Connection,
->                 handleSqlError,
->                 catchSql,
+>                 Connection
+>                ,handleSqlError
+>                ,catchSql
 
 connection wrapper
 
->                 withConn,
+>                ,withConn
 
 Select functions
 
->                 selectValueIf,
->                 selectTupleIf,
->                 selectValue,
->                 selectTuple,
->                 selectTupleRet,
->                 selectTuples,
->                 selectSingleColumn,
->                 selectRelation,
->                 selectRelationValues,
->                 selectLookup,
->                 makeSelectValueIf,
->                 makeSelectTupleIf,
->                 makeSelectTuples,
->                 makeSelectTuplesIO,
+>                ,selectValueC
+>                ,selectValueIfC
+>                ,selectValue
+>                ,selectValueIf
+
+>                ,selectTupleC
+>                ,selectTupleIfC
+>                ,selectTuple
+>                ,selectTupleIf
+
+>                ,selectTuples
+>                ,selectTuplesC
+>                ,selectTuplesIO
+
+>                ,selectSingleColumn
+>                ,selectLookup
+>                ,SqlRow
 
 update function
 
->                 dbAction,
+>                ,dbAction
 
 hack functions, for calling a non action sp, and for running inserts
 and updates
 
->                 runSql,
->                 callSp) where
+>                ,runSql
+>                ,callSp
+>                ) where
 >
 
 > import Database.HDBC.PostgreSQL
@@ -59,10 +63,15 @@ and updates
 > import Control.Exception
 > import Utils hiding (run)
 
-> type SqlRow = M.Map String SqlValue
+> import Data.Convertible
+
+
+> type SqlRow = M.Map String String
 > type SelectCallback = (String -> String) -> IO ()
 > type SelectCallback1 a = (String -> String) -> a
 > type SelectCallback1IO a = (String -> String) -> IO a
+
+
 
 > withConn cs = bracket (connectPostgreSQL cs) disconnect
 
@@ -110,51 +119,47 @@ the if variant doesn't error if no rows are found, they just don't
 call the callback, the non if variants need onne row and error if
 there is none
 
-> selectValueIf :: Connection -> String -> [String] -> (String -> IO())-> IO ()
-> selectValueIf conn query args callback = handleSqlError $ do
->   r <- quickQuery' conn query $ map toSql args
->   case length r of
->     0 -> return ()
->     1 -> do
->       let t = head r
->       when (length t /= 1)
->         (error $ "select value on " ++ query ++
->              " returned " ++ (show $ length t) ++ " attributes, expected 1.")
->       callback $ fromSql $ head t
->     _ -> error $ "select value on " ++ query ++
->              " returned " ++ (show $ length r) ++ " tuples, expected 0 or 1."
+> selectValueC conn query args callback = do
+>   x <- selectValueInternal conn query args callback True
+>   return $ fromJust x
 
-> makeSelectValueIf :: Connection -> String -> [String] -> (String -> a) ->
->                      IO (Maybe a)
-> makeSelectValueIf conn query args callback = handleSqlError $ do
->   r <- quickQuery' conn query $ map toSql args
->   case length r of
->     0 -> return Nothing
->     1 -> do
->       let t = head r
->       when (length t /= 1)
->         (error $ "select value on " ++ query ++
->              " returned " ++ (show $ length t) ++ " attributes, expected 1.")
->       return $ Just $ callback $ fromSql $ head t
->     _ -> error $ "select value on " ++ query ++
->              " returned " ++ (show $ length r) ++ " tuples, expected 0 or 1."
+> selectValueIfC conn query args callback =
+>   selectValueInternal conn query args callback False
+
+> selectValue conn query args = do
+>   x <- selectValueInternal conn query args id True
+>   return $ fromJust x
+
+> selectValueIf conn query args =
+>   selectValueInternal conn query args id False
 
 
-> selectValue :: Connection -> String -> IO String
-> selectValue conn query = handleSqlError $ do
+ > selectValueInternal :: (Convertible SqlValue a) =>
+ >                        Connection ->
+ >                        String ->
+ >                        [String] ->
+ >                        (String -> a) ->
+ >                        Bool ->
+ >                        IO (Maybe a)
+
+> selectValueInternal conn query args callback enf = handleSqlError $ do
 >   r <- quickQuery' conn query []
 >   case length r of
->     0 -> error $ "select value on " ++ query ++
->              " returned 0 rows, expected 1"
+>     0 -> if enf
+>            then error $ "select value on " ++ query ++
+>                         " returned 0 rows, expected 1"
+>            else return Nothing
 >     1 -> do
 >       let t = head r
 >       when (length t /= 1)
 >         (error $ "select value on " ++ query ++
 >              " returned " ++ (show $ length t) ++ " attributes, expected 1.")
->       return $ fromSql $ head t
+>       let x = callback $ toS $ head t
+>       return $ Just x
 >     _ -> error $ "select value on " ++ query ++
 >              " returned " ++ (show $ length r) ++ " tuples, expected 0 or 1."
-
+>   where
+>     toS a = (fromSql a)::String
 
 === select tuple
 
@@ -163,63 +168,42 @@ function (string->string) and call the callback with this
 
 errors if more than one tuple is returned from the query
 
-> selectTuple :: Connection -> String -> [String] -> SelectCallback -> IO ()
-> selectTuple conn query args callback = handleSqlError $ do
+
+> selectTupleC conn query args callback = do
+>   x <- selectTupleInternal conn query args callback True
+>   return $ fromJust x
+
+> selectTupleIfC conn query args callback =
+>   selectTupleInternal conn query args callback False
+
+> selectTuple conn query args = do
+>   x <- selectTupleInternal conn query args id True
+>   return $ fromJust x
+
+> selectTupleIf conn query args =
+>   selectTupleInternal conn query args id False
+
+
+ > selectTupleInternal :: Connection -> String -> [String] -> SelectCallback -> IO ()
+
+> selectTupleInternal conn query args callback enf = handleSqlError $ do
 >   sth <- prepare conn query
->   execute sth $ map toSql args
+>   execute sth $ map sToSql args
 >   cn <- getColumnNames sth
 >   v <- fetchAllRows' sth
 >   case length v of
->            0 -> error $ "expected query " ++ query ++
->                 " to return 1 tuple but it returned none"
->            1 -> callback $ flip lookupAtt (convertRow cn (head v))
+>            0 -> if enf
+>                   then error $ "expected query " ++ query ++
+>                                " to return 1 tuple but it returned none"
+>                   else return Nothing
+>            1 -> do
+>                   let x = callback $ convertRow cn (head v)
+>                   return $ Just x
 >            _ -> error $ "expected query " ++ query ++
 >                 " to return onne tuple but it returned " ++
 >                 show (length v)
-
-> selectTupleRet :: Connection -> String -> [String] ->
->                   IO (String -> String)
-> selectTupleRet conn query args  = handleSqlError $ do
->   sth <- prepare conn query
->   execute sth $ map toSql args
->   cn <- getColumnNames sth
->   v <- fetchAllRows' sth
->   case length v of
->            0 -> error $ "expected query " ++ query ++
->                 " to return 1 tuple but it returned none"
->            1 -> return $ flip lookupAtt (convertRow cn (head v))
->            _ -> error $ "expected query " ++ query ++
->                 " to return onne tuple but it returned " ++
->                 show (length v)
-
-> selectTupleIf :: Connection -> String -> [String] ->SelectCallback -> IO ()
-> selectTupleIf conn query args callback = handleSqlError $ do
->   sth <- prepare conn query
->   execute sth $ map toSql args
->   cn <- getColumnNames sth
->   v <- fetchAllRows' sth
->   case length v of
->            0 -> return()
->            1 -> callback $ flip lookupAtt (convertRow cn (head v))
->            _ -> error ("expected query " ++ query ++
->                 " to return onne relvar but it returned " ++
->                 show (length v))
-
-> makeSelectTupleIf :: Connection -> String -> [String] -> SelectCallback1 a ->
->                      IO (Maybe a)
-> makeSelectTupleIf conn query args callback = handleSqlError $ do
->   sth <- prepare conn query
->   execute sth $ map toSql args
->   cn <- getColumnNames sth
->   v <- fetchAllRows' sth
->   case length v of
->            0 -> return Nothing
->            1 -> return $ Just $ callback $ flip lookupAtt $
->                        convertRow cn $ head v
->            _ -> error ("expected query " ++ query ++
->                 " to return onne relvar but it returned " ++
->                 show (length v))
-
+>     where
+>       sToSql s = toSql (s::String)
 
 === select tuples
 
@@ -227,46 +211,37 @@ just like select tuple, but instead of erroring if there is more than
 one tuple, call the callback once for each tuple returned from the
 query
 
-> selectTuples :: Connection -> String -> [String] -> SelectCallback -> IO ()
-> selectTuples conn query args callback = handleSqlError $ do
+> selectTuplesC = selectTuplesInternal
+> selectTuples conn query args = selectTuplesInternal conn query args id
+
+> selectTuplesInternal conn query args callback = handleSqlError $ do
 >   sth <- prepare conn query
->   execute sth $ map toSql args
+>   execute sth $ map sToSql args
 >   cn <- getColumnNames sth
 >   v <- fetchAllRows' sth
->   mapM_ callback (map (\r -> flip lookupAtt (convertRow cn r)) v)
->   return ()
+>   return $ map (callback . convertRow cn) v
+>     where
+>       sToSql s = toSql (s::String)
 
-> makeSelectTuples :: Connection -> String -> [String] -> SelectCallback1 a ->
->                     IO [a]
-> makeSelectTuples conn query args callback = handleSqlError $ do
+> selectTuplesIO conn query args callback = handleSqlError $ do
 >   sth <- prepare conn query
->   execute sth $ map toSql args
+>   execute sth $ map sToSql args
 >   cn <- getColumnNames sth
 >   v <- fetchAllRows' sth
->   return $ map (callback . (\r -> flip lookupAtt (convertRow cn r))) v
+>   mapM callback (map (convertRow cn) v)
+>     where
+>       sToSql s = toSql (s::String)
 
-> makeSelectTuplesIO :: Connection -> String -> [String] -> SelectCallback1IO a ->
->                     IO [a]
-> makeSelectTuplesIO conn query args callback = handleSqlError $ do
->   sth <- prepare conn query
->   execute sth $ map toSql args
->   cn <- getColumnNames sth
->   v <- fetchAllRows' sth
->   mapM (callback . (\r -> flip lookupAtt (convertRow cn r))) v
-
+==== selectTuples wrappers
 
 > selectSingleColumn :: Connection -> String -> [String] -> IO [String]
-> selectSingleColumn conn query args = handleSqlError $ do
->   sth <- prepare conn query
->   execute sth $ map toSql args
->   cn <- getColumnNames sth
->   v <- fetchAllRows' sth
->   return $ map (\r -> fromMaybe "" $ fromSql $ head r) v
+> selectSingleColumn conn query args = selectTuplesC conn query args
+>                                        (\m -> snd $ head $ M.toList m)
 
-> runSql :: Connection -> String -> [String] -> IO ()
-> runSql conn query args = handleSqlError $ do
->   run conn query $ map toSql args
->   commit conn
+> selectLookup :: Connection -> String -> [String] -> IO [(String,String)]
+> selectLookup conn query args = handleSqlError $
+>   selectTuplesC conn query args (\r -> let [a,b] = take 2 $ M.toList r
+>                                       in (snd a, snd b))
 
 === some helpers and old stuff
 
@@ -281,7 +256,7 @@ nulls and booleans in code which uses this.
 > lookupAtt :: String -> SqlRow -> String
 > lookupAtt att tup =
 >     case M.lookup att tup of
->       Just x -> fromMaybe "" (fromSql x)
+>       Just x -> x
 >       Nothing -> ""
 
 
@@ -293,37 +268,9 @@ columns are named and named uniquely.)
 
 > convertRow :: [String] -> [SqlValue] -> SqlRow
 > convertRow cn r = M.fromList $ map
->                          (\i -> (toLower (cn !! i), (r !! i)))
+>                          (\i -> (toLower (cn !! i),
+>                                  fromMaybe "" $ fromSql (r !! i)))
 >                          [0..(length cn - 1)]
-
-==== select relation
-wrote this code and never used it, kept here in case of need, will
-be deleted if not used by the time the client code is completed
-for the first beta release
-
-> selectRelation :: Connection -> String -> [String] -> IO [(String->String)]
-> selectRelation conn query args = handleSqlError $ do
->   sth <- prepare conn query
->   execute sth $ map toSql args
->   cn <- getColumnNames sth
->   v <- fetchAllRows' sth
->   return $ map (\r -> flip lookupAtt (convertRow cn r)) v
-
-> selectRelationValues :: Connection -> String -> [String] -> IO [[String]]
-> selectRelationValues conn query args = handleSqlError $ do
->   sth <- prepare conn query
->   execute sth $ map toSql args
->   cn <- getColumnNames sth
->   v <- fetchAllRows' sth
->   return $ for v (\r -> for r (\f -> fromSql $! f::String))
-
-> selectLookup :: Connection -> String -> [String] -> IO [(String,String)]
-> selectLookup conn query args = handleSqlError $ do
->   sth <- prepare conn query
->   execute sth $ map toSql args
->   cn <- getColumnNames sth
->   v <- fetchAllRows' sth
->   return $ map (\r -> (fromSql (head r), fromSql (r !! 1))) v
 
 ==== callsp
 
@@ -337,6 +284,13 @@ have to go through i.e. writing the arg list as ?,?,?,...
 >     quickQuery' conn sqlString $ map toSql args
 >     commit conn
 >     return ()
+
+==== runSql
+
+> runSql :: Connection -> String -> [String] -> IO ()
+> runSql conn query args = handleSqlError $ do
+>   run conn query $ map toSql args
+>   commit conn
 
 ==== dbaction
 

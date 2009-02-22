@@ -115,12 +115,10 @@ attempt to get hold of the adjustments, couldn't get it working
 >                             but <- toggleButtonNewWithLabel s
 >                             textViewInsertWidgetAtCursor tv but
 >                             toggleButtonSetActive but t
->                             onClicked but $ do
->                               active <- toggleButtonGetActive but
->                               c active
+>                             onClicked but $ toggleButtonGetActive but >>= c
 >                             return ()
 >                      ToggleButtonGroup ls s c ->
->                        when (not $ null ls) $ do
+>                        unless (null ls) $ do
 >                        b1 <- radioButtonNewWithLabel $ head ls
 >                        bts <- mapM (radioButtonNewWithLabelFromWidget b1) $
 >                                    tail ls
@@ -135,7 +133,7 @@ attempt to get hold of the adjustments, couldn't get it working
 >                        return ()
 >                      Button l c -> do
 >                        but <- buttonNewWithLabel l
->                        onClicked but $ c
+>                        onClicked but c
 >                        textViewInsertWidgetAtCursor tv but
 >   mapM_ renderIt irl
 

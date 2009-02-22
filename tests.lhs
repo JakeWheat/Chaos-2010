@@ -226,15 +226,15 @@ functions whose name starts with 'check_code_'
 > testDatabaseStuff conn = testCase "testDatabaseStuff" $
 >                            rollbackOnError conn $ do
 >   res <- newIORef ([]::[(String,Bool)])
->   selectTuples conn "select object_name\n\
+>   selectTuplesC conn "select object_name\n\
 >                     \from module_objects\n\
 >                     \where object_name ~ 'check_code_.*'\n\
 >                     \and object_type='operator';" []
 >                    (\t -> do
->      v <- selectValue conn ("select " ++  t "object_name" ++ "()")
+>      v <- selectValue conn ("select " ++  lk "object_name" t ++ "()") []
 >      r1 <- readIORef res
 >      writeIORef res $ r1 ++
->                     [(t "object_name", read v::Bool)])
+>                     [(lk "object_name" t, read v::Bool)])
 >   r2 <- readIORef res
 >   let r3 = filter (\(s,b) -> not b) r2
 
@@ -398,9 +398,9 @@ get the current cursor position from the database
 
 > readCursorPosition :: Connection -> IO (Int,Int)
 > readCursorPosition conn = do
->   r <- selectRelation conn "select x,y from cursor_position" []
+>   r <- selectTuple conn "select x,y from cursor_position" []
 >   messageIfError "read cursor position" $
->     return (read $ head r "x", read $ head r "y")
+>     return (read $ lk "x" r, read $ lk "y" r)
 
 move the cursor to x,y, using key presses
 
@@ -1068,11 +1068,10 @@ cast it and check the resulting board
 >   newGameReadyToCast conn "law"
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
->   dbAlign <- selectRelation conn "select world_alignment\n\
->                                  \from world_alignment_table" []
+>   align <- selectValue conn "select world_alignment\n\
+>                               \from world_alignment_table" []
 >   messageIfError "read world_alignment" $
->     assertEqual "world alignment not law after casting law"
->              1 (read $ head dbAlign "world_alignment")
+>     assertEqual "world alignment not law after casting law" "1" align
 
 
 > testImaginary conn = testCase "testImaginary" $ rollbackOnError conn $ do
@@ -1088,7 +1087,7 @@ cast it and check the resulting board
 >   let sv c = do
 >              v <- selectValue conn "select imaginary from monster_pieces\n\
 >                                    \natural inner join pieces\n\
->                                    \where x= 1 and y = 0"
+>                                    \where x= 1 and y = 0" []
 >              c ((read v) :: Bool)
 >   setStuffUp1
 >   setStuffUp2
@@ -2319,13 +2318,13 @@ and target action views are empty.
 >   goSquare conn 0 0
 >   sendKeyPress conn "space"
 >   r <- selectValue conn "select count(1) from action_history_mr\n\
->                         \where history_name='game won';"
+>                         \where history_name='game won';" []
 >   assertEqual "game won history entry" 1 (read r)
 >   r <- selectValue conn "select count(1)\n\
->                         \from client_valid_target_actions;"
+>                         \from client_valid_target_actions;" []
 >   assertEqual "now valid target actions" 0 (read r)
 >   r <- selectValue conn "select count(1)\n\
->                         \from client_valid_activate_actions;"
+>                         \from client_valid_activate_actions;" []
 >   assertEqual "now valid activate actions" 0 (read r)
 
 Draw works similarly to win, except it is detected the instant there
@@ -2353,13 +2352,13 @@ are no wizards left.
 >   rigActionSuccess conn "ranged_attack" True
 >   goSquare conn 3 0
 >   r <- selectValue conn "select count(1) from action_history_mr\n\
->                         \where history_name='game drawn';"
+>                         \where history_name='game drawn';" []
 >   assertEqual "game drawn history entry" 1 (read r)
 >   r <- selectValue conn "select count(1)\n\
->                         \from client_valid_target_actions;"
+>                         \from client_valid_target_actions;" []
 >   assertEqual "now valid target actions" 0 (read r)
 >   r <- selectValue conn "select count(1)\n\
->                         \from client_valid_activate_actions;"
+>                         \from client_valid_activate_actions;" []
 >   assertEqual "now valid activate actions" 0 (read r)
 
 
@@ -2444,9 +2443,9 @@ database hard coded to casting for now, will need to cover other stuff
 as well.
 
 > readValidSquares :: Connection -> IO [(Int, Int)]
-> readValidSquares conn = do
->   v <- selectRelation conn "select x,y from current_wizard_spell_squares" []
->   return $ map (\t -> (read $ t "x", read $ t "y")) v
+> readValidSquares conn =
+>   selectTuplesC conn "select x,y from current_wizard_spell_squares" []
+>     (\t -> (read $ lk "x" t, read $ lk "y" t))
 
 
 ================================================================================
@@ -2577,15 +2576,15 @@ now the code to read the board from the database and get it in the same format:
 
 > readBoard :: Connection -> IO BoardDescription
 > readBoard conn =
->   selectRelation conn "select ptype,allegiance,x,y,undead\n\
+>   selectTuples conn "select ptype,allegiance,x,y,undead\n\
 >                       \from piece_details" [] >>=
->   convertBoardRel conn
+>     convertBoardRel conn
 
 The variant for only the topmost pieces:
 
 > readPiecesOnTop :: Connection -> IO BoardDescription
 > readPiecesOnTop conn =
->   selectRelation conn "select ptype,allegiance,x,y,undead\n\
+>   selectTuples conn "select ptype,allegiance,x,y,undead\n\
 >                           \from pieces_on_top_view" [] >>=
 >   convertBoardRel conn
 >
@@ -2595,17 +2594,18 @@ previous two functions and turns it into a boarddescription
 
 Adding the tags is a bit haphazard
 
+> convertBoardRel :: Connection -> [SqlRow] -> IO BoardDescription
 > convertBoardRel conn v = do
->   let checkTag r t t' = if r t == "True"
+>   let checkTag r t t' = if lk t r == "True"
 >                        then Just t'
 >                        else Nothing
 >   let w = for v (\p ->
 >                           (PieceDescription
->                            (p "ptype")
->                            (p "allegiance")
+>                            (lk "ptype" p)
+>                            (lk "allegiance" p)
 >                            (catMaybes [checkTag p "undead" PUndead]),
->                            read $ p "x",
->                            read $ p "y"))
+>                            read $ lk "x" p,
+>                            read $ lk "y" p))
 
 now add tags from the wizards table, so we can check things like magic
 sword
@@ -2623,11 +2623,11 @@ sword
 
 > readWizardUpgrades :: Connection -> IO [(String, [PieceTag])]
 > readWizardUpgrades conn = do
->   v <- selectRelation conn "select wizard_name, magic_armour from wizards" []
->   let checkTag r t t' = if r t == "True"
+>   v <- selectTuples conn "select wizard_name, magic_armour from wizards" []
+>   let checkTag r t t' = if lk t r == "True"
 >                           then Just t'
 >                           else Nothing
->   return $ for v (\vs -> (vs "wizard_name",
+>   return $ for v (\vs -> (lk "wizard_name" vs,
 >                           catMaybes [checkTag vs "magic_armour" PArmour]))
 
 
@@ -2641,10 +2641,10 @@ todo: add all relvars which aren't readonly to this
 
 > checkNewGameRelvars :: Connection -> IO ()
 > checkNewGameRelvars conn = do
->   checkRelvar conn "turn_number_table" [["0"]]
->   checkRelvar conn "current_wizard_table" [["Buddha"]]
->   checkRelvar conn "turn_phase_table" [["choose"]]
->   checkRelvar conn "spell_choice_hack_table" [["False"]]
+>   checkRelvar conn "turn_number_table" ["0"]
+>   checkRelvar conn "current_wizard_table" ["Buddha"]
+>   checkRelvar conn "turn_phase_table" ["choose"]
+>   checkRelvar conn "spell_choice_hack_table" ["False"]
 > --todo: action_history
 >   mapM_ (\x -> checkRelvar conn x []) ["wizard_spell_choices_mr",
 >                                       "spell_parts_to_cast_table",
@@ -2660,30 +2660,28 @@ something hacked up to check the contents of a relvar in the
 database. Should create a better format for writing relvar literals in
 this test file.
 
-> checkRelvar :: Connection -> String -> [[String]] -> IO ()
+> checkRelvar :: Connection -> String -> [String] -> IO ()
 > checkRelvar conn relvarName value =
->   selectRelationValues conn ("select * from " ++ relvarName) [] >>=
->   assertEqual ("relvar " ++ relvarName) value
+>   selectTuplesC conn ("select * from " ++ relvarName) []
+>                      (\r -> head $ map snd $ M.toList r) >>=
+>     assertEqual ("relvar " ++ relvarName) value
 
 shorthands to check data in the database
 
 > checkSelectedPiece conn allegiance ptype = do
->   v <- selectRelation conn "select * from selected_piece" []
->   when (null v) $ error "checking selected piece, relvar empty"
+>   v <- selectTuple conn "select * from selected_piece" []
 >   messageIfError "read selected piece" $
 >     assertEqual "selected piece" (allegiance,ptype)
->               (head v "allegiance", head v "ptype")
+>               (lk "allegiance" v, lk "ptype" v)
 
 > checkMoveSubphase conn sp = do
->   ms <- selectRelation conn "select move_phase from selected_piece" []
->   when (null ms) $ error $
->                             "checking move phase, select_piece empty" ++ sp
+>   ms <- selectTuple conn "select move_phase from selected_piece" []
 >   messageIfError "read move_phase" $
->     assertEqual "move subphase" sp (head ms "move_phase")
+>     assertEqual "move subphase" sp (lk "move_phase" ms)
 
 > checkNoSelectedPiece conn = do
->   v <- selectRelation conn "select * from selected_piece" []
->   assertBool "there should be no selected piece" (null v)
+>   v <- selectTupleIf conn "select * from selected_piece" []
+>   assertBool "there should be no selected piece" (isNothing v)
 
 ================================================================================
 
@@ -2693,6 +2691,11 @@ shorthands to check data in the database
 
 this takes a board description and sets the board to match it used to
 setup a particular game before running some tests
+
+> lk :: String -> M.Map String String -> String
+> lk f m = case M.lookup f m of
+>            Nothing -> ""
+>            Just s -> s
 
 > setupBoard :: Connection -> BoardDiagram -> IO ()
 > setupBoard conn bd = do
@@ -2709,13 +2712,13 @@ setup a particular game before running some tests
 >     unless (isWizPresent $ wizardNames !! i) $
 >       callSp conn "kill_wizard" [wizardNames !! i])
 >   -- move present wizards
->   forM_ wizardItems (\(PieceDescription _ name _, x, y) ->
->     selectTuple conn "select x,y from pieces where ptype='wizard'\n\
->                      \and allegiance=?" [name] (\t ->
->       unless (read (t "x") == x && read (t "y") == y)
+>   forM_ wizardItems (\(PieceDescription _ name _, x, y) -> do
+>     t <- selectTuple conn "select x,y from pieces where ptype='wizard'\n\
+>                      \and allegiance=?" [name]
+>     unless (read (lk "x" t) == x && read (lk "y" t) == y)
 >            (runSql conn "update pieces_mr set x = ?, y = ?\n\
 >                        \where ptype='wizard' and allegiance=?"
->                    [show x, show y, name])))
+>                    [show x, show y, name]))
 >   -- add extra pieces
 >   forM_ nonWizardItems (\(PieceDescription ptype allegiance tags, x, y) ->
 >     if allegiance == "dead"
@@ -2774,22 +2777,20 @@ keep running next_phase until we get to the cast phase
 = database read shortcuts
 
 > readTurnPhase :: Connection -> IO String
-> readTurnPhase conn = do
->   r <- selectTupleRet conn "select turn_phase from turn_phase_table" []
->   return $ r "turn_phase"
+> readTurnPhase conn =
+>   selectValue conn "select turn_phase from turn_phase_table" []
 
 > readCurrentWizard :: Connection -> IO String
-> readCurrentWizard conn = do
->   r <- selectTupleRet conn
+> readCurrentWizard conn =
+>   selectValue conn
 >          "select current_wizard from current_wizard_table" []
->   return $ r "current_wizard"
 
 > assertSelectedPiece :: Connection -> String -> String -> IO()
-> assertSelectedPiece conn ptype allegiance =
->   selectTuple conn "select ptype, allegiance from selected_piece" []
->               (\t -> assertEqual "selected piece"
->                                  (ptype,allegiance)
->                                  (t "ptype", t "allegiance"))
+> assertSelectedPiece conn ptype allegiance = do
+>   t <- selectTuple conn "select ptype, allegiance from selected_piece" []
+>   assertEqual "selected piece"
+>               (ptype,allegiance)
+>               (lk "ptype" t, lk "allegiance" t)
 
 > checkCurrentWizardPhase :: Connection -> String -> String -> IO()
 > checkCurrentWizardPhase conn wiz phase = do
@@ -2800,10 +2801,10 @@ keep running next_phase until we get to the cast phase
 
 > checkPieceDoneSelection conn ptype allegiance = do
 >     checkNoSelectedPiece conn
->     v <- selectRelationValues conn
->                              "select * from pieces_to_move\n\
->                              \where ptype=? and\n\
->                              \  allegiance=?" [ptype,allegiance]
+>     v <- selectTuples conn
+>                       "select * from pieces_to_move\n\
+>                       \where ptype=? and\n\
+>                       \  allegiance=?" [ptype,allegiance]
 >     assertBool "piece not in ptm" (null v)
 
 ================================================================================

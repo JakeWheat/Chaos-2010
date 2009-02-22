@@ -214,9 +214,9 @@ supposed to be doing
 >                         \  natural inner join wizard_sprites;" [] $
 >             \wi -> [
 >                     Text "\nWizard up: "
->                    ,TaggedText (wi "current_wizard")
->                                (filter (/="none") [wi "colour"])
->                    ,sprite $ wi "sprite"
+>                    ,TaggedText (lk "current_wizard" wi)
+>                                (filter (/="none") [lk "colour" wi])
+>                    ,sprite $ lk "sprite" wi
 >                    ]
 
 >        ,D.SelectValueIf "select count from\n\
@@ -252,16 +252,16 @@ then this widget show how many parts remain to be cast
 >           "select * from current_wizard_selected_spell_details" [] $
 >           \sd -> [
 >               Text $ "\nChosen spell: " ++
->                    sd "spell_name" ++ "\t"
->              ,sprite $ sd "sprite"
+>                    lk "spell_name" sd ++ "\t"
+>              ,sprite $ lk "sprite" sd
 
 >              ,Text $ "\n(" ++
->                             sd "spell_category" ++ ", " ++
->                             sd "alignment_string" ++ ", copies " ++
->                             sd "count" ++ ")" ++
->                             "\n" ++ sd "description" ++
->                             "\nchance " ++ sd "chance" ++ "% " ++
->                             " (base " ++ sd "base_chance" ++ "%)"
+>                             lk "spell_category" sd ++ ", " ++
+>                             lk "alignment_string" sd ++ ", copies " ++
+>                             lk "count" sd ++ ")" ++
+>                             "\n" ++ lk "description" sd ++
+>                             "\nchance " ++ lk "chance" sd ++ "% " ++
+>                             " (base " ++ lk "base_chance" sd ++ "%)"
 
 draw the extra spell casting info:
 i think this code has got a bit stale and needs looking at again to
@@ -271,12 +271,12 @@ check the fields and field names
 >                                        ,("parts", "parts")
 >                                        ,("range", "range")
 >                                        ]
->                                 (\(n,f) -> not (sd f == "" ||
->                                                 read (sd f) < 2))
+>                                 (\(n,f) -> not (lk f sd == "" ||
+>                                                 read (lk f sd) < 2))
 >               in Text $ '\n' : intercalate ", "
 >                                  (for fields
 >                                       (\(n,f) ->
->                                        n ++ ": " ++ sd f))
+>                                        n ++ ": " ++ lk f sd))
 >              ]
 >        ]
 
@@ -289,7 +289,7 @@ on the square the cursor is on
 >         D.SelectTupleIf "select x,y from cursor_position" [] $
 >                \cp -> [Text $ "\n\
 >                               \---------\n\
->                               \\ncursor: " ++ cp "x" ++ ", " ++ cp "y"]
+>                               \\ncursor: " ++ lk "x" cp ++ ", " ++ lk "y" cp]
 >        ]
 
 
@@ -301,19 +301,19 @@ on the square the cursor is on
 
 >       pieceInfo pi = [
 >         Text "\n"
->        ,sprite $ pi "sprite"] ++
+>        ,sprite $ lk "sprite" pi] ++
 >        (case True of
->           _ | pi "ptype" == "wizard" ->
->                 [TaggedText (pi "allegiance") (case pi "colour" of
+>           _ | lk "ptype" pi == "wizard" ->
+>                 [TaggedText (lk "allegiance" pi) (case lk "colour" pi of
 >                                                 "none" -> []
 >                                                 s -> [s])]
->             | pi "dead" == "true" ->
->                 [TaggedText ("dead " ++ pi "ptype" ++ "-" ++ pi "tag")
+>             | lk "dead" pi == "true" ->
+>                 [TaggedText ("dead " ++ lk "ptype" pi ++ "-" ++ lk "tag" pi)
 >                             ["grey"]]
 >             | otherwise -> [
->                   Text (pi "ptype" ++ "-" ++ pi "tag" ++ "(")
->                  ,TaggedText (pi "allegiance") (filter (/="none")
->                              [(pi "colour")])
+>                   Text (lk "ptype" pi ++ "-" ++ lk "tag" pi ++ "(")
+>                  ,TaggedText (lk "allegiance" pi) (filter (/="none")
+>                              [(lk "colour" pi)])
 >                  ,Text ")"]) ++
 
 boolean stats are treated differently:
@@ -340,7 +340,7 @@ to see imaginary of monsters that aren't yours.
 >                            ,"magic_armour"
 >                            ,"magic_bow"
 >                            ,"computer_controlled"]
->             pieceBoolStats = flip filter booleanStats (\s -> pi s == "true")
+>             pieceBoolStats = flip filter booleanStats (\s -> lk s pi == "true")
 >         in Text $ '\n' : intercalate ", " pieceBoolStats
 >        ] ++
 
@@ -355,7 +355,7 @@ to see imaginary of monsters that aren't yours.
 >                   ,"ranged_attack_strength"
 >                   ,"magic_defense"
 >                   ,"place"]
->            vals = zip atts $ map (\f -> pi f) atts
+>            vals = zip atts $ map (\f -> lk f pi) atts
 >            vals' = filter (\(f1,f2) -> f2 /= "") vals
 >        in map (\(f1,f2) -> Text $ "\n" ++ f1 ++ ": " ++ f2) vals'
 
@@ -574,12 +574,12 @@ update the board sprites 10 times a second to animate them
 >     return (frame, refresh)
 >     where
 >         readBoardSprites = do
->           br <- selectRelation conn "select * from board_sprites" []
->           return $ map (\bs -> (read (bs "x")::Int,
->                                 read (bs "y")::Int,
->                                 bs "sprite",
->                                 read $ bs "start_frame"::Int,
->                                 read $ bs "animation_speed"::Int)) br
+>           br <- selectTuples conn "select * from board_sprites" []
+>           return $ map (\bs -> (read $ lk "x" bs::Int,
+>                                 read $ lk "y" bs::Int,
+>                                 lk "sprite" bs,
+>                                 read $ lk "start_frame" bs::Int,
+>                                 read $ lk "animation_speed" bs::Int)) br
 
 
 
@@ -648,12 +648,13 @@ show help text
 write this spell's line
 
 >                  \sb -> [Text "\n"
->                         ,TaggedText (sb "key" ++ " - ") [sb "colour"]
->                         ,sprite $ sb "sprite"
->                         ,TaggedText (" " ++ sb "spell_name" ++
->                                       " " ++ sb "chance" ++ "%") [sb "colour"]
->                         ,Text $ " " ++ sb "align_icons" ++ " " ++
->                            sb "count_icons"
+>                         ,TaggedText (lk "key" sb ++ " - ") [lk "colour" sb]
+>                         ,sprite $ lk "sprite" sb
+>                         ,TaggedText (" " ++ lk "spell_name" sb ++
+>                                       " " ++ lk "chance" sb ++ "%")
+>                                     [lk "colour" sb]
+>                         ,Text $ " " ++ lk "align_icons" sb ++ " " ++
+>                            lk "count_icons" sb
 >                         ]
 >               ]
 
@@ -702,9 +703,9 @@ new game widget:
 
 first check the new_game_widget_state relvar
 
->         selectValueIf conn "select count(*) from new_game_widget_state" []
+>         selectValueIfC conn "select count(*) from new_game_widget_state" []
 >            (\c -> when (c == "0")
->            (dbAction conn "reset_new_game_widget_state" []))
+>              (dbAction conn "reset_new_game_widget_state" []))
 
 >         textBufferClear buf
 >         D.run conn items >>= render tv
@@ -718,26 +719,26 @@ Fill in the rows which correspond to each wizard
 
 draw our sprite for this wizard
 
->                 [sprite $ l "sprite"
->                 ,Text $ "\t" ++ l "sprite_name" ++ "\t"
+>                 [sprite $ lk "sprite" l
+>                 ,Text $ "\t" ++ lk "sprite_name" l ++ "\t"
 
 create a helper function for adding radio buttons as part of a group
 these are the buttons which set whether a wizard is human, android,
 or not present
 
 >                 ,ToggleButtonGroup ["human", "computer", "none"]
->                                    (l "state")
+>                                    (lk "state" l)
 >                                    (\label -> runSql conn
 >                                             "update new_game_widget_state\n\
 >                                             \set state =? where line =?"
->                                             [label, l "line"])
+>                                             [label, lk "line" l])
 >                 ,Text "\n"
 >                 ]
 
 add the buttons at the bottom of the panel to start the game and
 reset the panel
 
->               ,D.Items $ [MyTextView.Button "start game" $ do
+>               ,D.Items $ [MyTextView.Button "start game" $
 >                             dbAction conn
 >                                      "client_new_game_using_\
 >                                      \new_game_widget_state" []
@@ -798,35 +799,37 @@ text box instead of redrawing them all
 >                 t <- th h
 >                 return $ t ++ [Text "\n"]
 >       th h = do
->              writeIORef lastHistoryIDBox $ read $ h "id"
->              let wc = TaggedText (h "wizard_name") [getWC $ h "wizard_name"]
->                  pTag = [Text $ h "ptype" ++ "-"
->                         ,TaggedText (h "allegiance") [getWC $ h "allegiance"]
->                         ,Text $ '-' : h "tag"]
->              return $ (Text $ h "id" ++ ". ") :
+>              writeIORef lastHistoryIDBox $ read $ lk "id" h
+>              let wc = TaggedText (lk "wizard_name" h)
+>                                  [getWC $ lk "wizard_name" h]
+>                  pTag = [Text $ lk "ptype" h ++ "-"
+>                         ,TaggedText (lk "allegiance" h)
+>                                     [getWC $ lk "allegiance" h]
+>                         ,Text $ '-' : lk "tag" h]
+>              return $ (Text $ lk "id" h ++ ". ") :
 
 -- unfinished...
 
->                case h "history_name" of
+>                case lk "history_name" h of
 >                  "new game" ->
 >                      [Text "new game started"]
 >                  "choose spell" ->
 >                      [wc
->                      ,TaggedText (" chose " ++ h "spell_name") ["yellow"]]
+>                      ,TaggedText (" chose " ++ lk "spell_name" h) ["yellow"]]
 >                  "next phase" ->
->                      [Text $ "next phase: " ++ h "current_wizard" ++
->                       " - " ++ h "current_phase"]
+>                      [Text $ "next phase: " ++ lk "current_wizard" h ++
+>                       " - " ++ lk "current_phase" h]
 >                  "skip spell" ->
 >                      [wc
->                      ,TaggedText (" skipped casting " ++ h "spell_name")
+>                      ,TaggedText (" skipped casting " ++ lk "spell_name" h)
 >                                  ["yellow"]]
 >                  "spell cast succeeded" ->
 >                      [wc
->                      ,TaggedText (" successfully cast " ++ h "spell_name")
+>                      ,TaggedText (" successfully cast " ++ lk "spell_name" h)
 >                                  ["green"]]
 >                  "spell cast failed" ->
 >                      [wc
->                      ,TaggedText (" failed to cast " ++ h "spell_name")
+>                      ,TaggedText (" failed to cast " ++ lk "spell_name" h)
 >                                  ["red"]]
 >                  "piece teleport" ->
 >                      pTag ++ [Text " teleported"]
@@ -839,7 +842,7 @@ text box instead of redrawing them all
 >                      ,Text " has won!"]
 >                  "game drawn" ->
 >                      [Text "the game is a draw."]
->                  _ -> [Text $ h "history_name" ++ " FIXME"]
+>                  _ -> [Text $ lk "history_name" h ++ " FIXME"]
 
 >       refresh = do
 >         lhID <- readIORef lastHistoryIDBox
@@ -881,7 +884,7 @@ display to the user
 
 >     let niceNameF = map
 >                     (\c -> if c == '_' then ' ' else c)
->     selectValueIf conn "select count(*) from windows\n\
+>     selectValueIfC conn "select count(*) from windows\n\
 >                      \where window_name = 'window_manager'" []
 >                 (\c -> when (read c == 0)
 >                    (dbAction conn "reset_windows" []))
@@ -939,10 +942,10 @@ that window and hook pressing F12 up to refresh all the widgets
 
 >         return (name, (ww, wrefresh))
 >
->     v <- selectRelation conn "select window_name \n\
+>     v <- selectTuples conn "select window_name \n\
 >                              \from windows" []
 >     widgetData <- forM v (\r ->
->                   makeWindow (r "window_name"))
+>                   makeWindow (lk "window_name" r))
 
 == refresh
 
@@ -953,7 +956,7 @@ way to unhide them).
 
 >     let items = D.SelectTuplesIO "select window_name,px,py,sx,sy,state \n\
 >                                \from windows" [] $ \wi -> do
->                   let name = wi "window_name"
+>                   let name = lk "window_name" wi
 >                       niceName = niceNameF name
 >                       (ww,wrefresh) = safeLookup
 >                                       "window manager refresh" name widgetData
@@ -965,15 +968,15 @@ is hooked up to the database it will be hooked up in the window
 manager ctor (this function)
 
 
->                   if name == "window_manager" || wi "state" /= "hidden"
+>                   if name == "window_manager" || lk "state" wi /= "hidden"
 >                     then widgetShowAll ww >> wrefresh
 >                     else widgetHideAll ww
 >                   --fix up the size and position
->                   windowMove ww (read $ wi "px") (read $ wi "py")
->                   windowResize ww (read $ wi "sx") (read $ wi "sy")
+>                   windowMove ww (read $ lk "px" wi) (read $ lk "py" wi)
+>                   windowResize ww (read $ lk "sx" wi) (read $ lk "sy" wi)
 
 >                   return [ToggleButton niceName
->                            (wi "state" /= "hidden")
+>                            (lk "state" wi /= "hidden")
 
 setup the handler so that clicking the button toggles the window visibility
 
@@ -983,8 +986,8 @@ setup the handler so that clicking the button toggles the window visibility
 >                                    --reposition the window since
 >                                    --it's position is reset
 >                                    -- when the window is hidden
->                                    windowMove ww (read $ wi "px")
->                                                  (read $ wi "py")
+>                                    windowMove ww (read $ lk "px" wi)
+>                                                  (read $ lk "py" wi)
 >                                    wrefresh
 >                                    runSql conn
 >                                      "update windows set state='normal'\n\
@@ -1110,11 +1113,11 @@ to another surface and keep that surface around.
 
 > readColours :: Connection -> IO ColourList
 > readColours conn = do
->   r <- selectRelation conn "select name,red,green,blue from colours" []
->   return $ map (\t -> ((t "name"),
->                      Color (read (t "red"))
->                            (read (t "green"))
->                            (read (t "blue")))) r
+>   r <- selectTuples conn "select name,red,green,blue from colours" []
+>   return $ map (\t -> ((lk "name" t),
+>                      Color (read (lk "red" t))
+>                            (read (lk "green" t))
+>                            (read (lk "blue" t)))) r
 
 Setup a text view with the styles and colours used in this app.
 
@@ -1178,3 +1181,6 @@ must be an easier way than this?
 >                    in if length h < 2
 >                         then '0' : h
 >                         else h
+
+> lk :: String -> M.Map String String -> String
+> lk k = fromMaybe "" . M.lookup k

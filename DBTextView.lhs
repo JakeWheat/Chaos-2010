@@ -12,14 +12,15 @@ a TList object in one go.
 > import Control.Monad
 > import ChaosDB
 > import Data.Maybe
+> import qualified Data.Map as M
 
 > data Item
 >     = Items [T.Item]
 >     | SelectValueIf String [String] (String -> [T.Item])
->     | SelectTupleIf String [String] ((String->String) -> [T.Item])
->     | SelectTuples String [String] ((String->String) -> [T.Item])
->     | IOI (IO [T.Item])
->     | SelectTuplesIO String [String] ((String->String) -> IO [T.Item])
+>     | SelectTupleIf String [String] (M.Map String String -> [T.Item])
+>     | SelectTuples String [String] (M.Map String String -> [T.Item])
+> --     | IOI (IO [T.Item])
+>     | SelectTuplesIO String [String] (M.Map String String -> IO [T.Item])
 
  > convI :: Item -> IO (Maybe [T.Item])
  > convI (Items l) = return $ Just $ l
@@ -27,8 +28,8 @@ a TList object in one go.
  > convS (SelectValueIf query args callback) =
  >        makeSelectValueIf conn query args callback
 
- > convT (SelectTupleIf query args callback) =
- >        makeSelectTupleIf conn query args callback
+ > convT query args callback =
+ >        selectTupleIfC conn query args callback
 
  > convIO (IOI a) = do
  >   x <- a
@@ -41,6 +42,8 @@ a TList object in one go.
  >   x <- makeSelectTuples conn query args callback
  >   return $ Just x
 
+
+
 > run :: Connection -> [Item] -> IO [T.Item]
 > run conn items = do
 >   x <- (mapM runIt items)
@@ -48,15 +51,16 @@ a TList object in one go.
 >     where runIt i = case i of
 >                            Items l -> return $ Just l
 >                            SelectValueIf query args callback ->
->                                makeSelectValueIf conn query args callback
->                            SelectTupleIf query args callback ->
->                                makeSelectTupleIf conn query args callback
+>                                selectValueIfC conn query args callback
 >                            SelectTuples query args callback -> do
->                                x <- makeSelectTuples conn query args callback
+>                                x <- selectTuplesC conn query args callback
 >                                return $ Just $ concat x
+>                            SelectTupleIf query args callback ->
+>                                selectTupleIfC conn query args callback
 >                            SelectTuplesIO query args callback -> do
->                                x <- makeSelectTuplesIO conn query args callback
+>                                x <- selectTuplesIO conn query args callback
 >                                return $ Just $ concat x
->                            IOI a -> do
->                                x <- a
->                                return $ Just x
+
+ >                            IOI a -> do
+ >                                x <- a
+ >                                return $ Just x

@@ -30,6 +30,7 @@ todo: get this tree into speedbar
 > import Control.Monad
 > import Control.Exception
 > import Utils
+> import qualified Data.Map as M
 
 > getSourceFiles = getDirectoryContents "." >>=
 >                    filterM doesFileExist
@@ -124,12 +125,13 @@ get module paths:
 get the module,parent pairs and create a map from module names to the
 path from the root to that module
 
->       r0 <- selectRelationValues conn
+>       r0 <- selectTuples conn
 >                 "select module_name, module_parent_name\n\
 >                 \from modules order by module_order" []
 >       let flookup = safeLookup "get module parents"
 >           moduleMap = foldr addI [] r0
->               where addI i l = l ++ [(i!!0, i!!1)]
+>               where addI i l = l ++ [(lk "module_name" i
+>                                      ,lk "module_parent_name" i)]
 >           paths = map (\(c,p) -> (c,getPath c p)) moduleMap
 >               where getPath c p = if p == "root"
 >                                     then [c]
@@ -139,7 +141,7 @@ path from the root to that module
 -- get database objects: add each one under the path to the module it is
 -- contained in
 
->       r1 <- selectRelationValues conn
+>       r1 <- selectTuples conn
 >                 "select module_name,object_type,object_name\n\
 >                 \from module_objects\n\
 >                 \natural inner join modules\n\
@@ -147,8 +149,9 @@ path from the root to that module
 >                 \order by module_order desc,object_order desc,object_name" []
 >       let tree = foldr addNodeA [] r1
 >              where addNodeA i tree =
->                        addNode tree $ flookup (i!!0) paths
->                                       ++ [i!!1,i!!2]
+>                        addNode tree $ flookup (lk "module_name" i) paths
+>                                       ++ [lk "object_type" i
+>                                          ,lk "object_name" i]
 >       return tree))
 >       (\e -> return [Node {rootLabel="Error: " ++ show e,
 >                            subForest=[]}])
@@ -190,3 +193,5 @@ which path to add it under
 >               else
 >                 addNodeAt (addNode tree (currentPath ++ [l])) currentPath ls
 >         addNodeAt tree currentPath [] = tree
+
+> lk k = fromMaybe "" . M.lookup k
