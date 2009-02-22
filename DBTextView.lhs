@@ -17,6 +17,7 @@ a TList object in one go.
 >     = Items [T.Item]
 >     | SelectValueIf String [String] (String -> [T.Item])
 >     | SelectTupleIf String [String] ((String->String) -> [T.Item])
+>     | SelectTuplesIf String [String] ((String->String) -> [T.Item])
 >     | IOI (IO [T.Item])
 
  > convI :: Item -> IO (Maybe [T.Item])
@@ -32,6 +33,13 @@ a TList object in one go.
  >   x <- a
  >   return $ Just x
 
+ > conn :: Connection
+ > conn = undefined
+
+ > convTs (SelectTuplesIf query args callback) = do
+ >   x <- makeSelectTuples conn query args callback
+ >   return $ Just x
+
 > run :: Connection -> [Item] -> IO [T.Item]
 > run conn items = do
 >   x <- (mapM runIt items)
@@ -42,6 +50,9 @@ a TList object in one go.
 >                                makeSelectValueIf conn query args callback
 >                            SelectTupleIf query args callback ->
 >                                makeSelectTupleIf conn query args callback
+>                            SelectTuplesIf query args callback -> do
+>                                x <- makeSelectTuples conn query args callback
+>                                return $ Just $ concat x
 >                            IOI a -> do
 >                                x <- a
 >                                return $ Just x

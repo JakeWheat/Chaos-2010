@@ -197,12 +197,11 @@ redraw the contents
 >
 >       refresh = do
 >         textBufferClear buf
->         trender drawTurnPhaseInfo
->         --render tv drawTurnPhaseInfo
->         drawSpellInfo
->         drawCursorInfo
->         drawCursorPieces
->         drawSelectedPieceInfo
+>         trender turnPhaseInfo
+>         trender spellInfo
+>         trender cursorInfo
+>         trender cursorPieces
+>         trender selectedPieceInfo
 >
 
 == Turn phase info:
@@ -211,7 +210,7 @@ if move phase, say how many pieces are left to move
 TODO: add some text to tell the player what options he has or what he is
 supposed to be doing
 
->       drawTurnPhaseInfo = [
+>       turnPhaseInfo = [
 
 >         D.SelectValueIf "select * from turn_number_table" [] $
 >           \tn -> [Text $ "Turn " ++ tn ++ ", "]
@@ -268,46 +267,51 @@ number of shots with spell
 in casting phase, if spell has more than one part (server or client side)
 then this widget show how many parts remain to be cast
 
->       drawSpellInfo =
->         st "select * from current_wizard_selected_spell_details"
->                     (\sd -> do
->                        ibc $ "\nChosen spell: " ++
->                                sd "spell_name" ++ "\t"
->                        ibs $ sd "sprite"
->                        ibc $ "\n(" ++
+>       spellInfo = [
+
+>         D.SelectTupleIf
+>           "select * from current_wizard_selected_spell_details" [] $
+>           \sd -> [
+>               Text $ "\nChosen spell: " ++
+>                    sd "spell_name" ++ "\t"
+>              ,sprite $ sd "sprite"
+
+>              ,Text $ "\n(" ++
 >                             sd "spell_category" ++ ", " ++
 >                             sd "alignment_string" ++ ", copies " ++
 >                             sd "count" ++ ")" ++
 >                             "\n" ++ sd "description" ++
 >                             "\nchance " ++ sd "chance" ++ "% " ++
 >                             " (base " ++ sd "base_chance" ++ "%)"
->                        --draw the extra spell casting info
->                        -- i think this code has got a bit stale
->                        -- and needs looking at again to check the
->                        --fields and field names
->                        let fields = flip filter [("#pieces", "num"),
->                                                  ("parts", "parts"),
->                                                  ("range", "range")]
->                                          (\(n,f) -> not (sd f == "" ||
->                                                     read (sd f) < 2))
->                        when (length fields > 0)
->                             (ibc $ '\n' : intercalate ", "
->                                      (for fields
+
+draw the extra spell casting info:
+i think this code has got a bit stale and needs looking at again to
+check the fields and field names
+
+>              ,let fields = flip filter [("#pieces", "num")
+>                                        ,("parts", "parts")
+>                                        ,("range", "range")
+>                                        ]
+>                                 (\(n,f) -> not (sd f == "" ||
+>                                                 read (sd f) < 2))
+>               in Text $ '\n' : intercalate ", "
+>                                  (for fields
 >                                       (\(n,f) ->
->                                        n ++ ": " ++ sd f))))
->
+>                                        n ++ ": " ++ sd f))
+>              ]
+>        ]
 
 == cursor info
 shows the cursor position
 and piece info (see below) for each piece
 on the square the cursor is on
 
->       drawCursorInfo =
->         st "select x,y from cursor_position"
->                (\cp -> do
->                   ibc "\n"
->                   ibc "---------\n"
->                   ibc $ "\ncursor: " ++ cp "x" ++ ", " ++ cp "y")
+>       cursorInfo = [
+>         D.SelectTupleIf "select x,y from cursor_position" [] $
+>                \cp -> [Text $ "\n\
+>                               \---------\n\
+>                               \\ncursor: " ++ cp "x" ++ ", " ++ cp "y"]
+>        ]
 
 
 == draw piece info helper
@@ -316,19 +320,20 @@ factor out this code since we want to draw piece info
 for the selected piece and any pieces (could be up to three)
 on the square the cursor is on
 
->       drawPieceInfo pi = do
->         ibc "\n"
->         ibs $ pi "sprite"
->         case True of
+>       pieceInfo pi = [
+>         Text "\n"
+>        ,sprite $ pi "sprite"] ++
+>        (case True of
 >           _ | pi "ptype" == "wizard" ->
->                 ibct (pi "allegiance") (filter (/="none") [(pi "colour")])
+>                 [TaggedText (pi "allegiance") (case pi "colour" of
+>                                                 "none" -> []
+>                                                 s -> [s])]
 >             | pi "dead" == "true" ->
->                 ibct ("dead " ++ pi "ptype" ++ "-" ++ pi "tag")
->                      ["grey"]
->             | otherwise -> do
->                 ibc (pi "ptype" ++ "-" ++ pi "tag" ++ "(")
->                 ibct (pi "allegiance") (filter (/="none") [(pi "colour")])
->                 ibc ")"
+>                 [TaggedText ("dead " ++ pi "ptype" ++ "-" ++ pi "tag") ["grey"]]
+>             | otherwise -> [
+>                   Text (pi "ptype" ++ "-" ++ pi "tag" ++ "(")
+>                  ,TaggedText (pi "allegiance") (filter (/="none") [(pi "colour")])
+>                  ,Text ")"]) ++
 
 boolean stats are treated differently:
 Don't display bool stats if they are false,
@@ -342,35 +347,36 @@ don't want to be able to see which monsters are imaginary (as with the
 original chaos), cos then everyone can cheat. You should never be able
 to see imaginary of monsters that aren't yours.
 
->         let booleanStats = ["flying",
->                             "undead",
->                             "rideable",
->                             "imaginary",
->                             "shadow_form",
->                             "magic_sword",
->                             "magic_knife",
->                             "magic_shield",
->                             "magic_wings",
->                             "magic_armour",
->                             "magic_bow",
->                             "computer_controlled"]
->         let pieceBoolStats = flip filter booleanStats (\s -> pi s == "true")
->         when (length pieceBoolStats > 0)
->                  (ibc $ '\n' : intercalate ", " pieceBoolStats)
->         forM_ ["remaining_walk",
->                "move_phase",
->                "attack_strength",
->                "physical_defense",
->                "speed",
->                "agility",
->                "ranged_weapon_type",
->                "range",
->                "ranged_attack_strength",
->                "magic_defense",
->                "place"] (\f ->
->                          when (pi f /= "")
->                               (ibc $ "\n" ++ f ++ ": " ++ pi f))
->         return ()
+>        [let booleanStats = ["flying"
+>                            ,"undead"
+>                            ,"rideable"
+>                            ,"imaginary"
+>                            ,"shadow_form"
+>                            ,"magic_sword"
+>                            ,"magic_knife"
+>                            ,"magic_shield"
+>                            ,"magic_wings"
+>                            ,"magic_armour"
+>                            ,"magic_bow"
+>                            ,"computer_controlled"]
+>             pieceBoolStats = flip filter booleanStats (\s -> pi s == "true")
+>         in Text $ '\n' : intercalate ", " pieceBoolStats
+>        ] ++
+
+>        let atts = ["remaining_walk"
+>                   ,"move_phase"
+>                   ,"attack_strength"
+>                   ,"physical_defense"
+>                   ,"speed"
+>                   ,"agility"
+>                   ,"ranged_weapon_type"
+>                   ,"range"
+>                   ,"ranged_attack_strength"
+>                   ,"magic_defense"
+>                   ,"place"]
+>            vals = zip atts $ map (\f -> pi f) atts
+>            vals' = filter (\(f1,f2) -> f2 /= "") vals
+>        in map (\(f1,f2) -> Text $ "\n" ++ f1 ++ ": " ++ f2) vals'
 
 
 == selected piece info
@@ -379,25 +385,21 @@ show piece info for selected piece
 which subphase the piece is in
 squares left to move if walker and in moving subphase
 
->       drawSelectedPieceInfo =
->         st "select * from selected_piece_details"
->            (\pd -> do
->               ibc "\n"
->               ibc "--------\n"
->               ibc "\nSelected piece:"
->               drawPieceInfo pd)
+>       selectedPieceInfo =
+>         [D.SelectTupleIf "select * from selected_piece_details" [] $
+>            \pd -> (Text "\n\n\
+>                        \--------\n\
+>                        \\nSelected piece:" : pieceInfo pd)]
 
 == piece info subsubwidget
 shows stats for the piece from:
 pieces and sub entity tables
 wizard upgrades
 
->       drawCursorPieces =
->         sts "select * from cursor_piece_details order by sp"
->             (\cpd -> do
->                ibc "\n"
->                ibc "-------\n"
->                drawPieceInfo cpd)
+>       cursorPieces =
+>         [D.SelectTuplesIf "select * from cursor_piece_details order by sp" [] $
+>            \cpd -> (Text "\n\
+>                        \-------\n" : pieceInfo cpd)]
 
 >   return (tv, refresh)
 

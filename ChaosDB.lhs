@@ -35,6 +35,7 @@ Select functions
 >                 selectLookup,
 >                 makeSelectValueIf,
 >                 makeSelectTupleIf,
+>                 makeSelectTuples,
 
 update function
 
@@ -232,6 +233,15 @@ query
 >   v <- fetchAllRows' sth
 >   mapM_ callback (map (\r -> flip lookupAtt (convertRow cn r)) v)
 >   return ()
+
+> makeSelectTuples :: Connection -> String -> [String] -> SelectCallback1 a ->
+>                     IO [a]
+> makeSelectTuples conn query args callback = handleSqlError $ do
+>   sth <- prepare conn query
+>   execute sth $ map toSql args
+>   cn <- getColumnNames sth
+>   v <- fetchAllRows' sth
+>   return $ map callback (map (\r -> flip lookupAtt (convertRow cn r)) v)
 
 
 > selectSingleColumn :: Connection -> String -> [String] -> IO [String]
