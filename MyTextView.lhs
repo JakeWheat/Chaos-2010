@@ -5,6 +5,7 @@
 > import GtkUtils
 > import Control.Monad
 > import Data.Maybe
+> import Utils
 
 ================================================================================
 
@@ -94,8 +95,12 @@ attempt to get hold of the adjustments, couldn't get it working
 >     | Pixbuf Pixbuf
 >     | Widget Widget
 >     | ToggleButton String Bool ToggleButtonCallback
+>     | ToggleButtonGroup [String] String ToggleGroupCallback
+>     | Button String ButtonCallback
 
 > type ToggleButtonCallback = Bool -> IO()
+> type ToggleGroupCallback = String -> IO()
+> type ButtonCallback = IO()
 
 > render :: TextView -> [Item] -> IO ()
 > render tv irl = do
@@ -114,5 +119,23 @@ attempt to get hold of the adjustments, couldn't get it working
 >                               active <- toggleButtonGetActive but
 >                               c active
 >                             return ()
+>                      ToggleButtonGroup ls s c ->
+>                        when (not $ null ls) $ do
+>                        b1 <- radioButtonNewWithLabel $ head ls
+>                        bts <- mapM (radioButtonNewWithLabelFromWidget b1) $
+>                                    tail ls
+>                        let bs = b1 : bts
+>                        mapM_ (\(l,b) -> do
+>                                when (s == l) $ toggleButtonSetActive b True
+>                                toggleButtonSetMode b False
+>                                textViewInsertWidgetAtCursor tv b
+>                                onToggled b $
+>                                  whenA (toggleButtonGetActive b) $ c l
+>                               ) $ zip ls bs
+>                        return ()
+>                      Button l c -> do
+>                        but <- buttonNewWithLabel l
+>                        onClicked but $ c
+>                        textViewInsertWidgetAtCursor tv but
 >   mapM_ renderIt irl
 

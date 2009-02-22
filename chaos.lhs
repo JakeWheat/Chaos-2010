@@ -206,12 +206,7 @@ supposed to be doing
 
 >        ,D.SelectValueIf "select turn_phase from turn_phase_table" [] $
 >           \tp -> [Text $ "turn_phase " ++ tp ++ "\t"]
-
->        ,D.IOI $ do
->           but <- buttonNewWithLabel "continue"
->           onClicked but (dbAction conn "next_phase" [])
->           return [Widget $ castToWidget but]
-
+>        ,D.Items [MyTextView.Button "continue" $ dbAction conn "next_phase" []]
 >        ,D.SelectTupleIf "select current_wizard,colour,allegiance,sprite \n\
 >                         \  from current_wizard_table\n\
 >                         \  inner join allegiance_colours\n\
@@ -702,99 +697,71 @@ new game widget:
 > newGameWidgetNew conn colours spriteMap = do
 >   tv <- myTextViewNew colours
 >   buf <- textViewGetBuffer tv
->   let ibc = textBufferInsertAtCursor buf
->       ibct = textBufferInsertAtCursorWithTags buf
->       ibcw = textViewInsertWidgetAtCursor tv
->       ibs = (\sn -> textBufferInsertSpriteAtCursor buf sn spriteMap)
->       sv q = selectValueIf conn q []
->       st q = selectTupleIf conn q []
->       sts q = selectTuples conn q []
 >
 >   let refresh = do
->         textBufferClear buf
 
-so we don't end up with the
 first check the new_game_widget_state relvar
-the only way of exiting the program is to close the window manager
-window, if the windows table is empty, this window won't show
-and the program will be unexitable, this handles part of that
 
->         sv "select count(*) from new_game_widget_state"
+>         selectValueIf conn "select count(*) from new_game_widget_state" []
 >            (\c -> when (c == "0")
->                     (dbAction conn "reset_new_game_widget_state" []))
+>            (dbAction conn "reset_new_game_widget_state" []))
 
-Now fill in the rows which correspond to each wizard
+>         textBufferClear buf
+>         D.run conn items >>= render tv
+>   return (tv, refresh)
+>     where
 
->         sts "select * from new_game_widget_state\n\
->             \order by line" (\l -> do
+Fill in the rows which correspond to each wizard
+
+>       items = [D.SelectTuples "select * from new_game_widget_state\n\
+>                              \order by line" [] $ \l ->
 
 draw our sprite for this wizard
 
->                  ibs $ l "sprite"
->                  ibc $ "\t" ++ l "sprite_name" ++ "\t"
+>                 [sprite $ l "sprite"
+>                 ,Text $ "\t" ++ l "sprite_name" ++ "\t"
 
 create a helper function for adding radio buttons as part of a group
 these are the buttons which set whether a wizard is human, android,
 or not present
 
->                  let insertRadio group label = do
->                      r <- case group of
->                             Nothing -> radioButtonNewWithLabel label
->                             Just g -> radioButtonNewWithLabelFromWidget
->                                         g label
->                      toggleButtonSetMode r False
->                      textViewInsertWidgetAtCursor tv r
-
-when a button is clicked then update the new_game_widget_state relvar
-
->                      onToggled r $
->                        whenA (toggleButtonGetActive r) $ do
->                          label <- buttonGetLabel r
->                          runSql conn
->                            "update new_game_widget_state\n\
->                            \set state =? where line =?"
->                            [label, l "line"]
->                      return r
-
-use out helper functions to add the three radio buttons for this line/wizard
-
->                  r1 <- insertRadio Nothing "human"
->                  r2 <- insertRadio (Just r1) "computer"
->                  r3 <- insertRadio (Just r1) "none"
->                  case l "state" of
->                    "human" -> toggleButtonSetActive r1 True
->                    "computer" -> toggleButtonSetActive r2 True
->                    "none" -> toggleButtonSetActive r3 True
->                  ibc "\n"
->                  return ())
+>                 ,ToggleButtonGroup ["human", "computer", "none"]
+>                                    (l "state")
+>                                    (\label -> runSql conn
+>                                             "update new_game_widget_state\n\
+>                                             \set state =? where line =?"
+>                                             [label, l "line"])
+>                 ,Text "\n"
+>                 ]
 
 add the buttons at the bottom of the panel to start the game and
 reset the panel
 
->         sgb <- buttonNewWithLabel "start game"
->         onClicked sgb $ do
->           dbAction conn
->             "client_new_game_using_new_game_widget_state" []
->           --temp:
->           win <- getParentWidget sgb
->           widgetHideAll win
->         ibcw sgb
->         srb <- buttonNewWithLabel "reset this window"
->         onClicked srb $ dbAction conn "reset_new_game_widget_state" []
->         ibcw srb
->         ibc "\n"
+>               ,D.Items $ [MyTextView.Button "start game" $ do
+>                             dbAction conn
+>                                      "client_new_game_using_\
+>                                      \new_game_widget_state" []
+>                             --temp:
+>                             --win <- getParentWidget tv
+>                             --widgetHideAll win
+>                          ,MyTextView.Button "reset this window" $
+>                             dbAction conn "reset_new_game_widget_state" []
+>                          ,Text "\n"
+>                          ] ++
 
 add some temporary buttons to start custom games for testing purposes
 
->         forM_ ["all_pieces", "upgraded_wizards", "overlapping"]
->           (\b -> do
->             but <- buttonNewWithLabel b
->             onClicked but $ do
->               dbAction conn "client_new_game_using_new_game_widget_state" []
->               callSp conn "setup_test_board" [b]
->             ibcw but)
->         return ()
->   return (tv, refresh)
+>                           for ["all_pieces"
+>                               ,"upgraded_wizards"
+>                               ,"overlapping"
+>                               ] (\l -> MyTextView.Button l $ do
+>                                   dbAction conn
+>                                            "client_new_game_using_\
+>                                            \new_game_widget_state" []
+>                                   callSp conn "setup_test_board" [l])
+>               ]
+>       sprite s = let (pb,_,_) = safeMLookup ("show sprite " ++ s) s spriteMap
+>                  in Pixbuf $ head pb
 
 TODO: make this into a game manager which handles managing multiple
 games and deleting ones you don't want, as well as starting new games
@@ -824,15 +791,19 @@ text box instead of redrawing them all
 >                                      \from wizard_display_info" []
 >   let getWC wn = fromMaybe "grey" $ lookup wn wizardColours
 >       items lhID =
->             D.SelectTuples "select * from action_history_mr\n\
+>             D.SelectTuplesIO "select * from action_history_mr\n\
 >                           \where id > ?\n\
 >                           \order by id" [show lhID] $
->               \h -> th h ++ [Text "\n"]
->       th h = let wc = TaggedText (h "wizard_name") [getWC $ h "wizard_name"]
+>               \h -> do
+>                 t <- th h
+>                 return $ t ++ [Text "\n"]
+>       th h = do
+>              writeIORef lastHistoryIDBox $ read $ h "id"
+>              let wc = TaggedText (h "wizard_name") [getWC $ h "wizard_name"]
 >                  pTag = [Text $ h "ptype" ++ "-"
 >                         ,TaggedText (h "allegiance") [getWC $ h "allegiance"]
 >                         ,Text $ '-' : h "tag"]
->              in (Text $ h "id" ++ ". ") :
+>              return $ (Text $ h "id" ++ ". ") :
 
 -- unfinished...
 
@@ -843,8 +814,8 @@ text box instead of redrawing them all
 >                      [wc
 >                      ,TaggedText (" chose " ++ h "spell_name") ["yellow"]]
 >                  "next phase" ->
->                      [Text $ "next phase: " ++ h "wizard_name" ++
->                       h "current_phase"]
+>                      [Text $ "next phase: " ++ h "current_wizard" ++
+>                       " - " ++ h "current_phase"]
 >                  "skip spell" ->
 >                      [wc
 >                      ,TaggedText (" skipped casting " ++ h "spell_name")
@@ -871,10 +842,8 @@ text box instead of redrawing them all
 >                  _ -> [Text $ h "history_name" ++ " FIXME"]
 
 >       refresh = do
->         --lhID <- readIORef lastHistoryIDBox
->         textBufferClear buf
->         D.run conn [items 0] >>= render tv
->         --writeIORef lastHistoryIDBox (fst $ last items)
+>         lhID <- readIORef lastHistoryIDBox
+>         D.run conn [items lhID] >>= render tv
 >         textViewScrollToBottom tv
 >
 >   return (tv, refresh)
