@@ -176,33 +176,17 @@ piece info for selected piece
 > infoWidgetNew conn colours spriteMap = do
 >   tv <- myTextViewNew colours
 >   buf <- textViewGetBuffer tv
->   let trender items = D.run conn items >>= render tv
-
-create some shortcuts
-
->       ibc = textBufferInsertAtCursor buf
->       ibct = textBufferInsertAtCursorWithTags buf
->       ibs sn = textBufferInsertSpriteAtCursor buf sn spriteMap
->       --iw = textViewInsertWidgetAtCursor tv
->       sv q = selectValueIf conn q []
->       msv q = makeSelectValueIf conn q []
->       st q = selectTupleIf conn q []
->       mst q = makeSelectTupleIf conn q []
->       sts q = selectTuples conn q []
->       sprite s = let (pb,_,_) = safeMLookup ("show sprite " ++ s) s spriteMap
->                  in Pixbuf $ head pb
-
-redraw the contents
-
->
->       refresh = do
+>   let refresh = do
 >         textBufferClear buf
->         trender turnPhaseInfo
->         trender spellInfo
->         trender cursorInfo
->         trender cursorPieces
->         trender selectedPieceInfo
->
+>         mapM_ (\items -> D.run conn items >>= render tv)
+>               [turnPhaseInfo
+>               ,spellInfo
+>               ,cursorInfo
+>               ,cursorPieces
+>               ,selectedPieceInfo
+>               ]
+>   return (tv, refresh)
+>     where
 
 == Turn phase info:
 shows turn number, world alignment, turn phase, wizard up, continue button
@@ -329,10 +313,12 @@ on the square the cursor is on
 >                                                 "none" -> []
 >                                                 s -> [s])]
 >             | pi "dead" == "true" ->
->                 [TaggedText ("dead " ++ pi "ptype" ++ "-" ++ pi "tag") ["grey"]]
+>                 [TaggedText ("dead " ++ pi "ptype" ++ "-" ++ pi "tag")
+>                             ["grey"]]
 >             | otherwise -> [
 >                   Text (pi "ptype" ++ "-" ++ pi "tag" ++ "(")
->                  ,TaggedText (pi "allegiance") (filter (/="none") [(pi "colour")])
+>                  ,TaggedText (pi "allegiance") (filter (/="none")
+>                              [(pi "colour")])
 >                  ,Text ")"]) ++
 
 boolean stats are treated differently:
@@ -397,12 +383,12 @@ pieces and sub entity tables
 wizard upgrades
 
 >       cursorPieces =
->         [D.SelectTuplesIf "select * from cursor_piece_details order by sp" [] $
+>         [D.SelectTuples "select * from cursor_piece_details order by sp" [] $
 >            \cpd -> (Text "\n\
 >                        \-------\n" : pieceInfo cpd)]
 
->   return (tv, refresh)
-
+>       sprite s = let (pb,_,_) = safeMLookup ("show sprite " ++ s) s spriteMap
+>                  in Pixbuf $ head pb
 
 ================================================================================
 
@@ -644,55 +630,48 @@ red 10-20
 >                       SpriteMap ->
 >                       IO (TextView, IO())
 > spellBookWidgetNew conn colours spriteMap = do
->   tv <-myTextViewNew colours
+>   tv <- myTextViewNew colours
 >   buf <- textViewGetBuffer tv
->   let ibc = textBufferInsertAtCursor buf
->       ibct = textBufferInsertAtCursorWithTags buf
->       ibs = (\sn -> textBufferInsertMiniSpriteAtCursor buf sn spriteMap)
->       sv q = selectValueIf conn q []
->       st q = selectTupleIf conn q []
->       sts q = selectTuples conn q []
->       refresh = do
->         textBufferClear buf
+>   let refresh =
+>         textBufferClear buf >>
+>         D.run conn items >>= render tv
+>   return (tv, refresh)
+>     where
 
-controls help text
+show help text
 
->         sv "select * from spell_book_show_all_table"
->                (\s ->
->                 ibc $ (if s == "True"
->                          then "hide unavailable spells - DELETE"
->                          else "show all spells - INSERT") ++
->                     "\n0 - unselect spell")
-
-write out the spells with spell category headers, use an ioref to keep
-track of which header we are in for now - ugly and wrong, but it does
-the job
-
->         spellCat <- newIORef "nowt"
->         sts "select * from spell_book_table\n\
->            \order by section_order, alignment_order,\n\
->            \base_chance desc, spell_name"
->            (\sb -> do
->               sc <- readIORef spellCat
-
-see if we need to write a new category header
-
->               when (sc /= sb "spell_category") $ do
->                     ibc "\n"
->                     ibc "-------------"
->                     ibc $ "\n" ++ sb "spell_category" ++ " spells:"
->                     writeIORef spellCat (sb "spell_category")
+>       items = [D.SelectValueIf "select * from spell_book_show_all_table" [] $
+>                     \s ->
+>                         [Text $ (if s == "True"
+>                                    then "hide unavailable spells - DELETE"
+>                                    else "show all spells - INSERT") ++
+>                                           "\n0 - unselect spell"]
+>               ,D.SelectTuples "select * from spell_book_table\n\
+>                               \order by section_order, alignment_order,\n\
+>                               \base_chance desc, spell_name" [] $
 
 write this spell's line
 
->               ibc "\n"
->               ibct (sb "key" ++ " - ") [sb "colour"]
->               ibs $ sb "sprite"
->               ibct (" " ++ sb "spell_name" ++
->                     " " ++ sb "chance" ++ "%") [sb "colour"]
->               ibc $ " " ++ sb "align_icons" ++ " " ++ sb "count_icons")
->
->   return (tv, refresh)
+>                  \sb -> [Text "\n"
+>                         ,TaggedText (sb "key" ++ " - ") [sb "colour"]
+>                         ,sprite $ sb "sprite"
+>                         ,TaggedText (" " ++ sb "spell_name" ++
+>                                       " " ++ sb "chance" ++ "%") [sb "colour"]
+>                         ,Text $ " " ++ sb "align_icons" ++ " " ++
+>                            sb "count_icons"
+>                         ]
+>               ]
+
+see if we need to write a new category header - todo: use this somehow
+
+>       writeLine sc sb = (if sb "spell_category" /= sc
+>                            then [Text $ "\n\
+>                                         \-------------\n\
+>                                         \\n" ++ sb "spell_category" ++
+>                                           " spells:"]
+>                            else [])
+>       sprite s = let (_,pb,_) = safeMLookup ("show sprite " ++ s) s spriteMap
+>                  in Pixbuf $ head pb
 
 ================================================================================
 
