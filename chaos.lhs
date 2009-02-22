@@ -664,12 +664,10 @@ write this spell's line
 
 see if we need to write a new category header - todo: use this somehow
 
->       writeLine sc sb = (if sb "spell_category" /= sc
->                            then [Text $ "\n\
->                                         \-------------\n\
->                                         \\n" ++ sb "spell_category" ++
->                                           " spells:"]
->                            else [])
+>       writeLine sc sb = [Text $ "\n\
+>                                 \-------------\n\
+>                                 \\n" ++ sb "spell_category" ++
+>                                   " spells:" | sb "spell_category" /= sc]
 >       sprite s = let (_,pb,_) = safeMLookup ("show sprite " ++ s) s spriteMap
 >                  in Pixbuf $ head pb
 
@@ -749,7 +747,7 @@ or not present
 
 when a button is clicked then update the new_game_widget_state relvar
 
->                      onToggled r $ do
+>                      onToggled r $
 >                        whenA (toggleButtonGetActive r) $ do
 >                          label <- buttonGetLabel r
 >                          runSql conn
@@ -822,64 +820,63 @@ text box instead of redrawing them all
 
 >   lastHistoryIDBox <- newIORef (-1)
 
->   let ibc = textBufferInsertAtCursor buf
->       ibct = textBufferInsertAtCursorWithTags buf
->       ibs = (\sn -> textBufferInsertSpriteAtCursor buf sn spriteMap)
->       st t = selectTupleIf conn t []
->       sts t = selectTuples conn t []
-
 >   wizardColours <- selectLookup conn "select wizard_name,colour\n\
 >                                      \from wizard_display_info" []
 >   let getWC wn = fromMaybe "grey" $ lookup wn wizardColours
+>       items lhID =
+>             D.SelectTuples "select * from action_history_mr\n\
+>                           \where id > ?\n\
+>                           \order by id" [show lhID] $
+>               \h -> th h ++ [Text "\n"]
+>       th h = let wc = TaggedText (h "wizard_name") [getWC $ h "wizard_name"]
+>                  pTag = [Text $ h "ptype" ++ "-"
+>                         ,TaggedText (h "allegiance") [getWC $ h "allegiance"]
+>                         ,Text $ '-' : h "tag"]
+>              in (Text $ h "id" ++ ". ") :
 
->   let insertHistory h = do
->         ibc $ h "id" ++ ". "
->         let icw = ibct (h "wizard_name") [getWC $ h "wizard_name"]
->             doPTag h = do
->               ibc $ h "ptype" ++ "-"
->               ibct (h "allegiance") [getWC $ h "allegiance"]
->               ibc $ '-' : h "tag"
+-- unfinished...
 
-unfinished...
+>                case h "history_name" of
+>                  "new game" ->
+>                      [Text "new game started"]
+>                  "choose spell" ->
+>                      [wc
+>                      ,TaggedText (" chose " ++ h "spell_name") ["yellow"]]
+>                  "next phase" ->
+>                      [Text $ "next phase: " ++ h "wizard_name" ++
+>                       h "current_phase"]
+>                  "skip spell" ->
+>                      [wc
+>                      ,TaggedText (" skipped casting " ++ h "spell_name")
+>                                  ["yellow"]]
+>                  "spell cast succeeded" ->
+>                      [wc
+>                      ,TaggedText (" successfully cast " ++ h "spell_name")
+>                                  ["green"]]
+>                  "spell cast failed" ->
+>                      [wc
+>                      ,TaggedText (" failed to cast " ++ h "spell_name")
+>                                  ["red"]]
+>                  "piece teleport" ->
+>                      pTag ++ [Text " teleported"]
+>                  "chinned" ->
+>                      pTag ++ [Text " was chinned"]
+>                  "shrugged off" ->
+>                      pTag ++ [Text " shrugged off the attack"]
+>                  "game won" ->
+>                      [wc
+>                      ,Text " has won!"]
+>                  "game drawn" ->
+>                      [Text "the game is a draw."]
+>                  _ -> [Text $ h "history_name" ++ " FIXME"]
 
->         case h "history_name" of
->           "new game" ->
->               ibc "new game started"
->           "choose spell" ->
->               icw >> ibct (" chose " ++ h "spell_name") ["yellow"]
->           "next phase" ->
->               ibc $ "next phase: " ++ h "wizard_name" ++ h "current_phase"
->           "skip spell" ->
->               icw >> ibct (" skipped casting " ++ h "spell_name") ["yellow"]
->           "spell cast succeeded" ->
->               icw >> ibct (" successfully cast " ++ h "spell_name") ["green"]
->           "spell cast failed" ->
->               icw >> ibct (" failed to cast " ++ h "spell_name") ["red"]
->           "piece teleport" ->
->               doPTag h >> ibc " teleported"
->           "chinned" ->
->               doPTag h >> ibc " was chinned"
->           "shrugged off" ->
->               doPTag h >> ibc " shrugged off the attack"
->           "game won" ->
->               icw >> ibc " has won!"
->           "game drawn" ->
->               ibc "the game is a draw."
->           _ -> ibc $ h "history_name" ++ " FIXME"
->         return ()
->   let refresh = do
->         lastHistoryID <- readIORef lastHistoryIDBox
->         sts ("select * from action_history_mr\n\
->                           \where id > " ++ show lastHistoryID ++
->                           " order by id")
->             (\h -> do
->                    insertHistory h
->                    ibc "\n"
->                    writeIORef lastHistoryIDBox (read $ h "id"))
->
+>       refresh = do
+>         --lhID <- readIORef lastHistoryIDBox
+>         textBufferClear buf
+>         D.run conn [items 0] >>= render tv
+>         --writeIORef lastHistoryIDBox (fst $ last items)
 >         textViewScrollToBottom tv
 >
->   refresh
 >   return (tv, refresh)
 
 ================================================================================

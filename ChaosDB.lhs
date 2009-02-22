@@ -241,7 +241,7 @@ query
 >   execute sth $ map toSql args
 >   cn <- getColumnNames sth
 >   v <- fetchAllRows' sth
->   return $ map callback (map (\r -> flip lookupAtt (convertRow cn r)) v)
+>   return $ map (callback . (\r -> flip lookupAtt (convertRow cn r))) v
 
 
 > selectSingleColumn :: Connection -> String -> [String] -> IO [String]

@@ -31,9 +31,8 @@ todo: get this tree into speedbar
 > import Control.Exception
 > import Utils
 
-> getSourceFiles = do
->   entries <- getDirectoryContents "."
->   filterM doesFileExist entries
+> getSourceFiles = getDirectoryContents "." >>=
+>                    filterM doesFileExist
 
 Create the tree widget and do a bunch of red tape.
 

@@ -210,10 +210,9 @@ postgresql.conf  #track_functions = none # none, pl, all
  select * from pg_stat_user_functions ;
 http://www.depesz.com/index.php/2008/05/15/waiting-for-84-function-stats/
 
-> rollbackOnError conn f =
+> rollbackOnError conn =
 >     bracketOnError (return())
->                    (const $ runSql conn "rollback" [])
->                    (const f)
+>                    (const $ runSql conn "rollback" []) . const
 
 ================================================================================
 

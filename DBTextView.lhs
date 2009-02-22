@@ -45,7 +45,7 @@ a TList object in one go.
 >   x <- (mapM runIt items)
 >   return $ concat $ catMaybes x
 >     where runIt i = case i of
->                            Items l -> return $ Just $ l
+>                            Items l -> return $ Just l
 >                            SelectValueIf query args callback ->
 >                                makeSelectValueIf conn query args callback
 >                            SelectTupleIf query args callback ->
