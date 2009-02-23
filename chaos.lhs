@@ -88,8 +88,8 @@ move
 > import qualified Data.Map as M
 > import qualified Data.Char as DC
 > import Numeric
-> import Data.Word
-> import System.Directory
+> --import Data.Word
+> --import System.Directory
 > import Control.Monad
 > import System.FilePath
 > import Data.Maybe
@@ -156,8 +156,8 @@ todo: if cannot connect to database give info to this effect
 >                    " user=" ++ Conf.username conf ++
 >                    " password=" ++ Conf.password conf)
 >            (\conn -> do
->            w <- windowManagerNew conn
->            mainGUI)
+>              windowManagerNew conn
+>              mainGUI)
 
 ================================================================================
 
@@ -271,8 +271,8 @@ check the fields and field names
 >                                        ,("parts", "parts")
 >                                        ,("range", "range")
 >                                        ]
->                                 (\(n,f) -> not (lk f sd == "" ||
->                                                 read (lk f sd) < 2))
+>                                 (\(_,f) -> not (lk f sd == "" ||
+>                                                 read (lk f sd) < (2::Int)))
 >               in Text $ '\n' : intercalate ", "
 >                                  (for fields
 >                                       (\(n,f) ->
@@ -299,21 +299,21 @@ factor out this code since we want to draw piece info
 for the selected piece and any pieces (could be up to three)
 on the square the cursor is on
 
->       pieceInfo pi = [
+>       pieceInfo pit = [
 >         Text "\n"
->        ,sprite $ lk "sprite" pi] ++
+>        ,sprite $ lk "sprite" pit] ++
 >        (case True of
->           _ | lk "ptype" pi == "wizard" ->
->                 [TaggedText (lk "allegiance" pi) (case lk "colour" pi of
+>           _ | lk "ptype" pit == "wizard" ->
+>                 [TaggedText (lk "allegiance" pit) (case lk "colour" pit of
 >                                                 "none" -> []
 >                                                 s -> [s])]
->             | lk "dead" pi == "true" ->
->                 [TaggedText ("dead " ++ lk "ptype" pi ++ "-" ++ lk "tag" pi)
+>             | lk "dead" pit == "true" ->
+>                 [TaggedText ("dead " ++ lk "ptype" pit ++ "-" ++ lk "tag" pit)
 >                             ["grey"]]
 >             | otherwise -> [
->                   Text (lk "ptype" pi ++ "-" ++ lk "tag" pi ++ "(")
->                  ,TaggedText (lk "allegiance" pi) (filter (/="none")
->                              [(lk "colour" pi)])
+>                   Text (lk "ptype" pit ++ "-" ++ lk "tag" pit ++ "(")
+>                  ,TaggedText (lk "allegiance" pit) (filter (/="none")
+>                              [(lk "colour" pit)])
 >                  ,Text ")"]) ++
 
 boolean stats are treated differently:
@@ -340,7 +340,7 @@ to see imaginary of monsters that aren't yours.
 >                            ,"magic_armoxur"
 >                            ,"magic_bow"
 >                            ,"computer_controlled"]
->             pieceBoolStats = filter (\s -> lk s pi == "true") booleanStats
+>             pieceBoolStats = filter (\s -> lk s pit == "true") booleanStats
 >         in Text $ '\n' : intercalate ", " pieceBoolStats
 >        ] ++
 
@@ -355,8 +355,8 @@ to see imaginary of monsters that aren't yours.
 >                   ,"ranged_attack_strength"
 >                   ,"magic_defense"
 >                   ,"place"]
->            vals = zip atts $ map (\f -> lk f pi) atts
->            vals' = filter (\(f1,f2) -> f2 /= "") vals
+>            vals = zip atts $ map (\f -> lk f pit) atts
+>            vals' = filter (\(_,f2) -> f2 /= "") vals
 >        in map (\(f1,f2) -> Text $ "\n" ++ f1 ++ ": " ++ f2) vals'
 
 
@@ -417,7 +417,7 @@ sprite.
 TODO: visual and sound effects
 
 > boardWidgetNew :: Connection -> ColourList -> SpriteMap -> IO (Frame, IO())
-> boardWidgetNew conn colours spriteMap = do
+> boardWidgetNew conn _ spriteMap = do
 >     frame <- frameNew
 >     canvas <- drawingAreaNew
 >     containerAdd frame canvas
@@ -441,7 +441,8 @@ started, this is used to determine which frame of each sprite to show
 >           t <- getClockTime
 >           let tdiff = diffClockTimes t startTime
 >           --25 frames per second
->               ps = (tdPicosec tdiff * 25::Integer) `div` 10^12::Integer
+>               ps = ((tdPicosec tdiff * 25::Integer) `div`
+>                      ((10::Integer)^(12::Integer)))::Integer
 >               f1 = fromIntegral (tdMin tdiff * 25 * 60) +
 >                    fromIntegral (tdHour tdiff * 25 * 60 * 60) +
 >                    fromIntegral (tdSec tdiff * 25) +  ps
@@ -468,29 +469,28 @@ create toX and toY functions, you pass these the square
 position and it returns the drawing co-ords of the top
 left of that square
 
->             toX a = fromIntegral a * squareWidth
->             toY b = fromIntegral b * squareHeight
->
+ >             toX a = fromIntegral a * squareWidth
+ >             toY b = fromIntegral b * squareHeight
 
 
->             drawGrid = do
->                        setSourceRGB 0.2 0.2 0.2
->                        --draw vertical gridlines
->                        mapM_ (\x -> do
->                              moveTo (toX x) 0
->                              lineTo (toX x) (toY 10)) [1..14]
->                        setLineWidth 1
->                        stroke
->                        --draw horizontal gridlines
->                        mapM_ (\y -> do
->                              moveTo 0 (toY y)
->                              lineTo (toX 15) (toY y)) [1..9]
->                        setLineWidth 1
->                        stroke
->
->         drawGrid
->
->
+ >             drawGrid = do
+ >                        setSourceRGB 0.2 0.2 0.2
+ >                        --draw vertical gridlines
+ >                        mapM_ (\x -> do
+ >                              moveTo (toX x) 0
+ >                              lineTo (toX x) (toY 10)) [1..14]
+ >                        setLineWidth 1
+ >                        stroke
+ >                        --draw horizontal gridlines
+
+ >                        mapM_ (\y -> do
+ >                              moveTo 0 (toY y)
+ >                              lineTo (toX (15::Int)) (toY y)) [1..9]
+ >                        setLineWidth 1
+ >                        stroke
+
+ >
+ >         drawGrid
 
 --------------------------------------------------
 draw sprites
@@ -504,8 +504,8 @@ assume sprites are 64x64
 get our scale factors so that the sprites are drawn at the same size
 as the grid squares
 
->             scaleX = squareWidth / fromIntegral sw
->             scaleY = squareHeight / fromIntegral sh
+>             scaleX = squareWidth / sw
+>             scaleY = squareHeight / sh
 >
 
 use a scale transform on the cairo drawing surface to scale the
@@ -513,8 +513,8 @@ sprites. This seems a bit backwards since we have to generate new toX
 and toY functions which take into account the changed scale factor.
 
 >         scale scaleX scaleY
->         let toXS a = fromIntegral a * squareWidth / scaleX
->             toYS b = fromIntegral b * squareHeight / scaleY
+>         let toXS a = a * squareWidth / scaleX
+>             toYS b = b * squareHeight / scaleY
 >
 
 create a helper function to draw a sprite at board position x,y
@@ -522,22 +522,24 @@ identifying the sprite by name, hiding all that tedious map lookup
 stuff
 
 >         cf <- liftIO getFrames
->         let drawAt x y sp sf as = do
->                 let p = safeMLookup "board widget draw" sp spriteMap
->                 let (_,_,img) = p
->                 let f = ((cf - sf) `div` as) `mod` length img
+>         let drawAt x' y' sp sf as = do
+>                 let x = (fromIntegral x')
+>                     y = (fromIntegral y')
+>                     p = safeMLookup "board widget draw" sp spriteMap
+>                     (_,_,img) = p
+>                     f = ((cf - sf) `div` as) `mod` length img
 >                 setSourceSurface (img !! f) (toXS x) (toYS y)
 >                 paint
 
 Draw the board sprites from the saved board
 
->         bd <- liftIO $ readIORef boardData
->         mapM_ (uncurry5 drawAt) bd
+>         bd2 <- liftIO $ readIORef boardData
+>         mapM_ (uncurry5 drawAt) bd2
 
 hook things up the the expose event
 
 >     onExpose canvas
->              (\x -> do
+>              (\_ -> do
 >                        (w,h) <- widgetGetSize canvas
 >                        drawin <- widgetGetDrawWindow canvas
 >                        renderWithDrawable drawin
@@ -552,8 +554,8 @@ but that doesn't compile anymore, so just bodged it.
 >
 >     let redraw = do
 >           win <- widgetGetDrawWindow canvas
->           region <- drawableGetClipRegion win
->           drawWindowInvalidateRegion win region True
+>           reg <- drawableGetClipRegion win
+>           drawWindowInvalidateRegion win reg True
 >           drawWindowProcessUpdates win True
 
 >     let refresh = do
@@ -561,8 +563,8 @@ but that doesn't compile anymore, so just bodged it.
 >           f <- getFrames
 >           dbAction conn "update_missing_startframes" [show f]
 >           --update the ioref
->           bd <- readBoardSprites
->           writeIORef boardData bd
+>           bd1 <- readBoardSprites
+>           writeIORef boardData bd1
 >           redraw
 
 update the board sprites 10 times a second to animate them
@@ -660,10 +662,11 @@ write this spell's line
 
 see if we need to write a new category header - todo: use this somehow
 
->       writeLine sc sb = [Text $ "\n\
->                                 \-------------\n\
->                                 \\n" ++ sb "spell_category" ++
->                                   " spells:" | sb "spell_category" /= sc]
+ >       writeLine sc sb = [Text $ "\n\
+ >                                 \-------------\n\
+ >                                 \\n" ++ sb "spell_category" ++
+ >                                   " spells:" | sb "spell_category" /= sc]
+
 >       sprite s = let (_,pb,_) = safeMLookup ("show sprite " ++ s) s spriteMap
 >                  in Pixbuf $ head pb
 
@@ -778,15 +781,14 @@ you can see what's going on.
 >                           ColourList ->
 >                           SpriteMap ->
 >                           IO (TextView, IO())
-> actionHistoryWidgetNew conn colours spriteMap = do
+> actionHistoryWidgetNew conn colours _ = do
 >   tv <- myTextViewNew colours
->   buf <- textViewGetBuffer tv
 
 we save the id of the last history item shown. This is so when refresh
 is called, it only needs to append the new ones to the bottom of the
 text box instead of redrawing them all
 
->   lastHistoryIDBox <- newIORef (-1)
+>   lastHistoryIDBox <- newIORef (-1::Integer)
 
 >   let refresh = do
 >         is <- items lastHistoryIDBox
@@ -885,7 +887,7 @@ display to the user
 >                     (\c -> if c == '_' then ' ' else c)
 >     selectValueIfC conn "select count(*) from windows\n\
 >                      \where window_name = 'window_manager'" []
->                 (\c -> when (read c == 0)
+>                 (\c -> when (read c == (0::Int))
 >                    (dbAction conn "reset_windows" []))
 
 == create windows
@@ -1175,11 +1177,10 @@ must be an easier way than this?
 > colourToHex :: Color -> String
 > colourToHex (Color red green blue) =
 >           "#" ++ intToHex red ++ intToHex green ++ intToHex blue
->           where intToHex i =
->                    let h = showHex (truncate (fromIntegral i / 256)) ""
->                    in if length h < 2
->                         then '0' : h
->                         else h
-
-> lk :: String -> M.Map String String -> String
-> lk k = fromMaybe "" . M.lookup k
+>           where
+>             intToHex i =
+>                 let h = showHex ((div256 i)::Int) ""
+>                 in if length h < 2
+>                      then '0' : h
+>                      else h
+>             div256 i = truncate (fromIntegral i / 256::Double)

@@ -65,16 +65,10 @@ and updates directly
 > import Control.Exception
 > import Utils hiding (run)
 
-> import Data.Convertible
-
 
 > type SqlRow = M.Map String String
-> type SelectCallback = (String -> String) -> IO ()
-> type SelectCallback1 a = (String -> String) -> a
-> type SelectCallback1IO a = (String -> String) -> IO a
 
-
-
+> withConn :: String -> (Connection -> IO c) -> IO c
 > withConn cs = bracket (connectPostgreSQL cs) disconnect
 
 == notify listeners
@@ -116,32 +110,33 @@ there is none. The if variants return maybes and the non if versions
 just return the value
 
 
-
+> selectValueC ::(IConnection conn) =>
+>                conn -> String -> [String] -> (String -> b) -> IO b
 > selectValueC conn query args callback = do
 >   x <- selectValueInternal conn query args callback True
 >   return $ fromJust x
 
+> selectValueIfC :: (IConnection conn) =>
+>                   conn -> String -> [String] -> (String -> b) -> IO (Maybe b)
 > selectValueIfC conn query args callback =
 >   selectValueInternal conn query args callback False
 
+> selectValue :: (IConnection conn) =>
+>                conn -> String -> [String] -> IO String
 > selectValue conn query args = do
 >   x <- selectValueInternal conn query args id True
 >   return $ fromJust x
 
+> selectValueIf :: (IConnection conn) =>
+>                  conn -> String -> [String] -> IO (Maybe String)
 > selectValueIf conn query args =
 >   selectValueInternal conn query args id False
 
-
- > selectValueInternal :: (Convertible SqlValue a) =>
- >                        Connection ->
- >                        String ->
- >                        [String] ->
- >                        (String -> a) ->
- >                        Bool ->
- >                        IO (Maybe a)
-
+> selectValueInternal :: (IConnection conn) =>
+>                        conn  -> String -> [String] -> (String -> b) ->
+>                        Bool -> IO (Maybe b)
 > selectValueInternal conn query args callback enf = handleSqlError $ do
->   r <- quickQuery' conn query []
+>   r <- quickQuery' conn query $ map sToSql args
 >   case length r of
 >     0 -> if enf
 >            then error $ "select value on " ++ query ++
@@ -164,24 +159,36 @@ just return the value
 Same pattern as the select value, the value fed into the callback or
 returned when no callback is supplied is a Map String String.
 
+> selectTupleC :: (IConnection conn) =>
+>                 conn -> String -> [String] -> (SqlRow -> b) -> IO b
 > selectTupleC conn query args callback = do
 >   x <- selectTupleInternal conn query args callback True
 >   return $ fromJust x
 
+> selectTupleIfC :: (IConnection conn) =>
+>                   conn -> String -> [String] -> (SqlRow -> b) -> IO (Maybe b)
 > selectTupleIfC conn query args callback =
 >   selectTupleInternal conn query args callback False
 
+> selectTuple :: (IConnection conn) =>
+>                conn -> String -> [String] -> IO SqlRow
 > selectTuple conn query args = do
 >   x <- selectTupleInternal conn query args id True
 >   return $ fromJust x
 
+> selectTupleIf :: (IConnection conn) =>
+>                  conn -> String -> [String] -> IO (Maybe SqlRow)
 > selectTupleIf conn query args =
 >   selectTupleInternal conn query args id False
 
 
- > selectTupleInternal :: Connection -> String -> [String] ->
- > SelectCallback -> IO ()
-
+> selectTupleInternal :: (IConnection conn) =>
+>                        conn
+>                        -> String
+>                        -> [String]
+>                        -> (SqlRow -> b)
+>                        -> Bool
+>                        -> IO (Maybe b)
 > selectTupleInternal conn query args callback enf = handleSqlError $ do
 >   sth <- prepare conn query
 >   execute sth $ map sToSql args
@@ -198,8 +205,9 @@ returned when no callback is supplied is a Map String String.
 >            _ -> error $ "expected query " ++ query ++
 >                 " to return onne tuple but it returned " ++
 >                 show (length v)
->     where
->       sToSql s = toSql (s::String)
+
+> sToSql :: String -> SqlValue
+> sToSql s = toSql (s::String)
 
 === select tuples
 
@@ -208,29 +216,41 @@ more than one tuple, call the callback once for each tuple returned
 from the query. returns the maps or returns from the callbacks in a
 list
 
+> selectTuplesC :: (IConnection conn) =>
+>                  conn -> String -> [String] -> (SqlRow -> c) -> IO [c]
 > selectTuplesC = selectTuplesInternal
+
+> selectTuples :: (IConnection conn) =>
+>                 conn -> String -> [String] -> IO [SqlRow]
 > selectTuples conn query args = selectTuplesInternal conn query args id
 
 IO version, this allows you to pass a callback which performs io.
 
+> selectTuplesIO :: (IConnection conn) =>
+>                   conn
+>                   -> String
+>                   -> [String]
+>                   -> (SqlRow -> IO b)
+>                   -> IO [b]
 > selectTuplesIO conn query args callback = handleSqlError $ do
 >   sth <- prepare conn query
 >   execute sth $ map sToSql args
 >   cn <- getColumnNames sth
 >   v <- fetchAllRows' sth
 >   mapM callback (map (convertRow cn) v)
->     where
->       sToSql s = toSql (s::String)
 
-
+> selectTuplesInternal :: (IConnection conn) =>
+>                         conn
+>                      -> String
+>                      -> [String]
+>                      -> (SqlRow -> c)
+>                      -> IO [c]
 > selectTuplesInternal conn query args callback = handleSqlError $ do
 >   sth <- prepare conn query
 >   execute sth $ map sToSql args
 >   cn <- getColumnNames sth
 >   v <- fetchAllRows' sth
 >   return $ map (callback . convertRow cn) v
->     where
->       sToSql s = toSql (s::String)
 
 
 ==== selectTuples wrappers

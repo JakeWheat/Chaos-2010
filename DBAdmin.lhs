@@ -33,10 +33,10 @@ and you have that one available to test whilst you fix the errors.
 >   switchOverTempDb conf
 
 > createDb :: Conf -> String -> IO()
-> createDb conf dbName =
->   systemWithCheck ("psql -c \"create database " ++ dbName ++ "\"" ++
+> createDb conf cdbName =
+>   systemWithCheck ("psql -c \"create database " ++ cdbName ++ "\"" ++
 >                    upargs conf "template1")
->                   ("create tempdb: " ++ dbName) >> return ()
+>                   ("create tempdb: " ++ cdbName) >> return ()
 
 > setup :: Conf.Conf -> IO ()
 > -- drop database if exists, then recreate from source
@@ -59,26 +59,26 @@ and you have that one available to test whilst you fix the errors.
 >   installDbTo conf $ dbName conf
 
 > installDbTo :: Conf -> String -> IO()
-> installDbTo conf dbName = do
+> installDbTo conf idbName = do
 >   whenA1 (getCount conf
 >             "select count(1) from pg_language where lanname='plpgsql';"
->             dbName "check plpgsql")
+>             idbName "check plpgsql")
 >          (== 0) $ systemWithCheck
 >             ("psql -c \"create procedural language plpgsql;\"" ++
->              upargs conf dbName)
->             ("init plpgsql " ++ dbName) >> return ()
+>              upargs conf idbName)
+>             ("init plpgsql " ++ idbName) >> return ()
 >   --TODO: hack for line endings, if windows then convert sql
 >   --to windows line endings
->   mapM_ (runSqlScript conf dbName) ["system.sql",
+>   mapM_ (runSqlScript conf idbName) ["system.sql",
 >                                            "server.sql",
 >                                            "client.sql"]
 
 
 > runSqlScript :: Conf -> String -> String -> IO ()
-> runSqlScript conf dbName script = do
+> runSqlScript conf tdbName script = do
 >   putStrLn ("loading " ++ script)
 >   ex <- system ("psql --set ON_ERROR_STOP=on" ++
->                       " --file=" ++ script ++ upargs conf dbName)
+>                       " --file=" ++ script ++ upargs conf tdbName)
 >   case ex of
 >     ExitFailure e -> error $ "psql failed with " ++ show e
 >     ExitSuccess -> return ()
@@ -95,24 +95,26 @@ and you have that one available to test whilst you fix the errors.
 >     _ -> error $ message ++ " failed with return code " ++ show ex
 
 > dbExists :: Conf -> String -> IO Bool
-> dbExists conf dbName = do
+> dbExists conf edbName = do
 >   c <- getCount conf ("select count(datname) " ++
 >                 "from pg_catalog.pg_database where datname='" ++
->                 dbName ++ "'") "template1" ("check exists db " ++ dbName)
+>                 edbName ++ "'") "template1" ("check exists db " ++ edbName)
 >   return $ c /= 0
 
 > dropDbIfExists :: Conf -> String -> IO ()
-> dropDbIfExists conf dbName =
->   whenA (dbExists conf dbName) $
+> dropDbIfExists conf ddbName =
+>   whenA (dbExists conf ddbName) $
 >         systemWithCheck
->            ("psql -c \"drop database " ++ dbName ++ "\"" ++
+>            ("psql -c \"drop database " ++ ddbName ++ "\"" ++
 >             upargs conf "template1")
->            ("dropping database " ++ dbName) >> return()
+>            ("dropping database " ++ ddbName) >> return()
 
-> getCount conf query dbName message = do
+
+> getCount :: Conf -> [Char] -> String -> String -> IO Int
+> getCount conf query cdbName message = do
 >    text <- systemWithCheck
 >             ("psql -c \"" ++ query ++ "\"" ++
->              upargs conf dbName) message
+>              upargs conf cdbName) message
 >    return $ readCount text
 >    where
 >      readCount text =
@@ -141,7 +143,7 @@ run switch to get the new database instead of recompiling it all.
 >   return ()
 
 > upargs :: Conf -> String -> String
-> upargs conf dbName = " \"user=" ++ username conf ++
->                      " password=" ++ password conf ++
->                      " dbname=" ++ dbName ++ "\" "
+> upargs conf cdbName = " \"user=" ++ username conf ++
+>                       " password=" ++ password conf ++
+>                       " dbname=" ++ cdbName ++ "\" "
 

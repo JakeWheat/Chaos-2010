@@ -7,7 +7,6 @@ Short code to read the config file and expose values as a record.
 
 > import Fez.Data.Conf
 > import Data.Map as M
-> import Data.Maybe
 > import Data.List
 > import System.IO
 > import Utils
@@ -18,6 +17,7 @@ Short code to read the config file and expose values as a record.
 >               username :: String,
 >               password :: String }
 
+> expectedKeys :: [[Char]]
 > expectedKeys = sort ["tempDbName", "dbName", "username", "password"]
 
 > getConfig :: IO (Conf)

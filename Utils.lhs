@@ -12,6 +12,7 @@ didn't find them.
 >               hasKey,
 >               safeLookup,
 >               safeMLookup,
+>               lk,
 >               messageIfError,
 >               dropItemN,
 >               for,
@@ -32,16 +33,17 @@ didn't find them.
 > import System.Process
 > import System.IO
 > import Control.Exception
-> import qualified Data.ByteString.Lazy as B
-> import qualified Data.ByteString as Bs
+> import Data.Maybe
+> --import qualified Data.ByteString.Lazy as B
+> --import qualified Data.ByteString as Bs
 > import qualified Data.Map as M
 
 > applyMany :: [(a -> b)] -> a -> [b]
 > applyMany fns val =
 >   reverse $ applyMany' fns val []
 >   where
->     applyMany' [] val r = r
->     applyMany' (f:fs) val r = applyMany' fs val (f val : r)
+>     applyMany' [] _ r = r
+>     applyMany' (f:fs) v r = applyMany' fs v (f v : r)
 
 > findAllFiles :: String -> IO [String]
 > findAllFiles folder = do
@@ -58,8 +60,8 @@ didn't find them.
 > updateLookup k v lkp =
 >     (k,v):filter (\(k',_) -> k' /= k) lkp
 
-> hasKey :: Eq k => k -> [(k,v)] -> Bool
-> hasKey k = any (\(k',v) ->  k == k')
+> hasKey :: (Eq k) => k -> [(k, v)] -> Bool
+> hasKey k = any (\(k',_) ->  k == k')
 
 lookup wrappers that throw a supplied error message to help with
 tracking down problems
@@ -76,6 +78,12 @@ tracking down problems
 >       Just x -> x
 >       Nothing -> error $ errMsg ++ " missing key: " ++ show key
 
+> lk :: (Ord k) =>
+>       k -> M.Map k [Char] -> [Char]
+> lk k = fromMaybe "" . M.lookup k
+
+
+> time :: IO c -> IO c
 > time =
 >   bracket getClockTime
 >           (\st -> do
@@ -84,10 +92,15 @@ tracking down problems
 >              putStrLn $ "time taken: " ++ timeDiffToString tdiff)
 >           . const
 
+> for :: [a] -> (a -> b) -> [b]
 > for = flip map
 
-
+> uncurry3 :: (t -> t1 -> t2 -> t3) -> (t, t1, t2) -> t3
 > uncurry3 a (b,c,d) = a b c d
+
+> uncurry5 :: (t -> t1 -> t2 -> t3 -> t4 -> t5)
+>             -> (t, t1, t2, t3, t4)
+>             -> t5
 > uncurry5 a (b,c,d,e,f) = a b c d e f
 
 > toLower :: String -> String
@@ -116,12 +129,13 @@ output.
 >                 ExitFailure e -> e
 >                 _             -> 0
 
+> deleteIfExists :: FilePath -> IO ()
 > deleteIfExists fn =
 >    whenA (doesFileExist fn)
 >          (removeFile fn)
 
 > dropItemN :: [a] -> Int -> [a]
-> dropItemN [] i = []
+> dropItemN [] _ = []
 > dropItemN (x:xs) i = if i == 0
 >                        then xs
 >                        else x: dropItemN xs (i - 1)

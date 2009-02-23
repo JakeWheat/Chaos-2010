@@ -11,10 +11,10 @@ textbuffer contents using pure/ non-imperative code.
 > module MyTextView where
 
 > import Graphics.UI.Gtk
-> import GtkUtils
 > import Control.Monad
 > import Data.Maybe
 > import Utils
+> import GtkUtils
 
 == text view utils
 
@@ -75,7 +75,7 @@ insert instead of before
 
 attempt to get hold of the adjustments, couldn't get it working
 
->   --sw' <- getParentWidget tv
+>   sw' <- getParentWidget tv
 >   --putStrLn $ show sw'
 >   --let sw = castToScrolledWindow sw'
 >   --adj <- get sw scrolledWindowVAdjustment
@@ -106,7 +106,7 @@ See chaos.lhs for examples of use.
 > render :: TextView -> [Item] -> IO ()
 > render tv irl = do
 >   tb <- textViewGetBuffer tv
->   let renderIt c = case c of
+>   let renderIt i = case i of
 >                      Text s -> textBufferInsertAtCursor tb s
 >                      TaggedText s t ->
 >                           textBufferInsertAtCursorWithTags tb s t

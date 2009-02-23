@@ -23,15 +23,16 @@ todo: get this tree into speedbar
 >                                 disconnect)
 > import Data.Tree
 > import Data.List
-> import Data.Maybe
+> --import Data.Maybe
 > import Text.Regex.Posix
 > import Conf
 > import System.Directory
 > import Control.Monad
-> import Control.Exception
+> --import Control.Exception
 > import Utils
-> import qualified Data.Map as M
+> --import qualified Data.Map as M
 
+> getSourceFiles :: IO [FilePath]
 > getSourceFiles = do
 >                  x <- getDirectoryContents "." >>=
 >                    filterM doesFileExist
@@ -50,7 +51,7 @@ Create the tree widget and do a bunch of red tape.
 >        onDestroy win mainQuit
 >        mainGUI
 
-
+> treeThingNew :: IO TreeView
 > treeThingNew = do
 
 create a treeview with one column for the text
@@ -150,8 +151,8 @@ path from the root to that module
 >                 \natural inner join object_orders\n\
 >                 \order by module_order desc,object_order desc,object_name" []
 >       let tree = foldr addNodeA [] r1
->              where addNodeA i tree =
->                        addNode tree $ flookup (lk "module_name" i) paths
+>              where addNodeA i t1 =
+>                        addNode t1 $ flookup (lk "module_name" i) paths
 >                                       ++ [lk "object_type" i
 >                                          ,lk "object_name" i]
 >       return tree))
@@ -163,6 +164,7 @@ more = to create the branch structure, then add function defs or
 object definitions as leafs depending on whether we are looking at an
 lhs or sql file)
 
+> parseFile :: FilePath -> IO [Tree [Char]]
 > parseFile filename = do
 >   content <- readFile filename
 >   let tr = case True of
@@ -194,6 +196,4 @@ which path to add it under
 >                 in addNodeAt (addNode tree p') p' ls
 >               else
 >                 addNodeAt (addNode tree (currentPath ++ [l])) currentPath ls
->         addNodeAt tree currentPath [] = tree
-
-> lk k = fromMaybe "" . M.lookup k
+>         addNodeAt tree _ [] = tree
