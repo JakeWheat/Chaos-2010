@@ -380,6 +380,7 @@ start with a few helper functions
 
 avoid writing out the full key press names:
 
+
 > cursorShorthand :: String -> String
 > cursorShorthand m = safeLookup "cursor shorthand" m
 >                      [("d", "Down"),

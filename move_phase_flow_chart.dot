@@ -48,9 +48,7 @@ digraph simple_hierarchy {
       action_fly [shape="doubleoctagon"]
       action_cancel [shape="doubleoctagon"]
       action_enter [shape="doubleoctagon"]
-      action_exit [shape="doubleoctagon"]
       action_mount [shape="doubleoctagon"]
-      action_dismount [shape="doubleoctagon"]
       action_motion_attack [shape="doubleoctagon"]
     }
     init_motion [label="walker?" shape="diamond"]
@@ -80,9 +78,7 @@ digraph simple_hierarchy {
   action_walk->do_move
   action_fly->do_move
   action_enter->do_move
-  action_exit->do_move
   action_mount->do_move1
-  action_dismount->do_move
   action_cancel->end_move1
 
   do_move->continue

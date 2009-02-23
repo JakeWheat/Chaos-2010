@@ -256,8 +256,6 @@ highlight_cast_target_spell	250
 highlight_cast_activate_spell	250
 highlight_mount	250
 highlight_enter	250
-highlight_dismount	250
-highlight_exit	250
 highlight_select_piece_at_position	250
 highlight_walk	250
 highlight_fly	250
@@ -1287,6 +1285,67 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
+/*
+================================================================================
+
+== prompt
+
+use the action valid views to provide the user with information on
+what their options are.
+
+*/
+create or replace view action_instructions as
+select 'cast_target_spell'::text as action,
+       'Cast spell: Select a square to cast ' ||
+        get_current_wizard_spell() || ' on' as help
+union
+select 'select_piece_at_position',
+       'Select: choose a piece to move by selecting its square'
+union
+select 'walk',
+       'Walk: select a square to move piece to'
+union
+select 'fly',
+       'Fly: select a square to move piece to'
+union
+select 'attack',
+       'Attack: select a square to attack that piece'
+union
+select 'ranged_attack',
+       'Ranged attack: select a square to attack that piece'
+union
+select 'mount',
+       'Mount: select a square with a ridable monster to mount it'
+union
+select 'enter',
+       'Enter: select a square with a magic tree, castle or citadel on to enter it'
+union
+select 'next_phase',
+       'Next phase: press space to finish this wizard''s turn'
+union
+select 'set_imaginary',
+       'Press y to cast an imaginary monster'
+union
+select 'set_real',
+       'Press n to cast a real monster'
+union
+select 'cast_activate_spell',
+       'Cast: Press enter to cast ' || get_current_wizard_spell()
+union
+select 'cancel',
+       'Cancel: press End to cancel move/attack/ranged attack'
+union
+select 'choose_disbelieve_spell',
+       'Press a key from the spell book to choose that spell to cast'
+;
+
+create view prompt as
+select action, help
+  from action_instructions
+  natural inner join
+  (select action from client_valid_target_actions
+   union
+   select action from client_valid_activate_actions) as a;
 
 /*
 

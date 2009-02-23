@@ -205,8 +205,10 @@ supposed to be doing
 >           \wa -> [Text $ "world alignment " ++ wa ++ ", "]
 
 >        ,D.SelectValueIf "select turn_phase from turn_phase_table" [] $
->           \tp -> [Text $ "turn_phase " ++ tp ++ "\t"]
->        ,D.Items [MyTextView.Button "continue" $ dbAction conn "next_phase" []]
+>           \tp -> [Text $ "turn_phase " ++ tp ++ "\n"]
+>        ,D.SelectTuples "select help from prompt" [] $
+>           \tp -> [Text $ lk "help" tp ++ "\n"]
+>        --,D.Items [MyTextView.Button "continue" $ dbAction conn "next_phase" []]
 >        ,D.SelectTupleIf "select current_wizard,colour,allegiance,sprite \n\
 >                         \  from current_wizard_table\n\
 >                         \  inner join allegiance_colours\n\

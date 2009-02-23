@@ -1673,14 +1673,14 @@ create view selected_piece_occupying as
       and (x,y) = (select x,y from pieces
                    natural inner join selected_piece);
 
-create view selected_piece_exitable_squares as
-  select x,y from selected_piece_walk_squares
-    cross join selected_piece_occupying;
+--create view selected_piece_exitable_squares as
+--  select x,y from selected_piece_walk_squares
+--    cross join selected_piece_occupying;
 
 --can only dismount if you've selected a monster that
 --the wizard is mounted on and the monster hasn't moved yet
-create view selected_piece_dismountable_squares as
-  select 1 as x,1 as y where false; --x,y from selected_piece_walk_squares
+--create view selected_piece_dismountable_squares as
+--  select 1 as x,1 as y where false; --x,y from selected_piece_walk_squares
 
 /*
 === valid actions
@@ -1727,13 +1727,13 @@ union
 select x,y, 'enter'::text as action
   from selected_piece_enterable_squares
 --dismount
-union
-select x,y, 'dismount'::text as action
-  from selected_piece_dismountable_squares
-union
+--union
+--select x,y, 'dismount'::text as action
+--  from selected_piece_dismountable_squares
+--union
 --exit
-select x,y, 'exit'::text as action
-  from selected_piece_exitable_squares
+--select x,y, 'exit'::text as action
+--  from selected_piece_exitable_squares
 ) as s
 where not exists (select 1 from game_completed_table);
 
@@ -1770,9 +1770,9 @@ select 'cast_activate_spell'::text as action
           from current_wizard_spell
           where get_turn_phase() = 'cast')
 --skip spell
-union
-select 'skip_spell'::text as action
-  where get_turn_phase() = 'cast'
+--union
+--select 'skip_spell'::text as action
+--  where get_turn_phase() = 'cast'
 --unselect
 union
 select 'unselect_piece'::text as action
@@ -1894,7 +1894,7 @@ since it will be called via skip spell.
        inner join current_wizard_table
        on (current_wizard = wizard_name)
        where get_turn_phase() = 'cast') then
-    perform action_skip_spell();
+    perform skip_spell();
     return;
   end if;
 
@@ -2100,9 +2100,8 @@ drop function generate_spell_choice_actions();
 /*
 == cast spells
 */
-create function action_skip_spell() returns void as $$
+create function skip_spell() returns void as $$
 begin
-  perform check_can_run_action('skip_spell');
   insert into action_history_mr
     (history_name, wizard_name, spell_name)
     values ('skip spell', get_current_wizard(),
@@ -2852,13 +2851,13 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
-create function action_exit(px int, py int) returns void as $$
-begin
-  perform check_can_run_action('exit', px, py);
-  perform selected_piece_move_to(px, py);
-  perform do_next_move_subphase(false);
-end;
-$$ language plpgsql volatile strict;
+--create function action_exit(px int, py int) returns void as $$
+--begin
+--  perform check_can_run_action('exit', px, py);
+--  perform selected_piece_move_to(px, py);
+--  perform do_next_move_subphase(false);
+--end;
+--$$ language plpgsql volatile strict;
 
 create function action_mount(px int, py int) returns void as $$
 begin
