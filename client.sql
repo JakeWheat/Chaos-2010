@@ -340,7 +340,7 @@ select a.*,
   left outer join wizard_display_info cw
     on a.current_wizard = wn.wizard_name
   left outer join wizard_display_info al
-    on a.allegiance = wn.wizard_name
+    on a.allegiance = wn.wizard_name;
 
 /*
 ================================================================================

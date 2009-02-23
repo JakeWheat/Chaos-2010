@@ -3,7 +3,10 @@ Copyright 2009 Jake Wheat
 
 = My Text View
 
-Make some utility functions for working with textviews, first a series of shortcuts for adding stuff to the a textbuffer, and then a higher level description of the contents of a buffer to allow creating textbuffer contents using pure/ non-imperative code.
+Make some utility functions for working with textviews, first a series
+of shortcuts for adding stuff to the a textbuffer, and then a higher
+level description of the contents of a buffer to allow creating
+textbuffer contents using pure/ non-imperative code.
 
 > module MyTextView where
 

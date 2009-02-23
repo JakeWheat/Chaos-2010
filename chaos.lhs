@@ -330,17 +330,17 @@ to see imaginary of monsters that aren't yours.
 
 >        [let booleanStats = ["flying"
 >                            ,"undead"
->                            ,"rideable"
+>                            ,"ridable"
 >                            ,"imaginary"
 >                            ,"shadow_form"
 >                            ,"magic_sword"
 >                            ,"magic_knife"
 >                            ,"magic_shield"
 >                            ,"magic_wings"
->                            ,"magic_armour"
+>                            ,"magic_armoxur"
 >                            ,"magic_bow"
 >                            ,"computer_controlled"]
->             pieceBoolStats = flip filter booleanStats (\s -> lk s pi == "true")
+>             pieceBoolStats = filter (\s -> lk s pi == "true") booleanStats
 >         in Text $ '\n' : intercalate ", " pieceBoolStats
 >        ] ++
 
@@ -573,7 +573,7 @@ update the board sprites 10 times a second to animate them
 
 >     return (frame, refresh)
 >     where
->         readBoardSprites = do
+>         readBoardSprites =
 >           selectTuplesC conn "select * from board_sprites" [] $
 >                         \bs -> (read $ lk "x" bs::Int,
 >                                 read $ lk "y" bs::Int,
@@ -1111,7 +1111,7 @@ to another surface and keep that surface around.
 > type ColourList = [(String,Color)]
 
 > readColours :: Connection -> IO ColourList
-> readColours conn = do
+> readColours conn =
 >   selectTuplesC conn "select name,red,green,blue from colours" []
 >                 (\t -> ((lk "name" t),
 >                         Color (read (lk "red" t))

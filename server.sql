@@ -157,7 +157,7 @@ create table piece_prototypes_mr (
   speed int null,
   agility int null,
   undead boolean null,
-  rideable boolean null,
+  ridable boolean null,
   ranged_weapon_type ranged_weapon_type null,
   range int null,
   ranged_attack_strength int null,
@@ -179,9 +179,9 @@ create view creature_prototypes as
      and agility is not null;
 
 create view monster_prototypes as
-  select ptype, flying, speed, agility, undead, rideable
+  select ptype, flying, speed, agility, undead, ridable
     from piece_prototypes_mr
-    where undead is not null and rideable is not null;
+    where undead is not null and ridable is not null;
 
 create view enterable_piece_types as
   select 'magic_tree'::text as ptype
@@ -198,7 +198,7 @@ more readable format.
 */
 
 
-copy piece_prototypes_mr(ptype,flying,speed,agility,undead,rideable,
+copy piece_prototypes_mr(ptype,flying,speed,agility,undead,ridable,
 ranged_weapon_type,ranged_attack_strength,range,attack_strength,
 physical_defense,magic_defense) from stdin;
 bat	t	5	4	f	f	\N	\N	\N	1	1	9
@@ -598,7 +598,7 @@ create table pieces_mr (
     dead boolean null,
     imaginary boolean null,
     undead boolean null,
-    rideable boolean null,
+    ridable boolean null,
     attack_strength int null,
     physical_defense int null,
     ranged_weapon_type ranged_weapon_type null,
@@ -624,12 +624,12 @@ create view creature_pieces as
 create view monster_pieces as
   select ptype,allegiance,tag,x,y,
     flying,speed,agility,
-    undead,rideable,imaginary,
+    undead,ridable,imaginary,
     dead
   from creature_pieces
   natural inner join pieces_mr
   where undead is not null
-    and rideable is not null
+    and ridable is not null
     and imaginary is not null
     and dead is not null;
 
@@ -1376,7 +1376,7 @@ create rule pieces_on_top_update as
          dead = NEW.dead,
          imaginary = NEW.imaginary,
          undead = NEW.undead,
-         rideable = NEW.rideable,
+         ridable = NEW.ridable,
          attack_strength = NEW.attack_strength,
          physical_defense = NEW.physical_defense,
          ranged_weapon_type = NEW.ranged_weapon_type,
@@ -1658,7 +1658,7 @@ create view selected_piece_mountable_squares as
   natural inner join monster_pieces
     where allegiance = get_current_wizard()
       and (select ptype='wizard' from selected_piece)
-      and rideable;
+      and ridable;
 
 create view selected_piece_enterable_squares as
   select x,y from pieces_next_to_current_piece
@@ -3024,10 +3024,10 @@ begin
   -- successful attack to keep the logic for moving a wizard piece
   -- along with his mount in one place
   if
-     --this is a rideable monster
+     --this is a ridable monster
      exists(select 1 from selected_piece
        natural inner join monster_pieces
-       where rideable) and
+       where ridable) and
      --there is also a wizard on this square
      exists(select 1
       from (select x,y from pieces
@@ -3193,11 +3193,11 @@ TODO: use rules on piece-view to support inserts and updates on it
 
   --piece_prototypes -> pieces add allegiance (or dead if corpse), x, y
   insert into pieces_mr (ptype, allegiance, x, y,
-      flying,speed,agility,dead,imaginary,undead,rideable,
+      flying,speed,agility,dead,imaginary,undead,ridable,
       attack_strength,physical_defense, ranged_weapon_type,
       range, ranged_attack_strength, magic_defense)
     select vptype, vallegiance, vx, vy,
-      flying,speed,agility,false,vimaginary,undead,rideable,
+      flying,speed,agility,false,vimaginary,undead,ridable,
       attack_strength,physical_defense, ranged_weapon_type,
       range, ranged_attack_strength, magic_defense
     from piece_prototypes_mr where ptype = vptype;

@@ -161,7 +161,8 @@ just return the value
 
 === select tuple
 
-Same pattern as the select value, the value feeded into the callback or returned when no callback is supplied is a Map String String.
+Same pattern as the select value, the value fed into the callback or
+returned when no callback is supplied is a Map String String.
 
 > selectTupleC conn query args callback = do
 >   x <- selectTupleInternal conn query args callback True
@@ -178,7 +179,8 @@ Same pattern as the select value, the value feeded into the callback or returned
 >   selectTupleInternal conn query args id False
 
 
- > selectTupleInternal :: Connection -> String -> [String] -> SelectCallback -> IO ()
+ > selectTupleInternal :: Connection -> String -> [String] ->
+ > SelectCallback -> IO ()
 
 > selectTupleInternal conn query args callback enf = handleSqlError $ do
 >   sth <- prepare conn query

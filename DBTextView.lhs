@@ -21,7 +21,7 @@ These are the elements that you create that eventually end up in the
 textbuffer. For stuff which doesn't depend on the database, there is
 the passthrough (Items), and then there is a wrapper for each of the
 used select varieties from ChaosDB.lhs, which take a query string,
-qyuery argument list and return a list of MyTextView.Item.
+query argument list and return a list of MyTextView.Item.
 
 > data Item
 >     = Items [T.Item]
