@@ -323,6 +323,24 @@ $$ language plpgsql volatile strict;
 
 select set_module_for_preceding_objects('wizard_display_info');
 
+/*
+================================================================================
+
+== action history with colours
+
+*/
+create view action_history_colour_mr as
+select a.*,
+       wn.colour as wizard_name_colour,
+       cw.colour as current_wizard_colour,
+       al.colour as allegiance_colour
+  from action_history_mr a
+  left outer join wizard_display_info wn
+    on a.wizard_name = wn.wizard_name
+  left outer join wizard_display_info cw
+    on a.current_wizard = wn.wizard_name
+  left outer join wizard_display_info al
+    on a.allegiance = wn.wizard_name
 
 /*
 ================================================================================

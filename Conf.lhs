@@ -1,4 +1,8 @@
 
+Copyright 2009 Jake Wheat
+
+Short code to read the config file and expose values as a record.
+
 > module Conf (getConfig, Conf (..)) where
 
 > import Fez.Data.Conf

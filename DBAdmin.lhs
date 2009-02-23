@@ -2,7 +2,7 @@
 
 Copyright 2009 Jake Wheat
 
-provide commands for the front end:
+Mainly a wrapper around psql, provides commands for the front end:
 reset - reset the database - used during development when you've
   altered the sql files
 switch - switch the temp database over

@@ -32,8 +32,10 @@ todo: get this tree into speedbar
 > import Utils
 > import qualified Data.Map as M
 
-> getSourceFiles = getDirectoryContents "." >>=
+> getSourceFiles = do
+>                  x <- getDirectoryContents "." >>=
 >                    filterM doesFileExist
+>                  return $ sort x
 
 Create the tree widget and do a bunch of red tape.
 

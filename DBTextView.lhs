@@ -1,10 +1,13 @@
 
+Copyright 2009 Jake Wheat
+
 = Overview
 
-This module is a method of creating a TList to feed into a text view,
-by using the results of a series of database selects. The whole
-description is pure, and we just convert the whole list of selects to
-a TList object in one go.
+This module is a method of creating a list of MyTextView.Item to feed
+into a text view, by using the results of a series of database
+selects. The whole description is pure, and we just convert the whole
+list of selects to the List MyTextView.Item in one go. See chaos.lhs
+for examples of how it's used
 
 > module DBTextView where
 
@@ -14,6 +17,12 @@ a TList object in one go.
 > import Data.Maybe
 > import qualified Data.Map as M
 
+These are the elements that you create that eventually end up in the
+textbuffer. For stuff which doesn't depend on the database, there is
+the passthrough (Items), and then there is a wrapper for each of the
+used select varieties from ChaosDB.lhs, which take a query string,
+qyuery argument list and return a list of MyTextView.Item.
+
 > data Item
 >     = Items [T.Item]
 >     | SelectValueIf String [String] (String -> [T.Item])
@@ -22,27 +31,11 @@ a TList object in one go.
 > --     | IOI (IO [T.Item])
 >     | SelectTuplesIO String [String] (M.Map String String -> IO [T.Item])
 
- > convI :: Item -> IO (Maybe [T.Item])
- > convI (Items l) = return $ Just $ l
-
- > convS (SelectValueIf query args callback) =
- >        makeSelectValueIf conn query args callback
-
- > convT query args callback =
- >        selectTupleIfC conn query args callback
-
- > convIO (IOI a) = do
- >   x <- a
- >   return $ Just x
-
- > conn :: Connection
- > conn = undefined
-
- > convTs (SelectTuplesIf query args callback) = do
- >   x <- makeSelectTuples conn query args callback
- >   return $ Just x
-
-
+The run function takes a list of DBTextView.Item and runs all the
+selects to produce a list of MyTextView.Item ready for writing to the
+textview/buffer. The code uses lists of T.Item and also Maybes which
+is probably not needed, could convert the Nothings to empty lists and
+it would probably be clearer.
 
 > run :: Connection -> [Item] -> IO [T.Item]
 > run conn items = do
@@ -64,3 +57,26 @@ a TList object in one go.
  >                            IOI a -> do
  >                                x <- a
  >                                return $ Just x
+
+
+Stuff used to get the types straight in the case in the run function
+
+ > convI :: Item -> IO (Maybe [T.Item])
+ > convI (Items l) = return $ Just $ l
+
+ > convS (SelectValueIf query args callback) =
+ >        makeSelectValueIf conn query args callback
+
+ > convT query args callback =
+ >        selectTupleIfC conn query args callback
+
+ > convIO (IOI a) = do
+ >   x <- a
+ >   return $ Just x
+
+ > conn :: Connection
+ > conn = undefined
+
+ > convTs (SelectTuplesIf query args callback) = do
+ >   x <- makeSelectTuples conn query args callback
+ >   return $ Just x

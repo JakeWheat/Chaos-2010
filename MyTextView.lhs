@@ -1,4 +1,10 @@
 
+Copyright 2009 Jake Wheat
+
+= My Text View
+
+Make some utility functions for working with textviews, first a series of shortcuts for adding stuff to the a textbuffer, and then a higher level description of the contents of a buffer to allow creating textbuffer contents using pure/ non-imperative code.
+
 > module MyTextView where
 
 > import Graphics.UI.Gtk
@@ -6,16 +12,6 @@
 > import Control.Monad
 > import Data.Maybe
 > import Utils
-
-================================================================================
-
-= My Text View
-
-Make some utility functions for working with textviews
-
-Add the TList data type for describing the contents of a text view
-using pure code, this allows us to fill a text view with content
-without using lots of imperative code.
 
 == text view utils
 
@@ -89,6 +85,8 @@ attempt to get hold of the adjustments, couldn't get it working
 
 == Pure text view contents stuff
 
+See chaos.lhs for examples of use.
+
 > data Item
 >     = Text String
 >     | TaggedText String [String]
@@ -119,9 +117,15 @@ attempt to get hold of the adjustments, couldn't get it working
 >                             return ()
 >                      ToggleButtonGroup ls s c ->
 >                        unless (null ls) $ do
+>                        --create the first button and then all the
+>                        --others so we can make them into a radio
+>                        --button group
 >                        b1 <- radioButtonNewWithLabel $ head ls
 >                        bts <- mapM (radioButtonNewWithLabelFromWidget b1) $
 >                                    tail ls
+>                        -- run through the buttons, set the active
+>                        -- button, insert them into the text buffer
+>                        -- and add the callbacks
 >                        let bs = b1 : bts
 >                        mapM_ (\(l,b) -> do
 >                                when (s == l) $ toggleButtonSetActive b True
@@ -136,4 +140,3 @@ attempt to get hold of the adjustments, couldn't get it working
 >                        onClicked but c
 >                        textViewInsertWidgetAtCursor tv but
 >   mapM_ renderIt irl
-

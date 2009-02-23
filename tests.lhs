@@ -225,22 +225,18 @@ functions whose name starts with 'check_code_'
 
 > testDatabaseStuff conn = testCase "testDatabaseStuff" $
 >                            rollbackOnError conn $ do
->   res <- newIORef ([]::[(String,Bool)])
->   selectTuplesC conn "select object_name\n\
+>   res <- selectTuplesIO conn "select object_name\n\
 >                     \from module_objects\n\
 >                     \where object_name ~ 'check_code_.*'\n\
 >                     \and object_type='operator';" []
 >                    (\t -> do
 >      v <- selectValue conn ("select " ++  lk "object_name" t ++ "()") []
->      r1 <- readIORef res
->      writeIORef res $ r1 ++
->                     [(lk "object_name" t, read v::Bool)])
->   r2 <- readIORef res
->   let r3 = filter (\(s,b) -> not b) r2
+>      return (lk "object_name" t, read v::Bool))
+>   let fail = filter (\(s,b) -> not b) res
 
->   when (length r3 > 0)
+>   when (length fail > 0)
 >      (assertBool ("sql tests failed: " ++
->                   intercalate "\n" (map fst r3)) False)
+>                   intercalate "\n" (map fst fail)) False)
 
 >   return ()
 
@@ -399,8 +395,7 @@ get the current cursor position from the database
 > readCursorPosition :: Connection -> IO (Int,Int)
 > readCursorPosition conn = do
 >   r <- selectTuple conn "select x,y from cursor_position" []
->   messageIfError "read cursor position" $
->     return (read $ lk "x" r, read $ lk "y" r)
+>   return (read $ lk "x" r, read $ lk "y" r)
 
 move the cursor to x,y, using key presses
 
@@ -1070,8 +1065,7 @@ cast it and check the resulting board
 >   sendKeyPress conn "Return"
 >   align <- selectValue conn "select world_alignment\n\
 >                               \from world_alignment_table" []
->   messageIfError "read world_alignment" $
->     assertEqual "world alignment not law after casting law" "1" align
+>   assertEqual "world alignment not law after casting law" "1" align
 
 
 > testImaginary conn = testCase "testImaginary" $ rollbackOnError conn $ do
@@ -2646,13 +2640,13 @@ todo: add all relvars which aren't readonly to this
 >   checkRelvar conn "turn_phase_table" ["choose"]
 >   checkRelvar conn "spell_choice_hack_table" ["False"]
 > --todo: action_history
->   mapM_ (\x -> checkRelvar conn x []) ["wizard_spell_choices_mr",
->                                       "spell_parts_to_cast_table",
->                                       "cast_success_checked_table",
->                                       "cast_alignment_table",
->                                       "pieces_to_move",
->                                       "selected_piece",
->                                       "remaining_walk_table"]
+>   mapM_ (\x -> checkRelvar conn x []) ["wizard_spell_choices_mr"
+>                                       ,"spell_parts_to_cast_table"
+>                                       ,"cast_success_checked_table"
+>                                       ,"cast_alignment_table"
+>                                       ,"pieces_to_move"
+>                                       ,"selected_piece"
+>                                       ,"remaining_walk_table"]
 
 == some helper functions
 
@@ -2670,18 +2664,20 @@ shorthands to check data in the database
 
 > checkSelectedPiece conn allegiance ptype = do
 >   v <- selectTuple conn "select * from selected_piece" []
->   messageIfError "read selected piece" $
->     assertEqual "selected piece" (allegiance,ptype)
+>   assertEqual "selected piece" (allegiance,ptype)
 >               (lk "allegiance" v, lk "ptype" v)
 
 > checkMoveSubphase conn sp = do
 >   ms <- selectTuple conn "select move_phase from selected_piece" []
->   messageIfError "read move_phase" $
->     assertEqual "move subphase" sp (lk "move_phase" ms)
+>   assertEqual "move subphase" sp (lk "move_phase" ms)
 
 > checkNoSelectedPiece conn = do
 >   v <- selectTupleIf conn "select * from selected_piece" []
->   assertBool "there should be no selected piece" (isNothing v)
+>   assertBool ("there should be no selected piece, got " ++
+>               let r =  fromJust v
+>               in lk "ptype" r ++ " - " ++ lk "allegiance" r ++
+>                  " " ++ lk "move_phase" r)
+>              (isNothing v)
 
 ================================================================================
 

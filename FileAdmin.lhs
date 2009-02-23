@@ -1,5 +1,11 @@
 #! /usr/bin/env runghc
 
+Copyright 2009 Jake Wheat
+
+Some development utilities, some code to help check the sprite pngs on
+disk match the sprite table in the database, and dos-unix line ending
+conversion.
+
 > module FileAdmin (checkSprites, convertToDos, convertToUnix) where
 
 > import System.Directory
@@ -41,20 +47,12 @@ todo: doesn't check all the sprite files are present
 >     else putStrLn $ "unmatched pngs:\n" ++
 >            intercalate "\n" orphans
 
+Some code to convert text files between dos and unix line endings,
+must have missed some useful library functions since this was pretty
+difficult to write and should have been easy.
+
 > convertToDos = convertFiles unix2dos
 > convertToUnix = convertFiles dos2unix
-
- > main = do
- >   args <- getArgs
- >   case True of
- >     _ | (length args == 1 && head args == "windows") ->
- >           convertFiles unix2dos
- >     _ | (length args == 1 && head args == "unix") ->
- >           convertFiles dos2unix
- >     _ | otherwise ->
- >             putStrLn "use 'fileAdmin windows' to convert source files \
- >                      \to windows line endings and 'fileAdmin unix' to \
- >                      \convert to unix line endings"
 
 > convertFiles conv = do
 >   sf <- getSourceFiles
@@ -86,6 +84,9 @@ todo: doesn't check all the sprite files are present
 
 > countNewlines = length . elemIndices '\n'
 
+These tests aren't very comprehensive, and deliberately avoid dealing
+with naked /r since the conversions can't deal with this...
+
 > prop_duud s = --collect (length $elemIndices '\n' s) $
 >                        forAll unixString $ \s ->
 >                          (dos2unix $ unix2dos s) == s
@@ -113,3 +114,15 @@ todo: doesn't check all the sprite files are present
 > nonNewlineLetter = elements (['\32'..'\127'])
 > unixLetter = frequency [(1, return '\n'),
 >                        (1, nonNewlineLetter)]
+
+ > main = do
+ >   args <- getArgs
+ >   case True of
+ >     _ | (length args == 1 && head args == "windows") ->
+ >           convertFiles unix2dos
+ >     _ | (length args == 1 && head args == "unix") ->
+ >           convertFiles dos2unix
+ >     _ | otherwise ->
+ >             putStrLn "use 'fileAdmin windows' to convert source files \
+ >                      \to windows line endings and 'fileAdmin unix' to \
+ >                      \convert to unix line endings"

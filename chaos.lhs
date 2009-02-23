@@ -574,12 +574,12 @@ update the board sprites 10 times a second to animate them
 >     return (frame, refresh)
 >     where
 >         readBoardSprites = do
->           br <- selectTuples conn "select * from board_sprites" []
->           return $ map (\bs -> (read $ lk "x" bs::Int,
+>           selectTuplesC conn "select * from board_sprites" [] $
+>                         \bs -> (read $ lk "x" bs::Int,
 >                                 read $ lk "y" bs::Int,
 >                                 lk "sprite" bs,
 >                                 read $ lk "start_frame" bs::Int,
->                                 read $ lk "animation_speed" bs::Int)) br
+>                                 read $ lk "animation_speed" bs::Int)
 
 
 
@@ -788,25 +788,29 @@ text box instead of redrawing them all
 
 >   lastHistoryIDBox <- newIORef (-1)
 
->   wizardColours <- selectLookup conn "select wizard_name,colour\n\
->                                      \from wizard_display_info" []
->   let getWC wn = fromMaybe "grey" $ lookup wn wizardColours
->       items lhID =
->             D.SelectTuplesIO "select * from action_history_mr\n\
+>   let refresh = do
+>         is <- items lastHistoryIDBox
+>         D.run conn [is] >>= render tv
+>         textViewScrollToBottom tv
+>
+>   return (tv, refresh)
+>     where
+>       items lhIDBox = do
+>             lhID <- readIORef lhIDBox
+>             return $ D.SelectTuplesIO
+>                           "select * from action_history_colour_mr\n\
 >                           \where id > ?\n\
 >                           \order by id" [show lhID] $
 >               \h -> do
->                 t <- th h
->                 return $ t ++ [Text "\n"]
->       th h = do
->              writeIORef lastHistoryIDBox $ read $ lk "id" h
->              let wc = TaggedText (lk "wizard_name" h)
->                                  [getWC $ lk "wizard_name" h]
+>                 writeIORef lhIDBox $ read $ lk "id" h
+>                 return $ th h ++ [Text "\n"]
+>       th h = let wc = TaggedText (lk "wizard_name" h)
+>                                  [defG $ lk "wizard_colour" h]
 >                  pTag = [Text $ lk "ptype" h ++ "-"
 >                         ,TaggedText (lk "allegiance" h)
->                                     [getWC $ lk "allegiance" h]
+>                                     [defG $ lk "allegiance_colour" h]
 >                         ,Text $ '-' : lk "tag" h]
->              return $ (Text $ lk "id" h ++ ". ") :
+>              in (Text $ lk "id" h ++ ". ") :
 
 -- unfinished...
 
@@ -843,13 +847,8 @@ text box instead of redrawing them all
 >                  "game drawn" ->
 >                      [Text "the game is a draw."]
 >                  _ -> [Text $ lk "history_name" h ++ " FIXME"]
+>       defG c = if c == "" then "grey" else c
 
->       refresh = do
->         lhID <- readIORef lastHistoryIDBox
->         D.run conn [items lhID] >>= render tv
->         textViewScrollToBottom tv
->
->   return (tv, refresh)
 
 ================================================================================
 
@@ -942,10 +941,10 @@ that window and hook pressing F12 up to refresh all the widgets
 
 >         return (name, (ww, wrefresh))
 >
->     v <- selectTuples conn "select window_name \n\
+
+>     widgetData <- selectTuplesIO conn "select window_name \n\
 >                              \from windows" []
->     widgetData <- forM v (\r ->
->                   makeWindow (lk "window_name" r))
+>                     (\r -> makeWindow (lk "window_name" r))
 
 == refresh
 
@@ -1113,11 +1112,11 @@ to another surface and keep that surface around.
 
 > readColours :: Connection -> IO ColourList
 > readColours conn = do
->   r <- selectTuples conn "select name,red,green,blue from colours" []
->   return $ map (\t -> ((lk "name" t),
->                      Color (read (lk "red" t))
->                            (read (lk "green" t))
->                            (read (lk "blue" t)))) r
+>   selectTuplesC conn "select name,red,green,blue from colours" []
+>                 (\t -> ((lk "name" t),
+>                         Color (read (lk "red" t))
+>                               (read (lk "green" t))
+>                               (read (lk "blue" t))))
 
 Setup a text view with the styles and colours used in this app.
 

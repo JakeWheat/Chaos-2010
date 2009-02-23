@@ -39,6 +39,7 @@ Select functions
 
 >                ,selectSingleColumn
 >                ,selectLookup
+
 >                ,SqlRow
 
 update function
@@ -46,10 +47,11 @@ update function
 >                ,dbAction
 
 hack functions, for calling a non action sp, and for running inserts
-and updates
+and updates directly
 
 >                ,runSql
 >                ,callSp
+
 >                ) where
 >
 
@@ -91,33 +93,29 @@ it should use threads or what
 
 == Query shortcuts
 
-There are three query shortcuts,
+There are three basic query shortcuts,
 selectValue: reading 0 or 1 values (from a relation with 0 or 1 tuples
 and onne attribute)
 selectTuple: reading 0 or 1 tuples
 selectTuples: reading 0 to many tuples
 
-each shortcut expects a callback function to call with value for
-selectValue or with a lookup function (String->String) for
-selectTuple(s)
-
-The reason for this is a lot of the text code wants to write out some
-stuff conditionally on a query not returning an empty relation, this
-way seems to be reasonably concise (started to use Maybes and cases
-but it was a real mess).
-
 === select value
 
 runs the query, if there is a tuple returned, runs a supplied callback
-with the value extracted from the query, the value is a SqlValue (this
-is inconsistent with the other two select shortcuts)
+with the value extracted from the query. The non callback versions use
+id as the callback. after the query is run, the return value from the
+callback is returned from the select function, so you can use these in
+a callback style, return style or both.
 
 errors if there isn't onne attribute or if more than one tuples are
 returned from the query
 
 the if variant doesn't error if no rows are found, they just don't
 call the callback, the non if variants need onne row and error if
-there is none
+there is none. The if variants return maybes and the non if versions
+just return the value
+
+
 
 > selectValueC conn query args callback = do
 >   x <- selectValueInternal conn query args callback True
@@ -163,11 +161,7 @@ there is none
 
 === select tuple
 
-runs the query, if there is a tuple returned, convert it to a lookup
-function (string->string) and call the callback with this
-
-errors if more than one tuple is returned from the query
-
+Same pattern as the select value, the value feeded into the callback or returned when no callback is supplied is a Map String String.
 
 > selectTupleC conn query args callback = do
 >   x <- selectTupleInternal conn query args callback True
@@ -207,12 +201,25 @@ errors if more than one tuple is returned from the query
 
 === select tuples
 
-just like select tuple, but instead of erroring if there is more than
-one tuple, call the callback once for each tuple returned from the
-query
+just like select tuple, but instead of erroring if there is zero or
+more than one tuple, call the callback once for each tuple returned
+from the query. returns the maps or returns from the callbacks in a
+list
 
 > selectTuplesC = selectTuplesInternal
 > selectTuples conn query args = selectTuplesInternal conn query args id
+
+IO version, this allows you to pass a callback which performs io.
+
+> selectTuplesIO conn query args callback = handleSqlError $ do
+>   sth <- prepare conn query
+>   execute sth $ map sToSql args
+>   cn <- getColumnNames sth
+>   v <- fetchAllRows' sth
+>   mapM callback (map (convertRow cn) v)
+>     where
+>       sToSql s = toSql (s::String)
+
 
 > selectTuplesInternal conn query args callback = handleSqlError $ do
 >   sth <- prepare conn query
@@ -223,14 +230,6 @@ query
 >     where
 >       sToSql s = toSql (s::String)
 
-> selectTuplesIO conn query args callback = handleSqlError $ do
->   sth <- prepare conn query
->   execute sth $ map sToSql args
->   cn <- getColumnNames sth
->   v <- fetchAllRows' sth
->   mapM callback (map (convertRow cn) v)
->     where
->       sToSql s = toSql (s::String)
 
 ==== selectTuples wrappers
 
@@ -245,26 +244,13 @@ query
 
 === some helpers and old stuff
 
-
-==== lookupAtt
-
-helper function used to help create the lookups that are supplied to
-the callbacks in selectTuple and selectTuples. Big downside is that
-all values are converted to strings, so might have to be careful with
-nulls and booleans in code which uses this.
-
-> lookupAtt :: String -> SqlRow -> String
-> lookupAtt att tup =
->     case M.lookup att tup of
->       Just x -> x
->       Nothing -> ""
-
-
 ==== convert row:
 
 It might be old fashioned but I prefer accessing database results by
 the column name. (This relies on only using sql queries where all the
-columns are named and named uniquely.)
+columns are named and named uniquely.) This takes the column list
+returned from getColumnNames and the sqlvalue lists and returns
+a Map String String, so you run it once for each tuple.
 
 > convertRow :: [String] -> [SqlValue] -> SqlRow
 > convertRow cn r = M.fromList $ map
@@ -302,21 +288,3 @@ call actions functions
 > dbAction conn actionName args = handleSqlError $ do
 >   callSp conn ("action_" ++ actionName) args
 >   commit conn
-
-==== handle sql error
-
-Tried to rewrite handleSqlError so it output newlines in pg error
-messages instead of "\n" when running ghci from emacs, which makes
-them very hard to read.
-
-Doing this replacement didn't work - I don't actually know if this
-problem is caused by emacs, haskell-mode, ghci, hunit or hdbc or
-something else...
-
- > handleSqlError :: IO a -> IO a
- > handleSqlError action =
- >     catchSql action handler
- >         where handler e = do
- >                           putStrLn "\n"
- >                           putStrLn (subst "\\n" "\n" (show e))
- >                           fail ("SQL error: " ++ (subst "\\n" "\n" (show e)))

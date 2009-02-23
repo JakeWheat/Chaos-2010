@@ -1,4 +1,8 @@
 
+Copyright 2009 Jake Wheat
+
+Some utils for gtk, mainly to add scrollviews and windows to widgets.
+
 > module GtkUtils (wrapInFullScroller,
 >                  wrapInVerticalScroller,
 >                  wrapInWindow,

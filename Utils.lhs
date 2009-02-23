@@ -1,3 +1,8 @@
+
+Copyright 2009 Jake Wheat
+
+A bunch of utility functions, basic functional stuff, monad stuff, file system stuff. Probably they are all in the standard library but I didn't find them.
+
 > module Utils (applyMany,
 >               findAllFiles,
 >               time,
@@ -54,6 +59,9 @@
 > hasKey :: Eq k => k -> [(k,v)] -> Bool
 > hasKey k = any (\(k',v) ->  k == k')
 
+lookup wrappers that throw a supplied error message to help with
+tracking down problems
+
 > safeLookup :: (Show a, Eq a) => String -> a -> [(a, b)] -> b
 > safeLookup errMsg key lkp =
 >     case lookup key lkp of
@@ -89,6 +97,10 @@
 >    where f = reverse . dropWhile DC.isSpace
 
 
+run an external program, return the stdout, stderr and the exit
+code. This doesn't work right for programs which produce a lot of
+output.
+
 > run :: String -> IO (String,String,Int)
 > run s = do
 >     (ih,oh,eh,pid) <- runInteractiveCommand s
@@ -120,6 +132,8 @@ is an error:
 >     bracketOnError (return())
 >                    (const $ putStrLn message)
 >                    . const
+
+helpers for putting an io action in the condition clause of a when
 
 > whenA1 :: IO a -> (a -> Bool) -> IO () -> IO ()
 > whenA1 feed cond f = (cond `liftM` feed) >>= flip when f
