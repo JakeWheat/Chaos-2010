@@ -109,23 +109,16 @@ to find a way of testing the database constraints themselves).
 > import Data.List
 > import qualified Data.Map as M
 > import qualified Data.Char as DC
-> --import Numeric
-> --import Data.Word
-> --import System.Directory
 > import Control.Monad
-> --import System.FilePath
 > import Data.Maybe
-> --import Data.IORef
 > import Test.HUnit
-> import ChaosDB
-> import Conf
-> --import System.Time
-> import Utils
-> --import qualified Debug.Trace.Location as L
 > import Test.Framework
 > import Test.Framework.Providers.HUnit
-> --import Test.Framework.Providers.QuickCheck
 > import Control.Exception
+
+> import ChaosDB
+> import Conf
+> import Utils
 
 ================================================================================
 
@@ -139,6 +132,7 @@ Run all the tests.
 >   withConn ("host=localhost dbname=" ++
 >             dbName conf ++ " user=" ++ username conf ++
 >             " password=" ++ password conf) $ \conn -> do
+
 >   defaultMain [
 >         testGroup "basics" [
 >                        testDatabaseStuff conn
@@ -165,9 +159,17 @@ Run all the tests.
 >                       ,testCastDisbelieveReal conn
 >                       ,testCastDisbelieveImaginary conn
 >                       ,testCastRaiseDead conn
->                       ,testCastArmour conn
 >                       ,testCastLaw conn
 >                       ,testImaginary conn
+>                       ,testGroup "upgrades" [
+>                                       testCastShield conn
+>                                      ,testCastArmour conn
+>                                      ,testCastKnife conn
+>                                      ,testCastSword conn
+>                                      ,testCastBow conn
+>                                      ,testCastWings conn
+>                                      ,testCastShadowForm conn
+>                                      ]
 >                       ]
 >        ,testGroup "move phase stuff" [
 >           testGroup "subphases" [
@@ -207,6 +209,12 @@ Run all the tests.
 
 >   return ()
 
+> tctor :: String
+>       -> (Connection -> IO ())
+>       -> Connection
+>       -> Test.Framework.Test
+> tctor l f conn = testCase l $ rollbackOnError conn $ f conn
+
 postgresql.conf  #track_functions = none # none, pl, all
 
  select * from pg_stat_user_functions ;
@@ -222,8 +230,7 @@ First run the tests from the database, these are all the database
 functions whose name starts with 'check_code_'
 
 > testDatabaseStuff :: Connection -> Test.Framework.Test
-> testDatabaseStuff conn = testCase "testDatabaseStuff" $
->                            rollbackOnError conn $ do
+> testDatabaseStuff = tctor "testDatabaseStuff" $ \conn -> do
 >   res <- selectTuplesIO conn "select object_name\n\
 >                     \from module_objects\n\
 >                     \where object_name ~ 'check_code_.*'\n\
@@ -267,7 +274,7 @@ but there are exceptions: mounted wizard who hasn't moved, wizard in
 magic tree or castle; add test for these.
 
 > testPiecesOnTop :: Connection -> Test.Framework.Test
-> testPiecesOnTop conn = testCase "testPiecesOnTop" $ rollbackOnError conn $ do
+> testPiecesOnTop = tctor "testPiecesOnTop" $ \conn -> do
 >   startNewGame conn
 >   setupBoard conn ("\n\
 >                   \b      c      d\n\
@@ -330,8 +337,7 @@ Check the cursor movement and also the shortcut for the tests to move
 the cursor to a given position, also check the moveto code
 
 > testCursorMovement :: Connection -> Test.Framework.Test
-> testCursorMovement conn = testCase "testCursorMovement" $
->                             rollbackOnError conn $ do
+> testCursorMovement = tctor "testCursorMovement" $ \conn -> do
 >   --make sure there is a game running:
 >   startNewGame conn
 >   --reset the cursor position
@@ -452,7 +458,7 @@ Just run through the choose, cast and move phases for each wizard
 twice, check the turn_phase and current_wizard each time
 
 > testNextPhase :: Connection -> Test.Framework.Test
-> testNextPhase conn = testCase "testNextPhase" $ rollbackOnError conn $ do
+> testNextPhase = tctor "testNextPhase" $ \conn -> do
 >   startNewGame conn
 >   forM_ ["choose","cast","move","choose","cast","move"]
 >         (\phase ->
@@ -473,8 +479,7 @@ start at choose on first wizard and run though twice
 to do all variations is 256 tests
 
 > testNextPhaseWizardDead :: Connection -> Test.Framework.Test
-> testNextPhaseWizardDead conn = testCase "testNextPhaseWizardDead" $
->                                  rollbackOnError conn $
+> testNextPhaseWizardDead = tctor "testNextPhaseWizardDead" $ \conn ->
 >   forM_ [0..7] (\j -> do
 >     startNewGame conn
 >     --kill wizard
@@ -489,8 +494,7 @@ to do all variations is 256 tests
 >         sendKeyPress conn "space")))
 
 > testNextPhaseTwoWizardsDead :: Connection -> Test.Framework.Test
-> testNextPhaseTwoWizardsDead conn = testCase "testNextPhaseTwoWizardsDead" $
->                                      rollbackOnError conn $
+> testNextPhaseTwoWizardsDead = tctor "testNextPhaseTwoWizardsDead" $ \conn ->
 >   forM_ [0..7] (\j ->
 >     forM_ [(j + 1)..7] (\k -> do
 >       startNewGame conn
@@ -526,7 +530,7 @@ these are tested in the spell cast and move sections respectively
 = spell cast tests
 
 > testCastGoblin :: Connection -> Test.Framework.Test
-> testCastGoblin conn = testCase "testCastGoblin" $ rollbackOnError conn $ do
+> testCastGoblin = tctor "testCastGoblin" $ \conn -> do
 
 setup the game, get to cast phase with the first wizard having
 chosen goblin
@@ -575,8 +579,7 @@ cast it and check the resulting board
 >   checkCurrentWizardPhase conn "Kong Fuzi" "cast"
 
 > testFailCastGoblin :: Connection -> Test.Framework.Test
-> testFailCastGoblin conn = testCase "testFailCastGoblin" $
->                             rollbackOnError conn $ do
+> testFailCastGoblin = tctor "testFailCastGoblin" $ \conn -> do
 >   newGameReadyToCast conn "goblin"
 >   rigActionSuccess conn "cast" False
 >   goSquare conn 1 0
@@ -594,8 +597,7 @@ cast it and check the resulting board
 >                   wizardPiecesList)
 
 > testCastMagicWood :: Connection -> Test.Framework.Test
-> testCastMagicWood conn = testCase "testCastMagicWood" $
->                            rollbackOnError conn $ do
+> testCastMagicWood = tctor "testCastMagicWood" $ \conn -> do
 >   newGameReadyToCast conn "magic_wood"
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
@@ -614,8 +616,7 @@ cast it and check the resulting board
 >                   [('W', [PieceDescription "magic_tree" "Buddha" []])]))
 
 > testCastShadowWood :: Connection -> Test.Framework.Test
-> testCastShadowWood conn = testCase "testCastShadowWood" $
->                             rollbackOnError conn $ do
+> testCastShadowWood = tctor "testCastShadowWood" $ \conn -> do
 >   newGameReadyToCast conn "shadow_wood"
 >   checkValidSquares conn "\n\
 >                          \1XXXXXX2X     3\n\
@@ -646,8 +647,7 @@ cast it and check the resulting board
 >                   [('W', [PieceDescription "shadow_tree" "Buddha" []])]))
 
 > testCastMagicBolt :: Connection -> Test.Framework.Test
-> testCastMagicBolt conn = testCase "testCastMagicBolt" $
->                            rollbackOnError conn $ do
+> testCastMagicBolt = tctor "testCastMagicBolt" $ \conn -> do
 >   newGameReadyToCast conn "magic_bolt"
 >   checkValidSquares conn "\n\
 >                          \1      2      3\n\
@@ -677,8 +677,7 @@ cast it and check the resulting board
 >                   wizardPiecesList)
 
 > testCastMagicBoltResisted :: Connection -> Test.Framework.Test
-> testCastMagicBoltResisted conn = testCase "testCastMagicBoltResisted" $
->                                    rollbackOnError conn $ do
+> testCastMagicBoltResisted = tctor "testCastMagicBoltResisted" $ \conn -> do
 >   newGameReadyToCast conn "magic_bolt"
 >   checkValidSquares conn "\n\
 >                          \1      2      3\n\
@@ -708,8 +707,7 @@ cast it and check the resulting board
 >                   wizardPiecesList)
 
 > testCastVengeanceWizard :: Connection -> Test.Framework.Test
-> testCastVengeanceWizard conn = testCase "testCastVengeanceWizard" $
->                                 rollbackOnError conn $ do
+> testCastVengeanceWizard = tctor "testCastVengeanceWizard" $ \conn -> do
 >   newGameWithBoardReadyToCast conn "vengeance"
 >                  ("\n\
 >                   \1G     2      3\n\
@@ -752,8 +750,7 @@ cast it and check the resulting board
 >                   wizardPiecesList)
 
 > testCastVengeanceMonster :: Connection -> Test.Framework.Test
-> testCastVengeanceMonster conn = testCase "testCastVengeanceMonster" $
->                                  rollbackOnError conn $ do
+> testCastVengeanceMonster = tctor "testCastVengeanceMonster" $ \conn -> do
 >   newGameWithBoardReadyToCast conn "vengeance"
 >                 ("\n\
 >                   \1G     2      3\n\
@@ -797,8 +794,8 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
 > testCastVengeanceMonsterResisted :: Connection -> Test.Framework.Test
-> testCastVengeanceMonsterResisted conn =
->     testCase "testCastVengeanceMonsterResisted" $ rollbackOnError conn $ do
+> testCastVengeanceMonsterResisted =
+>     tctor "testCastVengeanceMonsterResisted" $ \conn -> do
 >   newGameWithBoardReadyToCast conn "vengeance"
 >                   ("\n\
 >                   \1G     2      3\n\
@@ -842,8 +839,7 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
 > testCastSubversion :: Connection -> Test.Framework.Test
-> testCastSubversion conn = testCase "testCastSubversion" $
->                             rollbackOnError conn $ do
+> testCastSubversion = tctor "testCastSubversion" $ \conn -> do
 >   newGameWithBoardReadyToCast conn "subversion"
 >                  ("\n\
 >                   \1G     2      3\n\
@@ -887,8 +883,7 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Buddha" []])]))
 
 > testCastSubversionResisted :: Connection -> Test.Framework.Test
-> testCastSubversionResisted conn = testCase "testCastSubversionResisted" $
->                                     rollbackOnError conn $ do
+> testCastSubversionResisted = tctor "testCastSubversionResisted" $ \conn -> do
 >   newGameWithBoardReadyToCast conn "subversion"
 >                  ("\n\
 >                   \1G     2      3\n\
@@ -932,8 +927,7 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
 > testCastDisbelieveReal :: Connection -> Test.Framework.Test
-> testCastDisbelieveReal conn = testCase "testCastDisbelieveReal" $
->                                 rollbackOnError conn $ do
+> testCastDisbelieveReal = tctor "testCastDisbelieveReal" $ \conn -> do
 >   newGameWithBoardReadyToCast conn "disbelieve"
 >                 ("\n\
 >                   \1G     2      3\n\
@@ -975,8 +969,7 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
 > testCastDisbelieveImaginary :: Connection -> Test.Framework.Test
-> testCastDisbelieveImaginary conn = testCase "testCastDisbelieveImaginary" $
->                                      rollbackOnError conn $ do
+> testCastDisbelieveImaginary = tctor "testCastDisbelieveImaginary" $ \conn -> do
 >   newGameWithBoardReadyToCast conn "disbelieve"
 >                   ("\n\
 >                   \1G     2      3\n\
@@ -1019,8 +1012,7 @@ cast it and check the resulting board
 >
 
 > testCastRaiseDead :: Connection -> Test.Framework.Test
-> testCastRaiseDead conn = testCase "testCastRaiseDead" $
->                            rollbackOnError conn $ do
+> testCastRaiseDead = tctor "testCastRaiseDead" $ \conn -> do
 >   newGameWithBoardReadyToCast conn "raise_dead"
 >                   ("\n\
 >                   \1G     2      3\n\
@@ -1062,11 +1054,67 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('G', [PieceDescription "goblin" "Buddha" [PUndead]])]))
 
+> testCastShield :: Connection -> Test.Framework.Test
+> testCastShield = tctor "testCastShield" $ \conn -> do
+>   doUpgradeTest conn "magic_shield" $
+>                 \t -> addStat "physical_defense" 2 t
+
 > testCastArmour :: Connection -> Test.Framework.Test
-> testCastArmour conn = testCase "testCastArmour" $ rollbackOnError conn $ do
->   newGameReadyToCast conn "magic_armour"
+> testCastArmour = tctor "testCastArmour" $ \conn -> do
+>   doUpgradeTest conn "magic_armour" $
+>                 \t -> addStat "physical_defense" 4 t
+
+> testCastKnife :: Connection -> Test.Framework.Test
+> testCastKnife = tctor "testCastKnife" $ \conn -> do
+>   doUpgradeTest conn "magic_knife" $
+>                 \t -> addStat "attack_strength" 2 t
+
+> testCastSword :: Connection -> Test.Framework.Test
+> testCastSword = tctor "testCastSword" $ \conn -> do
+>   doUpgradeTest conn "magic_sword" $
+>                 \t -> addStat "attack_strength" 4 t
+
+> testCastBow :: Connection -> Test.Framework.Test
+> testCastBow = tctor "testCastBow" $ \conn -> do
+>   doUpgradeTest conn "magic_bow" $
+>                 setStat "ranged_weapon_type" "projectile" .
+>                 setStat "range" "6" .
+>                 setStat "ranged_attack_strength" "6"
+
+> testCastWings :: Connection -> Test.Framework.Test
+> testCastWings = tctor "testCastWings" $ \conn -> do
+>   doUpgradeTest conn "magic_wings" $
+>                 setStat "speed" "6" .
+>                 setStat "flying" "True"
+
+> testCastShadowForm :: Connection -> Test.Framework.Test
+> testCastShadowForm = tctor "testCastShadowForm" $ \conn -> do
+>   doUpgradeTest conn "shadow_form" $
+>                 addStat "physical_defense" 2 .
+>                 addStat "agility" 2 .
+>                 setStat "speed" "3"
+
+> addStat :: String -> Int -> SqlRow -> SqlRow
+> addStat att n tup = M.insert att (adds $ fromJust $ M.lookup att tup) tup
+>     where
+>       adds s = show $ (read s ::Int) + n
+
+> setStat :: String -> String -> SqlRow -> SqlRow
+> setStat att v tup = M.insert att v tup
+
+> doUpgradeTest :: Connection -> String -> (SqlRow -> SqlRow)
+>               -> IO ()
+> doUpgradeTest conn spell attrChange = do
+>   newGameReadyToCast conn spell
+>   oldStats <- selectTuple conn "select * from pieces_mr\n\
+>                               \  where ptype='wizard'\n\
+>                               \    and allegiance='Buddha'" []
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
+>   newStats <- selectTuple conn "select * from pieces_mr\n\
+>                               \  where ptype='wizard'\n\
+>                               \    and allegiance='Buddha'" []
+>   assertEqual "upgraded stats" (attrChange oldStats) newStats
 >   checkBoard conn ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -1078,12 +1126,19 @@ cast it and check the resulting board
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",
->                   (updateLookup '1'
->                    [PieceDescription "wizard" "Buddha" [PArmour]]
->                    wizardPiecesList))
+>                   wizardPiecesList)
+
+
+todo:
+stack upgrades - different spells, same spells e.g. magic knife
+twice, magic knife then magic sword
+
+if there is a way that a wizard can lose an upgrade that needs to be
+tested too
+
 
 > testCastLaw :: Connection -> Test.Framework.Test
-> testCastLaw conn = testCase "testCastLaw" $ rollbackOnError conn $ do
+> testCastLaw = tctor "testCastLaw" $ \conn -> do
 >   newGameReadyToCast conn "law"
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
@@ -1092,7 +1147,7 @@ cast it and check the resulting board
 >   assertEqual "world alignment not law after casting law" "1" align
 
 > testImaginary :: Connection -> Test.Framework.Test
-> testImaginary conn = testCase "testImaginary" $ rollbackOnError conn $ do
+> testImaginary = tctor "testImaginary" $ \conn -> do
 
 >   let setStuffUp1 = do
 >                     startNewGame conn
@@ -1286,8 +1341,8 @@ unsuccessful attack and ranged attack here, and walk and fly
 variations, so we don't need to test them elsewhere.
 
 > testWalkCancelAttackDone :: Connection -> Test.Framework.Test
-> testWalkCancelAttackDone conn = testCase "testWalkCancelAttackDone" $
->                                   rollbackOnError conn $ do
+> testWalkCancelAttackDone = tctor "testWalkCancelAttackDone" $
+>                                   \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "goblin" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1323,8 +1378,8 @@ variations, so we don't need to test them elsewhere.
 >     checkPieceDoneSelection conn "goblin" "Buddha"
 
 > testCancelMotionDone :: Connection -> Test.Framework.Test
-> testCancelMotionDone conn = testCase "testCancelMotionDone" $
->                               rollbackOnError conn $ do
+> testCancelMotionDone = tctor "testCancelMotionDone" $
+>                               \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "goblin" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1357,8 +1412,8 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 
 > testWalkNoAvailAttackDone :: Connection -> Test.Framework.Test
-> testWalkNoAvailAttackDone conn = testCase "testWalkNoAvailAttackDone" $
->                                    rollbackOnError conn $ do
+> testWalkNoAvailAttackDone = tctor "testWalkNoAvailAttackDone" $
+>                                    \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "goblin" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1391,7 +1446,7 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 
 > testWAttackDone :: Connection -> Test.Framework.Test
-> testWAttackDone conn = testCase "testWAttackDone" $ rollbackOnError conn $ do
+> testWAttackDone = tctor "testWAttackDone" $ \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "goblin" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
@@ -1427,7 +1482,7 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 
 > testWalk2Done :: Connection -> Test.Framework.Test
-> testWalk2Done conn = testCase "testWalk2Done" $ rollbackOnError conn $ do
+> testWalk2Done = tctor "testWalk2Done" $ \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('B', [PieceDescription "bear" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1474,8 +1529,8 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 
 > testWalk1CancelDone :: Connection -> Test.Framework.Test
-> testWalk1CancelDone conn = testCase "testWalk1CancelDone" $
->                              rollbackOnError conn $ do
+> testWalk1CancelDone = tctor "testWalk1CancelDone" $
+>                              \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('B', [PieceDescription "bear" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1511,8 +1566,8 @@ variations, so we don't need to test them elsewhere.
 >     checkPieceDoneSelection conn "bear" "Buddha"
 
 > testFlyAttackDone :: Connection -> Test.Framework.Test
-> testFlyAttackDone conn = testCase "testFlyAttackDone" $
->                            rollbackOnError conn $ do
+> testFlyAttackDone = tctor "testFlyAttackDone" $
+>                            \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "eagle" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
@@ -1561,7 +1616,7 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 
 > testFAttackDone :: Connection -> Test.Framework.Test
-> testFAttackDone conn = testCase "testFAttackDone" $ rollbackOnError conn $ do
+> testFAttackDone = tctor "testFAttackDone" $ \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "eagle" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1595,8 +1650,8 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 
 > testCancelFlyDone :: Connection -> Test.Framework.Test
-> testCancelFlyDone conn = testCase "testCancelFlyDone" $
->                            rollbackOnError conn $ do
+> testCancelFlyDone = tctor "testCancelFlyDone" $
+>                            \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "eagle" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1629,8 +1684,8 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 
 > testFlyNoAvailAttackDone :: Connection -> Test.Framework.Test
-> testFlyNoAvailAttackDone conn = testCase "testFlyNoAvailAttackDone" $
->                                   rollbackOnError conn $ do
+> testFlyNoAvailAttackDone = tctor "testFlyNoAvailAttackDone" $
+>                                   \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "eagle" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1666,8 +1721,8 @@ variations, so we don't need to test them elsewhere.
 * piece has motion-attack-ranged, walks 1 square
 
 > testWalkAttackRangedDone :: Connection -> Test.Framework.Test
-> testWalkAttackRangedDone conn = testCase "testWalkAttackRangedDone" $
->                                   rollbackOnError conn $ do
+> testWalkAttackRangedDone = tctor "testWalkAttackRangedDone" $
+>                                   \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "elf" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
@@ -1731,8 +1786,8 @@ variations, so we don't need to test them elsewhere.
 >     checkPieceDoneSelection conn "elf" "Buddha"
 
 > testWalkAttackCancelDone :: Connection -> Test.Framework.Test
-> testWalkAttackCancelDone conn = testCase "testWalkAttackCancelDone" $
->                                   rollbackOnError conn $ do
+> testWalkAttackCancelDone = tctor "testWalkAttackCancelDone" $
+>                                   \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "elf" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
@@ -1794,8 +1849,8 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 
 > testWalkCancelRangedDone :: Connection -> Test.Framework.Test
-> testWalkCancelRangedDone conn = testCase "testWalkCancelRangedDone" $
->                                   rollbackOnError conn $ do
+> testWalkCancelRangedDone = tctor "testWalkCancelRangedDone" $
+>                                   \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "elf" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1855,8 +1910,8 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 
 > testCancelRangedDone :: Connection -> Test.Framework.Test
-> testCancelRangedDone conn = testCase "testCancelRangedDone" $
->                               rollbackOnError conn $ do
+> testCancelRangedDone = tctor "testCancelRangedDone" $
+>                               \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "elf" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
@@ -1904,8 +1959,8 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 
 > testWalkNoAvailAttackRangedDone :: Connection -> Test.Framework.Test
-> testWalkNoAvailAttackRangedDone conn =
->   testCase "testWalkNoAvailAttackRangedDone" $ rollbackOnError conn $ do
+> testWalkNoAvailAttackRangedDone =
+>   tctor "testWalkNoAvailAttackRangedDone" $ \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [PieceDescription "elf" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -1966,7 +2021,7 @@ variations, so we don't need to test them elsewhere.
 * piece has attack only
 
 > testAttackDone :: Connection -> Test.Framework.Test
-> testAttackDone conn = testCase "testAttackDone" $ rollbackOnError conn $ do
+> testAttackDone = tctor "testAttackDone" $ \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('W', [PieceDescription "shadow_tree" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
@@ -2001,8 +2056,8 @@ variations, so we don't need to test them elsewhere.
 >     checkPieceDoneSelection conn "shadow_tree" "Buddha"
 
 > testNoAvailAttackDone :: Connection -> Test.Framework.Test
-> testNoAvailAttackDone conn = testCase "testNoAvailAttackDone" $
->                                rollbackOnError conn $ do
+> testNoAvailAttackDone = tctor "testNoAvailAttackDone" $
+>                                \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('W', [PieceDescription "shadow_tree" "Buddha" []]),
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
@@ -2025,8 +2080,8 @@ variations, so we don't need to test them elsewhere.
 == other move action tests
 
 > testAttackWizard :: Connection -> Test.Framework.Test
-> testAttackWizard conn = testCase "testAttackWizard" $
->                           rollbackOnError conn $ do
+> testAttackWizard = tctor "testAttackWizard" $
+>                           \conn -> do
 >   startNewGameReadyToMove conn ("\n\
 >                   \1G     2      3\n\
 >                   \ H             \n\
@@ -2060,7 +2115,7 @@ variations, so we don't need to test them elsewhere.
 >                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
 
 > testFlyAttack :: Connection -> Test.Framework.Test
-> testFlyAttack conn = testCase "testFlyAttack" $ rollbackOnError conn $ do
+> testFlyAttack = tctor "testFlyAttack" $ \conn -> do
 >   startNewGameReadyToMove conn ("\n\
 >                   \1 E    2      3\n\
 >                   \               \n\
@@ -2100,8 +2155,8 @@ the number of tests we also test moving the monster whilst the wizard
 is mounted here.
 
 > testMoveWhenMounted :: Connection -> Test.Framework.Test
-> testMoveWhenMounted conn = testCase "testMoveWhenMounted" $
->                              rollbackOnError conn $ do
+> testMoveWhenMounted = tctor "testMoveWhenMounted" $
+>                              \conn -> do
 >   startNewGameReadyToMove conn ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
@@ -2142,7 +2197,7 @@ is mounted here.
 dismount then move
 
 > testDismount :: Connection -> Test.Framework.Test
-> testDismount conn = testCase "testDismount" $ rollbackOnError conn $ do
+> testDismount = tctor "testDismount" $ \conn -> do
 >   startNewGameReadyToMove conn ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
@@ -2178,8 +2233,8 @@ dismount then move
 move when already mounted
 
 > testMoveWhenAlreadyMounted :: Connection -> Test.Framework.Test
-> testMoveWhenAlreadyMounted conn = testCase "testMoveWhenAlreadyMounted" $
->                                     rollbackOnError conn $ do
+> testMoveWhenAlreadyMounted = tctor "testMoveWhenAlreadyMounted" $
+>                                     \conn -> do
 >   startNewGameReadyToMove conn ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
@@ -2216,7 +2271,7 @@ move when already mounted
 todo: attack when dismounting, dismounting when flying
 
 > testExit :: Connection -> Test.Framework.Test
-> testExit conn = testCase "testExit" $ rollbackOnError conn $ do
+> testExit = tctor "testExit" $ \conn -> do
 >   startNewGameReadyToMove conn ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
@@ -2249,7 +2304,7 @@ todo: attack when dismounting, dismounting when flying
 >                   [('P', [PieceDescription "dark_citadel" "Buddha" []])])
 
 > testEnter :: Connection -> Test.Framework.Test
-> testEnter conn = testCase "testEnter" $ rollbackOnError conn $ do
+> testEnter = tctor "testEnter" $ \conn -> do
 >   startNewGameReadyToMove conn ("\n\
 >                   \1P     2      3\n\
 >                   \               \n\
@@ -2341,7 +2396,7 @@ history item in the history table, and by checking the valid activate
 and target action views are empty.
 
 > testWizardWin :: Connection -> Test.Framework.Test
-> testWizardWin conn = testCase "testWizardWin" $ rollbackOnError conn $ do
+> testWizardWin = tctor "testWizardWin" $ \conn -> do
 >   startNewGameReadyToMove conn ("\n\
 >                   \1G     2       \n\
 >                   \               \n\
@@ -2383,7 +2438,7 @@ Draw works similarly to win, except it is detected the instant there
 are no wizards left.
 
 > testGameDraw :: Connection -> Test.Framework.Test
-> testGameDraw conn = testCase "testGameDraw" $ rollbackOnError conn $ do
+> testGameDraw = tctor "testGameDraw" $ \conn -> do
 >   startNewGameReadyToMove conn ("\n\
 >                   \1G 2           \n\
 >                   \               \n\
@@ -2577,7 +2632,7 @@ We use these two datatypes in the key for the boards
 >     PieceDescription String String [PieceTag]
 >     deriving (Show,Eq,Ord)
 
-> data PieceTag = PImaginary | PDead | PArmour | PUndead
+> data PieceTag = PImaginary | PUndead
 >     deriving (Show,Eq,Ord)
 
 The piece tag holds a bit of extra information about that piece to
@@ -2653,7 +2708,7 @@ previous two functions and turns it into a boarddescription
 Adding the tags is a bit haphazard
 
 > convertBoardRel :: Connection -> [SqlRow] -> IO BoardDescription
-> convertBoardRel conn v = do
+> convertBoardRel _ v = do
 >   let checkTag r t t' = if lk t r == "True"
 >                        then Just t'
 >                        else Nothing
@@ -2664,29 +2719,29 @@ Adding the tags is a bit haphazard
 >                            (catMaybes [checkTag p "undead" PUndead]),
 >                            read $ lk "x" p,
 >                            read $ lk "y" p))
+>   return w
 
 now add tags from the wizards table, so we can check things like magic
 sword
+ >   u <- readWizardUpgrades conn
+ >   return $ for w (\pd@(PieceDescription ptype allegiance tags, x, y) ->
+ >                 if ptype /= "wizard"
+ >                    then pd
+ >                    else (PieceDescription
+ >                          ptype
+ >                          allegiance
+ >                          (tags ++ (fromMaybe [] $ lookup allegiance u)),
+ >                          x, y))
 
->   u <- readWizardUpgrades conn
->   return $ for w (\pd@(PieceDescription ptype allegiance tags, x, y) ->
->                 if ptype /= "wizard"
->                    then pd
->                    else (PieceDescription
->                          ptype
->                          allegiance
->                          (tags ++ (fromMaybe [] $ lookup allegiance u)),
->                          x, y))
 
-
-> readWizardUpgrades :: Connection -> IO [(String, [PieceTag])]
-> readWizardUpgrades conn = do
->   v <- selectTuples conn "select wizard_name, magic_armour from wizards" []
->   let checkTag r t t' = if lk t r == "True"
->                           then Just t'
->                           else Nothing
->   return $ for v (\vs -> (lk "wizard_name" vs,
->                           catMaybes [checkTag vs "magic_armour" PArmour]))
+ > readWizardUpgrades :: Connection -> IO [(String, [PieceTag])]
+ > readWizardUpgrades conn = do
+ >   v <- selectTuples conn "select wizard_name, magic_armour from wizards" []
+ >   let checkTag r t t' = if lk t r == "True"
+ >                           then Just t'
+ >                           else Nothing
+ >   return $ for v (\vs -> (lk "wizard_name" vs,
+ >                           catMaybes [checkTag vs "magic_armour" PArmour]))
 
 
 == check new game relvars
@@ -2889,9 +2944,16 @@ understand
 >                         ,("vengeance", "E")
 >                         ,("subversion", "R")
 >                         ,("raise_dead", "V")
+>                         ,("magic_knife", "1")
+>                         ,("magic_shield", "2")
 >                         ,("magic_armour", "3")
+>                         ,("magic_bow", "4")
+>                         ,("magic_sword", "5")
+>                         ,("shadow_form", "6")
+>                         ,("magic_wings", "7")
 >                         ,("law", "O")
 >                         ]
+
 
 > keyChooseSpell :: String -> String
 > keyChooseSpell spellName = safeLookup

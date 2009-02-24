@@ -2256,31 +2256,80 @@ create function spell_cast_chance(text) returns integer as $$
   select chance from spell_cast_chance where spell_name = $1;
 $$ language sql stable strict;
 
-create function action_cast_wizard_spell(pwizard_name text, spell_name text)
+create or replace function action_cast_wizard_spell(pwizard_name text, spell_name text)
   returns void as $$
 begin
   --todo: update stats
   if spell_name = 'magic_armour' then
-    update wizards set magic_armour = true
-      where wizard_name = pwizard_name;
+      update pieces_mr
+        set physical_defense = physical_defense + 4
+        where not (select magic_armour from wizards
+                     where wizard_name = pwizard_name)
+          and ptype = 'wizard'
+          and allegiance = pwizard_name;
+      update wizards
+        set magic_armour = true
+        where wizard_name = pwizard_name;
   elseif spell_name = 'magic_shield' then
-    update wizards set magic_shield = true
-      where wizard_name = pwizard_name;
+      update pieces_mr
+        set physical_defense = physical_defense + 2
+        where not (select magic_shield from wizards
+                     where wizard_name = pwizard_name)
+          and ptype = 'wizard'
+          and allegiance = pwizard_name;
+      update wizards
+        set magic_shield = true
+        where wizard_name = pwizard_name;
   elseif spell_name = 'magic_knife' then
-    update wizards set magic_knife = true
-      where wizard_name = pwizard_name;
+      update pieces_mr
+        set attack_strength = attack_strength + 2
+        where not (select magic_knife from wizards
+                     where wizard_name = pwizard_name)
+          and ptype = 'wizard'
+          and allegiance = pwizard_name;
+      update wizards
+        set magic_knife = true
+        where wizard_name = pwizard_name;
   elseif spell_name = 'magic_sword' then
-    update wizards set magic_sword = true
-      where wizard_name = pwizard_name;
+      update pieces_mr
+        set attack_strength = attack_strength + 4
+        where not (select magic_sword from wizards
+                     where wizard_name = pwizard_name)
+          and ptype = 'wizard'
+          and allegiance = pwizard_name;
+      update wizards
+        set magic_sword = true
+        where wizard_name = pwizard_name;
   elseif spell_name = 'magic_bow' then
-    update wizards set magic_bow = true
-      where wizard_name = pwizard_name;
+      update pieces_mr
+        set range = 6,
+            ranged_weapon_type='projectile',
+            ranged_attack_strength = 6
+        where ptype = 'wizard'
+          and allegiance = pwizard_name;
+      update wizards
+        set magic_bow = true
+        where wizard_name = pwizard_name;
   elseif spell_name = 'magic_wings' then
+    update pieces_mr
+        set flying = true,
+            speed = 6
+        where ptype = 'wizard'
+          and allegiance = pwizard_name;
     update wizards set magic_wings = true
       where wizard_name = pwizard_name;
   elseif spell_name = 'shadow_form' then
-    update wizards set shadow_form = true
-      where wizard_name = pwizard_name;
+      update pieces_mr
+        set physical_defense = physical_defense + 2,
+            speed = 3,
+            agility = agility +2
+        where not (select shadow_form from wizards
+                     where wizard_name = pwizard_name)
+          and ptype = 'wizard'
+          and allegiance = pwizard_name;
+      update wizards
+        set shadow_form = true
+        where wizard_name = pwizard_name;
   else
     raise exception 'unrecognised wizard spell %', spell_name;
   end if;

@@ -1349,6 +1349,33 @@ select action, help
 
 /*
 
+TODO: improve these messages, maybe add in relevant sprites inline,
+draw lines onto the playing board, be more specific e.g. the help for
+enter could say exactly what options are available, next phase is
+context specific (e.g. next phase to decline to move pieces which
+haven't moved, or to not use additional shots of the currently casting
+spell, or if no parts have been cast, to say cancel spell cast, cancel
+also more specific.
+
+TODO: in addition to this help, want to make available a "why can't I
+do this" facility, which explains why a particular action can't be run
+at this time (for target actions, why a particular action can't be run
+at this time on this square).
+
+New idea:
+state what activate action is available
+or// state what target actions are available for some square
+and state what target action will run on the current square
+
+also: for squares with no valid action, try to provide a message
+guessing what the user might want to run on that square and explain
+why they can't: need to work through some examples to see how obvious
+these messages will be to create
+
+*/
+
+/*
+
 ================================================================================
 
 == new game action
