@@ -585,6 +585,21 @@ create view allegiances as
      where expired = false
    union select 'dead' as allegiance;
 
+/*
+
+TODO: maybe make pieces_mr a table called pieces with just the piece key and position, and then use a view for an analog to pieces_mr with the stats. Create this view from the prototype stats, the pieces table, and have table(s) containing things
+that can affect the stats and the view selects from the the
+piece_prototypes and these tables.
+
+I think all the ways stats can change from the prototypes are listed
+here:
+monster raised from the dead
+wizard with upgrade
+
+err... that's it.
+
+*/
+
 create table pieces_mr (
     ptype text,
     allegiance text,
@@ -1099,10 +1114,15 @@ $$ language plpgsql volatile strict;
 
 
 /*
-pieces to move and selected piece are local to move phase for each wizard
+
+pieces to move and selected piece are local to move phase for each
+wizard
 
 Piece in this table from current wizard's army hasn't yet moved
 in this turn.
+
+TODO: i think switching this from pieces to move to pieces_moved will
+be a bit more straightforward
 
 */
 create table pieces_to_move (
@@ -2931,6 +2951,11 @@ declare
   def int;
 begin
   perform check_can_run_action('attack', px, py);
+
+  --if the attacker is a wizard with shadow form, they lose the shadow
+  --form when they attack
+
+  
 
   att := (select attack_strength
          from attacking_pieces

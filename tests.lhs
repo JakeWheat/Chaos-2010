@@ -199,6 +199,7 @@ Run all the tests.
 >                          ,testMoveWhenAlreadyMounted conn
 >                          ,testEnter conn
 >                          ,testExit conn
+>                          --,testAttackShadowForm conn
 >                        ]
 >           ]
 >        ,testGroup "game complete" [
@@ -2334,6 +2335,42 @@ todo: attack when dismounting, dismounting when flying
 >                    wizardPiecesList ++
 >                   [('P', [PieceDescription "wizard" "Buddha" [],
 >                           PieceDescription "dark_citadel" "Buddha" []])])
+
+> testAttackShadowForm :: Connection -> Test.Framework.Test
+> testAttackShadowForm = tctor "testAttackShadowForm" $ \conn -> do
+>   newGameWithBoardReadyToCast conn "shadow_form"
+>                  ("\n\
+>                   \1G     2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",
+>                   (wizardPiecesList ++
+>                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
+>   oldStats <- selectTuple conn "select * from pieces_mr\n\
+>                               \  where ptype='wizard'\n\
+>                               \    and allegiance='Buddha'" []
+>   sendKeyPress conn "Return"
+>   skipToPhase conn "move"
+>   rigActionSuccess conn "attack" True
+>   goSquare conn 1 0
+>   newStats <- selectTuple conn "select * from pieces_mr\n\
+>                               \  where ptype='wizard'\n\
+>                               \    and allegiance='Buddha'" []
+>   assertEqual "attacking loses shadow form" oldStats newStats
+
+
+testAttackUndeadOnUndead
+
+testAttackNonUndeadOnUndead
+
+testMagicWeaponOnUndead
+
 
 == misc todo
 
