@@ -265,7 +265,7 @@ create function add_constraint(vname text,
 begin
   perform add_constraint_internal(vname,vexpression,vrelvars, false);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 === internal
@@ -307,7 +307,7 @@ begin
 begin
   return ' || vexpression || ';
 end;
-$a$ language plpgsql stable strict;';
+$a$ language plpgsql stable;';
   --hide the check function from the user catalog
   insert into system_implementation_objects(object_name, object_type)
     values (constraint_operator, 'operator');
@@ -342,7 +342,7 @@ $a$ language plpgsql stable strict;';
       values (vname, 'database_constraint');
   end if;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 
 /*
@@ -366,14 +366,14 @@ from $a$ || vtable || $a$)$a$,
      array[vtable], true);
   perform set_pg_unique(cn, vtable, attr);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 -- shortcut for a key on one attribute
 create function add_key(vtable text, attr text) returns void as $$
 begin
   perform add_key(vtable, array[attr]);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 === fk/ references
@@ -399,7 +399,7 @@ create function attrs_are_key(text, text[]) returns boolean as $$
     where relvar_name = $1
       and attribute_name = any ($2)
     group by constraint_name);
-$$ language sql stable strict;
+$$ language sql stable;
 insert into system_implementation_objects
   (object_name,object_type) values
   ('attrs_are_key', 'operator');
@@ -469,7 +469,7 @@ bt, accel);
   end if;
 
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 
 -- add foreign key shortcuts for special cases:
@@ -479,7 +479,7 @@ create function add_foreign_key(vtable text, src_attr text[], reftable text)
 begin
   perform add_foreign_key(vtable, src_attr, reftable, src_attr);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 -- one attribute
 create function add_foreign_key(vtable text,
                                  src_attr text,
@@ -489,7 +489,7 @@ create function add_foreign_key(vtable text,
 begin
   perform add_foreign_key(vtable, array[src_attr], reftable, array[ref_attr]);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 -- same one attribute
 create function add_foreign_key(vtable text, src_attr text, reftable text)
@@ -497,7 +497,7 @@ create function add_foreign_key(vtable text, src_attr text, reftable text)
 begin
   perform add_foreign_key(vtable, array[src_attr], reftable, array[src_attr]);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 === upto 1 tuple
@@ -513,7 +513,7 @@ begin
     '(select count(*) from $a$ || table_name || $a$) <= 1',
     array['$a$ || table_name || $a$']);$a$;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 
@@ -566,7 +566,7 @@ begin
     return cn;
   end if;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 === acceleration ish
@@ -667,7 +667,7 @@ begin
       length(cn), cn;
   end if;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function set_pg_unique
   (vconstraint_name text, vrelvar_name text, vattributes text[])
@@ -680,7 +680,7 @@ begin
   insert into con_pg(constraint_name)
     values(vconstraint_name);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 insert into system_implementation_objects(object_name, object_type)
   values ('set_pg_unique', 'operator');
@@ -695,7 +695,7 @@ begin
   insert into con_pg(constraint_name)
     values(vconstraint_name);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 insert into system_implementation_objects(object_name, object_type)
   values ('set_pg_check', 'operator');
 
@@ -715,7 +715,7 @@ begin
   insert into con_pg(constraint_name)
     values(vconstraint_name);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 insert into system_implementation_objects(object_name, object_type)
   values ('set_pg_fk', 'operator');
 
@@ -859,7 +859,7 @@ $f$();$f$;
       values(table_trigger_function);
   end loop;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 insert into system_implementation_objects(object_name, object_type)
   values ('regenerate_constraint_triggers', 'operator');
 
@@ -891,7 +891,7 @@ begin
     return false;
   end if;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 
 select add_key('database_constraints', 'constraint_name');
@@ -982,7 +982,7 @@ $f$;
   end if;
   st := st || $f$
 end;
-$a$ language plpgsql volatile strict;$f$;
+$a$ language plpgsql volatile;$f$;
 
   execute st;
   insert into system_implementation_objects(object_name,object_type)
@@ -999,7 +999,7 @@ $a$ language plpgsql volatile strict;$f$;
     values (constraint_name || '_transition_trigger', 'trigger');
 
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 insert into system_implementation_objects
   (object_name, object_type) values
   ('create_x_transition_tuple_constraint', 'operator');
@@ -1013,7 +1013,7 @@ begin
   perform create_x_transition_tuple_constraint(relvar_name,
     constraint_name, constraint_expression, 'update');
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function create_insert_transition_tuple_constraint(
    relvar_name text, constraint_name text, constraint_expression text)
@@ -1022,7 +1022,7 @@ begin
   perform create_x_transition_tuple_constraint(relvar_name,
     constraint_name, constraint_expression, 'insert');
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function create_delete_transition_tuple_constraint(
    relvar_name text, constraint_name text, constraint_expression text)
@@ -1031,7 +1031,7 @@ begin
   perform create_x_transition_tuple_constraint(relvar_name,
     constraint_name, constraint_expression, 'delete');
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 
@@ -1115,14 +1115,14 @@ begin
         except select object_name, object_type
         from all_module_objects) as a;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function new_module(mname text, mparent text) returns void as $$
 begin
   insert into modules (module_name, module_parent_name)
     values(mname, mparent);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 select new_module('system', 'root');
 select new_module('catalog', 'system');
@@ -1145,7 +1145,7 @@ begin
   end loop;
   return success;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 
 -- add in all internal objects already defined
@@ -1179,7 +1179,7 @@ begin
            and not exists(select 1 from regexp_matches(relname, '_mr$')))
     and attnum >= 1;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 since we can't put triggers on the catalog, at least make sure the above
@@ -1207,7 +1207,7 @@ begin
   end loop;
   return success;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 
@@ -1233,24 +1233,24 @@ begin
 --  execute 'create function insert_' || vname ||
     -- '(' || vtype || ') returns void as $a$\n ' ||
 --    'insert into ' || vname || '_table values($1);\n' ||
---    '$a$ language sql volatile strict;';
+--    '$a$ language sql volatile;';
 --    update_name updates value in table
 --  (will error if table is empty)
 --  execute 'create function update_' || vname || '(' || vtype || ')
 --    returns void as $a$\n ' ||
 --    'update ' || vname || '_table set ' || vname || ' = $1;\n' ||
---    '$a$ language sql volatile strict;';
+--    '$a$ language sql volatile;';
 --    delete_name deletes from table
 --    (doesn't error if table is already empty)
 --  execute 'create function delete_' || vname || '()
 --    returns void as $a$\n ' ||
 --    'delete from ' || vname || '_table;\n' ||
---    '$a$ language sql volatile strict;';
+--    '$a$ language sql volatile;';
 --    get_name returns select * from table_name as a single value
   execute 'create function get_' || vname || '() returns ' ||
     vtype || E' as $a$\n ' ||
     'select * from ' || vname || E'_table;\n' ||
-    '$a$ language sql stable strict;';
+    '$a$ language sql stable;';
 --    drop_var_name - drop all this ish, cleanup
 --  execute 'create function dropvar_' || vname || E'()
 --      returns void as $a$\n ' ||
@@ -1260,9 +1260,9 @@ begin
 --    'drop function delete_' || vname || '();\n' ||
 --    'drop function get_' || vname || E'();\n' ||
 --    'drop table ' || vname || E'_table;\n' ||
---    '$a$ language sql volatile strict;';
+--    '$a$ language sql volatile;';
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 /*
 == table changed notifier macro
 
@@ -1280,7 +1280,7 @@ begin
     || 'notify ' || table_name || E';\n'
     || E'return null;\n'
     || E'end;\n'
-    || '$a$ language plpgsql volatile strict;';
+    || '$a$ language plpgsql volatile;';
   --perform add_to_package('utils', 'notify_table_' ||
 --    table_name || '_changed', 'trigger_function');
   insert into system_implementation_objects
@@ -1296,6 +1296,6 @@ begin
      (table_name || '_changed', 'trigger');
 
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 select set_module_for_preceding_objects('utils');

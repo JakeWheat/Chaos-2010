@@ -73,7 +73,7 @@ begin
     ('board', 99,28, 480,320, 'normal'),
     ('action_history', 843,28, 429,556, 'normal');
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function action_hide_window(vname text) returns void as $$
 begin
@@ -82,7 +82,7 @@ begin
   end if;
   update windows set state='hidden' where window_name = vname;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 select set_module_for_preceding_objects('window_management');
 
 /*
@@ -99,7 +99,7 @@ begin
 -- just has this stub here to avoid special casing it in the
 --haskell code
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 ================================================================================
@@ -312,7 +312,7 @@ begin
        select wizard_name,sprite,colour
        from init_wizard_display_info_argument;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 
 select set_module_for_preceding_objects('wizard_display_info');
@@ -426,7 +426,7 @@ begin
       direction;
   end if;
 end
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 === internals
@@ -445,13 +445,13 @@ begin
     update cursor_position set (x,y) = (p.x,p.y);
   end if;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function init_cursor_position() returns void as $$
 begin
   insert into cursor_position (x,y) values (0,0);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 
@@ -570,7 +570,7 @@ begin
         (select ptype,allegiance,tag
         from piece_starting_frames);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 
@@ -723,7 +723,7 @@ create function action_spell_book_show_all_update(v boolean)
 begin
   update spell_book_show_all_table set spell_book_show_all=v;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 
 /*
@@ -768,7 +768,7 @@ create view current_wizard_spell_counts as
 --create a string to represent the number of copies of each spell
 create function count_icons(int) returns text as $$
   select repeat('#', $1) as result;
-$$ language sql immutable strict;
+$$ language sql immutable;
 
 --create a string to represent the alignment of each spell
 create function align_icons(int) returns text as $$
@@ -777,7 +777,7 @@ create function align_icons(int) returns text as $$
     when $1 > 0 then  repeat('+', $1)
     else '-'
   end as result
-$$ language sql immutable strict;
+$$ language sql immutable;
 /*
 ==== colours
 colour each spell according to the probability of casting success
@@ -796,7 +796,7 @@ begin
     else 'blue'
   end;
 end;
-$$ language plpgsql immutable strict;
+$$ language plpgsql immutable;
 
 create view spell_colours as
   select spell_name, chance_colour(chance) as colour
@@ -821,7 +821,7 @@ begin
   end if;
   return coalesce(colour, 'blue');
 end;
-$$ language plpgsql stable strict;
+$$ language plpgsql stable;
 
 -- format function for alignment
 create function format_alignment(alignment int) returns text as $$
@@ -834,7 +834,7 @@ begin
     return 'neutral';
   end if;
 end;
-$$ language plpgsql immutable strict;
+$$ language plpgsql immutable;
 /*
 == spell choice controls
 */
@@ -1004,7 +1004,7 @@ begin
   end if;
   return ret;
 end
-$$ language plpgsql immutable strict;
+$$ language plpgsql immutable;
 
 create function action_reset_new_game_widget_state() returns void as $$
 begin
@@ -1020,7 +1020,7 @@ begin
       (6, 'Yeshua', 'wizard6', 'white', 'computer'),
       (7, 'Zarathushthra', 'wizard7', 'orange', 'computer');
 end
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 == actions
@@ -1039,7 +1039,7 @@ begin
       where state != 'none';
   perform action_client_new_game();
 end
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 select set_module_for_preceding_objects('new_game_widget');
 
@@ -1159,9 +1159,9 @@ create function action_$f$ || client_action_name || $f$() returns void as $a$
 begin
   perform action_$f$ || action_call || $f$;
 end;
-$a$ language plpgsql volatile strict;$f$;
+$a$ language plpgsql volatile;$f$;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 cursor movement action redirections, used to make sense but don't
@@ -1220,7 +1220,7 @@ then a strategy of taking an action and
     end if;
   end loop;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 === spell choice
@@ -1244,7 +1244,7 @@ begin
   perform action_next_phase();
   perform action_move_cursor_to_current_wizard();
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 ================================================================================
@@ -1273,7 +1273,7 @@ begin
   end if;
   return ;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 ================================================================================
@@ -1426,7 +1426,7 @@ begin
 
   perform init_cursor_position();
 end
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 select set_module_for_preceding_objects('client_new_game');
 
 select protect_readonly_relvars();

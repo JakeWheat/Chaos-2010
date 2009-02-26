@@ -36,7 +36,7 @@ begin
   insert into base_relvar_metadata (relvar_name, type)
     values (vname, vtype);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 select set_relvar_type('base_relvar_metadata', 'readonly');
 
@@ -70,7 +70,7 @@ begin
   end loop;
   return success;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function protect_readonly_relvars() returns void as $$
 declare
@@ -92,7 +92,7 @@ begin
             and object_name = r.relvar_name));
   end loop;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 
@@ -119,7 +119,7 @@ begin
     perform notify_on_changed(r.relvar_name);
   end loop;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 select set_module_for_preceding_objects('metadata');
 
@@ -462,7 +462,7 @@ begin
   -- default board size
   insert into board_size (width, height) values (15, 10);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 === law/ chaos rating
@@ -486,7 +486,7 @@ create function init_world_alignment() returns void as $$ --tags: init
 begin
   insert into world_alignment_table values (0);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 select set_module_for_preceding_objects('global_data');
 
 /*
@@ -642,7 +642,7 @@ create function piece_key_equals(piece_key, piece_key) returns boolean as $$
   select $1.ptype = $2.ptype and
          $1.allegiance = $2.allegiance and
          $1.tag = $2.tag;
-$$ language sql stable strict;
+$$ language sql stable;
 
 create operator = (
     leftarg = piece_key,
@@ -659,7 +659,7 @@ create type pos as (
 create function pos_equals(pos, pos) returns boolean as $$
   select $1.x = $2.x and
          $1.y = $2.y;
-$$ language sql stable strict;
+$$ language sql stable;
 
 create operator = (
     leftarg = pos,
@@ -940,7 +940,7 @@ begin
       where creating_new_game = true)');
 
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 select no_deletes_inserts_except_new_game('turn_number_table');
 
@@ -974,7 +974,7 @@ select wizard_name, new_wizard_name from
 create function next_wizard(text) returns text as $$
   select new_wizard_name from next_wizard
     where wizard_name = $1;
-$$ language sql stable strict;
+$$ language sql stable;
 
 /*select next_wizard('Buddha');
 select next_wizard('Kong Fuzi');
@@ -1037,7 +1037,7 @@ create function next_turn_phase(text) returns text as $$
     when $1='autonomous' then 'move'
     when $1='move' then 'choose'
   end as result
-$$ language sql immutable strict;
+$$ language sql immutable;
 
 select create_var('turn_phase', 'turn_phase_enum');
 select set_relvar_type('turn_phase_table', 'data');
@@ -1092,7 +1092,7 @@ create view current_wizard_spell as
 
 create function get_current_wizard_spell() returns text as $$
   select spell_name from current_wizard_spell;
-$$ language sql stable strict;
+$$ language sql stable;
 
 /*this really needs multiple updates
 
@@ -1262,7 +1262,7 @@ begin
   end if;
   update cast_alignment_table set cast_alignment = 0;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 
 
@@ -1360,7 +1360,7 @@ begin
     select wizard_name from live_wizards
     order by place limit 1;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 
@@ -1382,7 +1382,7 @@ begin
   insert into game_completed_table
     select true where not exists (select 1 from game_completed_table);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 -- 1 tuple iff current moving piece walks, empty otherwise
 
@@ -1428,7 +1428,7 @@ begin
   insert into test_action_overrides (override, setting)
     values (poverride, psetting);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 select add_key('test_action_overrides', 'override');
 
@@ -1456,15 +1456,15 @@ $$ language plpgsql volatile;
 
 create function min(integer, integer) returns integer as $$
   select min(n) from (select $1 as n union select $2 as n) as a;
-$$ language sql immutable strict;
+$$ language sql immutable;
 
 create function max(integer, integer) returns integer as $$
   select max(n) from (select $1 as n union select $2 as n) as a;
-$$ language sql immutable strict;
+$$ language sql immutable;
 
 create function limit_chance(integer) returns integer as $$
   select max(10, min($1, 100));
-$$ language sql immutable strict;
+$$ language sql immutable;
 
 /*
 == action validity
@@ -1556,7 +1556,7 @@ create view selectable_piece_with_squares as
 
 create function distance(int, int, int, int) returns float(24) as $$
   select (point($1, $2) <-> point($3, $4))::float(24) as result;
-$$ language sql immutable strict;
+$$ language sql immutable;
 
 create view board_ranges as
 --iterate x,y over each square on board
@@ -1950,7 +1950,7 @@ begin
     raise exception 'cannot run % here', action_name;
   end if;
 end;
-$$ language plpgsql stable strict;
+$$ language plpgsql stable;
 
 create function check_can_run_action(action_name text, px int, py int)
   returns void as $$
@@ -1960,7 +1960,7 @@ begin
     raise exception 'cannot run % on %,% here', action_name, px, py;
   end if;
 end;
-$$ language plpgsql stable strict;
+$$ language plpgsql stable;
 
 /*
 == next phase
@@ -2121,7 +2121,7 @@ phase is run in this function, and all the setup runs after it is run.
     perform action_next_phase();
   end if;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 === internals
@@ -2132,7 +2132,7 @@ begin
         natural inner join current_wizard)
      = (select max(place) from live_wizards));
 end;
-$$ language plpgsql stable strict;
+$$ language plpgsql stable;
 
 create function is_first_wizard() returns boolean as $$
 begin
@@ -2140,7 +2140,7 @@ begin
        natural inner join current_wizard)
      = (select min(place) from live_wizards));
 end;
-$$ language plpgsql stable strict;
+$$ language plpgsql stable;
 
 /*
 == spell choice
@@ -2176,14 +2176,14 @@ begin
   insert into action_history_mr (history_name, wizard_name, spell_name)
     values ('choose spell', get_current_wizard(), vspell_name);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function action_choose_no_spell() returns void as $$
 begin
   perform check_can_run_action('choose_no_spell');
   delete from wizard_spell_choices_mr where wizard_name = get_current_wizard();
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function action_set_imaginary() returns void as $$
 begin
@@ -2192,7 +2192,7 @@ begin
     set imaginary = true
     where wizard_name = get_current_wizard();
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function action_set_real() returns void as $$
 begin
@@ -2201,7 +2201,7 @@ begin
     set imaginary = false
     where wizard_name = get_current_wizard();
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 /*
 === internals
 generate the individual spell choice actions
@@ -2219,12 +2219,12 @@ begin
   perform check_can_run_action('choose_$a$ || sn || $a$_spell');
   perform action_choose_spell('$a$ || sn || $a$');
 end;
-$b$ language plpgsql volatile strict;
+$b$ language plpgsql volatile;
 $a$;
   execute s;
   end loop;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 select generate_spell_choice_actions();
 drop function generate_spell_choice_actions();
@@ -2240,7 +2240,7 @@ begin
       get_current_wizard_spell());
   perform spend_current_wizard_spell();
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function action_cast_target_spell(px int, py int) returns void as $$
 declare
@@ -2291,7 +2291,7 @@ begin
     perform spend_current_wizard_spell();
   end if;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function action_cast_activate_spell() returns void as $$
 begin
@@ -2321,7 +2321,7 @@ begin
   perform update_alignment_from_cast();
   perform spend_current_wizard_spell();
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 
 /*
@@ -2355,7 +2355,7 @@ begin
   --auto move to next wizard
   perform action_next_phase();
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create view spell_cast_chance as
   select spell_name, base_chance as chance from
@@ -2386,7 +2386,7 @@ create view spell_cast_chance as
 
 create function spell_cast_chance(text) returns integer as $$
   select chance from spell_cast_chance where spell_name = $1;
-$$ language sql stable strict;
+$$ language sql stable;
 
 create or replace function action_cast_wizard_spell(
        pwizard_name text, spell_name text)
@@ -2425,7 +2425,7 @@ begin
   end if;
   perform add_spell_history();
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function cast_lawchaos() returns void as $$
 begin
@@ -2434,7 +2434,7 @@ begin
   --is handled in the same place for all spells
   perform add_spell_history();
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function cast_turmoil() returns void as $$
 declare
@@ -2474,7 +2474,7 @@ begin
   end loop;
   perform add_spell_history();
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create or replace function cast_decree_spell(px int, py int) returns void as $$
 declare
@@ -2506,7 +2506,7 @@ begin
     perform add_spell_history();
   end if;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function cast_ballistic_spell(px int, py int) returns void as $$
 declare
@@ -2533,7 +2533,7 @@ begin
     perform add_shrugged_off_history(px, py);
   end if;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create or replace function cast_raise_dead(px int, py int) returns void as $$
 declare
@@ -2550,7 +2550,7 @@ begin
     values (r.ptype,get_current_wizard(),r.tag);
   perform add_spell_history();
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create or replace function cast_subversion(px int, py int) returns boolean as $$
 declare
@@ -2573,7 +2573,7 @@ begin
   perform add_spell_history();
   return true;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function cast_disbelieve(px int, py int) returns boolean as $$
 declare
@@ -2592,7 +2592,7 @@ begin
   perform disintegrate(r);
   return true;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function cast_object_spell(px int, py int) returns void as $$
 begin
@@ -2602,7 +2602,7 @@ begin
      get_current_wizard(), px, py);
   perform add_spell_history();
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 
 create function cast_monster_spell(x int, y int) returns void as $$
@@ -2622,7 +2622,7 @@ begin
       where wizard_name = get_current_wizard()));
   perform add_spell_history();
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function check_spell_success() returns boolean as $$
 begin
@@ -2655,7 +2655,7 @@ begin
      return true;
   end if;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function add_spell_history() returns void as $$
 begin
@@ -2664,7 +2664,7 @@ begin
     values ('spell cast succeeded', get_current_wizard(),
       get_current_wizard_spell());
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function update_alignment_from_cast() returns void as $$
 begin
@@ -2674,7 +2674,7 @@ begin
         natural inner join current_wizard_spell);
   perform adjust_world_alignment();
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function action_cast_failed() returns void as $$
 begin
@@ -2685,7 +2685,7 @@ begin
         where wizard_name = get_current_wizard()));
   perform spend_current_wizard_spell();
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 
 create table cast_magic_wood_squares (
@@ -2747,7 +2747,7 @@ begin
     p.index := p.index + 1;
   end loop;
 end;
-$$ language plpgsql immutable strict;
+$$ language plpgsql immutable;
 
 
   /*
@@ -2832,7 +2832,7 @@ begin
   delete from cast_magic_wood_squares;
   perform add_spell_history();
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 
 /*
@@ -2860,7 +2860,8 @@ declare
   nextp text;
   p pos;
 begin
-  select into p x,y from pieces_on_top
+  --this check isn't perfect
+  select into p x,y from pieces
     where (ptype,allegiance,tag)::piece_key=pk;
   perform check_can_run_action('select_piece_at_position', p.x, p.y);
   nextp:= piece_next_subphase('start', false, pk);
@@ -2889,7 +2890,7 @@ begin
       set remaining_walk_hack = false;
   end if;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 
 --short cut for interface
@@ -2906,7 +2907,7 @@ begin
          where (x,y) = (vx,vy);
   perform action_select_piece(r);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function action_unselect_piece() returns void as $$
 begin
@@ -2929,14 +2930,14 @@ begin
 
   --insert history
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create or replace function action_cancel() returns void as $$
 begin
   perform check_can_run_action('cancel');
   perform do_next_move_subphase(true);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 /*
 ==== internals
 */
@@ -2967,7 +2968,7 @@ begin
     update selected_piece set move_phase = nextp;
   end if;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 
 /*
@@ -2981,7 +2982,7 @@ begin
     perform do_next_move_subphase(false);
   end if;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function action_fly(px int, py int) returns void as $$
 begin
@@ -2989,7 +2990,7 @@ begin
   perform selected_piece_move_to(px, py);
   perform do_next_move_subphase(false);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 === attacking
@@ -3046,7 +3047,7 @@ begin
   end if;
   perform do_next_move_subphase(true);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create or replace function action_ranged_attack(px int, py int)
     returns void as $$
@@ -3078,7 +3079,7 @@ begin
   perform kill_piece(r);
   perform do_next_move_subphase(false);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 === internals
@@ -3130,7 +3131,7 @@ begin
     return 'end';
   end if;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function add_chinned_history(px int, py int) returns void as $$
 declare
@@ -3141,7 +3142,7 @@ begin
     insert into action_history_mr (history_name, ptype, allegiance, tag)
     values ('chinned', r.ptype,r.allegiance,r.tag);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function add_shrugged_off_history(px int, py int) returns void as $$
 declare
@@ -3152,7 +3153,7 @@ begin
     insert into action_history_mr(history_name, ptype, allegiance, tag)
     values ('shrugged off', r.ptype, r.allegiance, r.tag);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function selected_piece_move_to(px int, py int) returns void as $$
 begin
@@ -3198,7 +3199,7 @@ begin
   end if;
 
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 == autonomous
@@ -3243,7 +3244,7 @@ begin
   --spread
 
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 /*
 == helpers for piece creation and destruction
@@ -3284,7 +3285,7 @@ begin
       vname;
   end if;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 
 create function create_object(vptype text, vallegiance text, x int, y int)
@@ -3296,7 +3297,7 @@ begin
   end if;
   perform create_piece_internal(vptype, vallegiance, x, y, false);
 end
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 
 create function create_monster(vptype text, allegiance text, x int, y int,
@@ -3307,7 +3308,7 @@ begin
   end if;
   perform create_piece_internal(vptype, allegiance, x, y, imaginary);
 end
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function create_corpse(vptype text, px int, py int, imaginary boolean)
   returns void as $$
@@ -3325,7 +3326,7 @@ begin
   select into vtag tag from pieces_on_top_view where (x,y) = (px, py);
   perform kill_monster((vptype, 'Buddha', vtag));
 end
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 -----------------------------------------------------
 create function create_piece_internal(vptype text, vallegiance text,
@@ -3354,7 +3355,7 @@ begin
   insert into imaginary_pieces (ptype,allegiance,tag)
     select vptype,vallegiance,vtag where vimaginary;
 end
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 ----------------------------------------------
 /*
@@ -3371,7 +3372,7 @@ create function disintegrate(pk piece_key)
 begin
   delete from pieces where (ptype, allegiance, tag)::piece_key = pk;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function kill_monster(pk piece_key)
   returns void as $$
@@ -3386,7 +3387,7 @@ begin
   update pieces set allegiance = 'dead'
     where (ptype, allegiance, tag)::piece_key = pk;
 end
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function disintegrate_wizards_army(pwizard_name text) returns void as $$
 declare
@@ -3397,7 +3398,7 @@ begin
     perform disintegrate(r);
   end loop;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function kill_wizard(pwizard_name text) returns void as $$
 begin
@@ -3423,7 +3424,7 @@ begin
   update wizards set expired = true
     where wizard_name = pwizard_name;
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 create function kill_piece(pk piece_key)
   returns void as $$
@@ -3443,7 +3444,7 @@ begin
   end if;
 
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 --- testing function
 create function kill_top_piece_at(px int, py int) returns void as $$
@@ -3454,7 +3455,7 @@ begin
     from pieces_on_top where (x,y) = (px,py);
   perform kill_piece(r);
 end;
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 select set_module_for_preceding_objects('actions');
 
@@ -3655,7 +3656,7 @@ begin
 
   update creating_new_game_table set creating_new_game = false;
 end
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 /*
 ================================================================================
 
@@ -3805,7 +3806,7 @@ begin
     flavours;
   end if;
 end
-$$ language plpgsql volatile strict;
+$$ language plpgsql volatile;
 
 
 select set_module_for_preceding_objects('new_game');
@@ -3822,6 +3823,54 @@ When moving army, pick the pieces in random order and choose an aggressive
 move for each one independently. This is pretty simple and should offer
 a small challenge.
 
+choose spell
+cast spell
+move pieces
+
+option 1: upgrade
+weight by probability
+don't cast one already have or a weaker one in same category
+armour - shield
+knife - sword
+shadow - wings
+
+decree et al: use: wizard with lots of bad guys, being threatened
+magic wood: if range of spells is a bit shit
+castle, wall, blob, fire, shadowwood - random
+disbelieve: cast when threatened by a hard creature, small chance otherwise
+subversion - hard creature nearby, when threatened
+raise dead - when can
+monsters: weight by chances, decide on imag weighted by chances
+
+assess: defensive: wizard under threat
+aggressive: choose a target to send everyone against
+
+casting:
+raise: hardest corpse in range
+decree: if threatened target monster or wizard, else target hardest
+wizard/monster on screen
+castle -next to, away from danger
+disbelieve - closest monster
+subvert - closest monster (or if tougher one next to closest monster?)
+monster - toward nearest threat
+wall - just randomly put about
+blob - want to grow safely, unless under threat then use aggresively
+fire - use aggressively
+shadow wood: use magic wood layout, bias in directions that have
+moving enemy pieces
+
+moving:
+if defensive move pieces starting with close
+
+*/
+
+create function ai_choose_spell() returns void as $$
+begin
+end;
+$$ language plpgsql volatile;
+
+/*
+--------------------------------------------------------------------------------
 */
 select set_all_attributes_to_not_null();
 select set_notifies_on_all_data_tables();

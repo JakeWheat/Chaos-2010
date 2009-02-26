@@ -1,21 +1,27 @@
-= milestone pre alpha 4+
+= milestone pre alpha 4
 
-use subfolders for files
 basic ai
+autonomous spreading
+check volatile,stable,immutable on all sql, create or replace
+
+= milestone prealpha 5+
+
 line of sight
-autonomous phase tests and code
-finish simplistic tests for all spells - e.g. missing wizard upgrades,
-and test every single spell
 finish move phase todo tests
-check volatile,stable,immutable on all sql
 
 ================================================================================
 
 = milestone alpha 0.1
 
+do test to run all ai wizards, record games and check for errors or ui crashes
+speed things up
+fix piecekey tags
+test every single spell
+use subfolders for files
 intended to be feature complete for 0.2 wrt playing, but not
 installation
-listen/notify if feasible basic installation help
+listen/notify if feasible
+basic installation help
 mouse controls?
 
 ================================================================================
