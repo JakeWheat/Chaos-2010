@@ -762,7 +762,7 @@ select ptype,
        flying,
        speed,
        agility,
-       undead or coalesce(raised, false) as undead,
+       coalesce(raised, undead) as undead,
        ridable,
        ranged_weapon_type,
        range,
@@ -1409,7 +1409,8 @@ you have to set the override each time you want to override something
 
 create domain random_test text check (value in
        ('disappear', 'spread', 'attack',
-        'ranged_attack', 'resist', 'cast'));
+        'ranged_attack', 'resist', 'cast',
+        'bonus'));
 
 create table test_action_overrides (
   override random_test,
@@ -3212,13 +3213,46 @@ $$ language plpgsql volatile strict;
 
 /*
 == autonomous
-  update spreading
-  update castles
-  update trees
-
 */
-create function do_autonomous_phase() returns void as $$
+
+create view wizards_in_trees as
+select ptype,allegiance,tag from pieces
+  where ptype='wizard'
+    and (x,y) in (select x,y from pieces
+                  where ptype='magic_tree');
+
+
+create or replace function do_autonomous_phase() returns void as $$
+declare
+  r piece_key;
+  r1 piece_key;
 begin
+  --castles
+  for r in select ptype,allegiance,tag from pieces
+    where ptype in ('magic_castle', 'dark_citadel') loop
+    if check_random_success('disappear', 20) then
+      perform disintegrate(r);
+    end if;
+  end loop;
+  --magic trees
+ for r in select ptype,allegiance,tag from wizards_in_trees loop
+    if check_random_success('bonus', 20) then
+      select into r1 ptype,allegiance,tag
+             from pieces
+             where ptype ='magic_tree'
+               and (x,y) = (select x,y from pieces
+                            where (ptype,allegiance,tag)::piece_key = r);
+      perform disintegrate(r1);
+      insert into spell_books (wizard_name, spell_name)
+      values (r.allegiance,
+       (select spell_name from spells
+         where spell_name <> 'disbelieve'
+          order by random() limit 1));
+    end if;
+  end loop;
+
+  --spread
+
 end;
 $$ language plpgsql volatile strict;
 

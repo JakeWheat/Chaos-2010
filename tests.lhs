@@ -171,6 +171,12 @@ Run all the tests.
 >                                      ,testCastShadowForm conn
 >                                      ]
 >                       ]
+>        ,testGroup "autonomous" [
+>                        testCastleDisappear conn
+>                       ,testCastleStay conn
+>                       ,testGetSpell conn
+>                       ,testNoGetSpell conn
+>                       ]
 >        ,testGroup "move phase stuff" [
 >           testGroup "subphases" [
 >                          testWalkCancelAttackDone conn
@@ -2411,13 +2417,182 @@ check attack,enter,mount from mount
 >   setupBoard conn board
 >   skipToPhase conn "move"
 
+> startNewGameReadyToAuto :: Connection -> BoardDiagram -> IO ()
+> startNewGameReadyToAuto conn board = do
+>   startNewGame conn
+>   setupBoard conn board
+>   sendKeyPress conn $ keyChooseSpell "disbelieve"
+>   skipToPhase conn "cast"
+
+
 ================================================================================
 
 = autonomous action tests
 
 fire, blob spreading
+
+test single square spread success, fail
+
+spreading algorithm
+run through each square on the board which is next to a blob or is a blob
+if not a blob, then the chance of spreading is 20% x adjacent blobs + 10% x diagonal blobs limited to 80%.
+if a blob, then the chance of disappearing is 20% if one adjacent, 40% if 4 or more, 10% otherwise.
+
+TODO: limit the total population of a blob/fire colony? - the chance of disappearing goes up when there are more blobs and the chance of spreading goes down?
+
+-- > testBlobSpread :: Connection -> Test.Framework.Test
+-- > testBlobSpread = tctor "testBlobSpread" $ \conn -> do
+
+-- setup the game, get to cast phase with the first wizard having
+-- chosen goblin
+
+-- >   startNewGame conn
+-- >   addSpell conn "goblin"
+-- >   sendKeyPress conn $ keyChooseSpell "goblin"
+-- >   --get the next wizard to select disbelieve so we can check the
+-- >   --auto next phase works
+-- >   sendKeyPress conn "space"
+-- >   sendKeyPress conn $ keyChooseSpell "disbelieve"
+-- >   skipToPhase conn "cast"
+
+
+test single square disappear
+
+test spreading onto square with pieces
+
 castles disappearing
-wizards getting new spell from magic tree
+
+> testCastleDisappear :: Connection -> Test.Framework.Test
+> testCastleDisappear = tctor "testCastleDisappear" $ \conn -> do
+>   let pl = wizardPiecesList ++
+>            [('O', [PieceDescription "wizard" "Buddha" [],
+>                    PieceDescription "dark_citadel" "Buddha" []]),
+>             ('C', [PieceDescription "dark_citadel" "Buddha" []])]
+>   startNewGameReadyToAuto conn ("\n\
+>                   \O      2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8", pl)
+>   rigActionSuccess conn "disappear" True
+>   sendKeyPress conn "space"
+>   checkBoard conn ("\n\
+>                   \1      2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+
+> testCastleStay :: Connection -> Test.Framework.Test
+> testCastleStay = tctor "testCastleStay" $ \conn -> do
+>   let pl = wizardPiecesList ++
+>            [('O', [PieceDescription "wizard" "Buddha" [],
+>                    PieceDescription "dark_citadel" "Buddha" []]),
+>             ('C', [PieceDescription "dark_citadel" "Buddha" []])]
+>   startNewGameReadyToAuto conn ("\n\
+>                   \O      2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8", pl)
+>   rigActionSuccess conn "disappear" False
+>   sendKeyPress conn "space"
+>   checkBoard conn ("\n\
+>                   \O      2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+
+> selectInt :: Connection -> String -> [String] -> IO Int
+> selectInt conn q a = do
+>     x <- selectValue conn q a
+>     return $ (read x ::Int)
+
+> testGetSpell :: Connection -> Test.Framework.Test
+> testGetSpell = tctor "testGetSpell" $ \conn -> do
+>   let pl = wizardPiecesList ++
+>            [('T', [PieceDescription "wizard" "Buddha" [],
+>                    PieceDescription "magic_tree" "Buddha" []])]
+>   numSpells <- selectInt conn
+>          "select count(*) from spell_books where wizard_name='Buddha'" []
+>   startNewGameReadyToAuto conn ("\n\
+>                   \T      2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8", pl)
+>   rigActionSuccess conn "bonus" True
+>   sendKeyPress conn "space"
+>   checkBoard conn ("\n\
+>                   \1      2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>   newNumSpells <- selectInt conn
+>          "select count(*) from spell_books where wizard_name='Buddha'" []
+>   assertEqual "got a new spell" (numSpells + 1) newNumSpells
+
+> testNoGetSpell :: Connection -> Test.Framework.Test
+> testNoGetSpell = tctor "testNoGetSpell" $ \conn -> do
+>   let pl = wizardPiecesList ++
+>            [('T', [PieceDescription "wizard" "Buddha" [],
+>                    PieceDescription "magic_tree" "Buddha" []])]
+>   startNewGameReadyToAuto conn ("\n\
+>                   \T      2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8", pl)
+>   rigActionSuccess conn "bonus" False
+>   sendKeyPress conn "space"
+>   checkBoard conn ("\n\
+>                   \T      2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
 
 ================================================================================
 
@@ -2510,7 +2685,7 @@ are no wizards left.
 
 = Diagrams
 
-In the testing, we frequentlyu use a square list which is either
+In the testing, we frequently use a square list which is either
 * a list of x,y co-ordinates
     used for testing valid squares for an action
 * list of x,y co-ordinates each with a list of piece descriptions
