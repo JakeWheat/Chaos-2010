@@ -200,12 +200,13 @@ Run all the tests.
 >           ,testGroup "moveMisc" [
 >                           testAttackWizard conn
 >                          ,testFlyAttack conn
+>                          ,testMountThenMoveMount conn
 >                          ,testMoveWhenMounted conn
 >                          ,testDismount conn
 >                          ,testMoveWhenAlreadyMounted conn
 >                          ,testEnter conn
 >                          ,testExit conn
->                          --,testAttackShadowForm conn
+>                          ,testAttackShadowForm conn
 >                        ]
 >           ]
 >        ,testGroup "game complete" [
@@ -2155,6 +2156,42 @@ variations, so we don't need to test them elsewhere.
 >                   [('E', [PieceDescription "eagle" "Buddha" [],
 >                           PieceDescription "goblin" "dead" []])]))
 
+> testMountThenMoveMount :: Connection -> Test.Framework.Test
+> testMountThenMoveMount = tctor "testMountThenMoveMount" $
+>                              \conn -> do
+>   let pl = wizardPiecesList ++ [('P', [PieceDescription "pegasus" "Buddha" []]),
+>             ('M', [PieceDescription "wizard" "Buddha" [],
+>                    PieceDescription "pegasus" "Buddha" []])]
+>   startNewGameReadyToMove conn ("\n\
+>                   \1P     2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>   goSquare conn 0 0
+>   assertSelectedPiece conn "wizard" "Buddha"
+>   goSquare conn 1 0
+>   sendKeyPress conn "Return"
+>   assertSelectedPiece conn "pegasus" "Buddha"
+>   goSquare conn 2 2
+>   checkBoard conn ("\n\
+>                   \       2      3\n\
+>                   \               \n\
+>                   \  M            \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+
+
 Test that the first time when try to select a square with a mounted
 wizard we get the wizard, if we cancel then select again on that
 square, we should get the monster the wizards is mounted on. To reduce
@@ -2363,7 +2400,8 @@ todo: attack when dismounting, dismounting when flying
 >                               \    and allegiance='Buddha'" []
 >   sendKeyPress conn "Return"
 >   skipToPhase conn "move"
->   rigActionSuccess conn "attack" True
+>   goSquare conn 0 0
+>   rigActionSuccess conn "attack" False
 >   goSquare conn 1 0
 >   newStats <- selectTuple conn "select * from pieces_mr\n\
 >                               \  where ptype='wizard'\n\
@@ -2408,13 +2446,14 @@ moved if free'd that turn
 shadow form attack and moving, shadow form and magic wings at same time
 
 check attack when has mount moves wizard
-check attack,enter,mount from mount
+check attack,nter,mount from mount
 
 
 > startNewGameReadyToMove :: Connection -> BoardDiagram -> IO ()
 > startNewGameReadyToMove conn board = do
 >   startNewGame conn
 >   setupBoard conn board
+>   rigActionSuccess conn "disappear" False
 >   skipToPhase conn "move"
 
 > startNewGameReadyToAuto :: Connection -> BoardDiagram -> IO ()

@@ -254,8 +254,6 @@ raise_dead	250
 cursor	250
 highlight_cast_target_spell	250
 highlight_cast_activate_spell	250
-highlight_mount	250
-highlight_enter	250
 highlight_select_piece_at_position	250
 highlight_walk	250
 highlight_fly	250
@@ -1305,12 +1303,6 @@ select 'attack',
 union
 select 'ranged_attack',
        'Ranged attack: select a square to attack that piece'
-union
-select 'mount',
-       'Mount: select a square with a ridable monster to mount it'
-union
-select 'enter',
-       'Enter: select a square with a magic tree, castle or citadel on to enter it'
 union
 select 'next_phase',
        'Next phase: press space to finish this wizard''s turn'

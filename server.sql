@@ -183,6 +183,10 @@ create view monster_prototypes as
     from piece_prototypes_mr
     where undead is not null and ridable is not null;
 
+create view ridable_prototypes as
+  select ptype from piece_prototypes_mr
+    where ridable;
+
 create view enterable_piece_types as
   select 'magic_tree'::text as ptype
   union
@@ -1605,6 +1609,13 @@ create view empty_or_corpse_only_squares as
   union
   select * from corpse_only_squares;
 
+create view mount_or_enter_squares as
+  select x,y,allegiance from pieces
+    natural inner join
+      (select ptype from enterable_piece_types
+       union
+       select ptype from ridable_prototypes) as a;
+
 -- this view contains all the squares which are exactly one square
 -- away from a tree (doesn't include the tree squares themselves)
 create view adjacent_to_tree_squares as
@@ -1704,6 +1715,14 @@ create view selectable_pieces as
   where not exists(select 1 from selected_piece)
   order by x,y,sp;
 
+create view selected_piece_walkfly_squares as
+  select x,y from
+    (select x,y from empty_or_corpse_only_squares
+     union
+     select x,y from mount_or_enter_squares m
+       inner join selected_piece s on m.allegiance = s.allegiance
+    ) as a;
+
 -- this view contains all the squares which the currently
 -- selected piece can walk to.
 -- it is empty if there is:
@@ -1715,7 +1734,8 @@ create view selectable_pieces as
 -- dont contain anything but
 create view selected_piece_walk_squares as
 --get the valid squares that can be walked on
-select x,y from empty_or_corpse_only_squares
+select x,y from
+  selected_piece_walkfly_squares
 intersect
 --adjust for 1 square away from selected piece:
 --get the ranges
@@ -1741,7 +1761,7 @@ create view squares_within_selected_piece_flight_range as
 --this view is the analogue of selected_piece_walk_squares
 -- for flying creatures
 create view selected_piece_fly_squares as
-select x,y from empty_or_corpse_only_squares
+select x,y from selected_piece_walkfly_squares
 intersect
 select x,y from squares_within_selected_piece_flight_range
 -- only if the selected piece hasn't moved
@@ -1846,22 +1866,6 @@ select x,y, 'attack'::text as action
 union
 select x,y, 'ranged_attack'::text as action
   from selected_piece_ranged_attackable_squares
---mount
-union
-select x,y, 'mount'::text as action
-  from selected_piece_mountable_squares
---enter
-union
-select x,y, 'enter'::text as action
-  from selected_piece_enterable_squares
---dismount
---union
---select x,y, 'dismount'::text as action
---  from selected_piece_dismountable_squares
---union
---exit
---select x,y, 'exit'::text as action
---  from selected_piece_exitable_squares
 ) as s
 where not exists (select 1 from game_completed_table);
 
@@ -2987,40 +2991,12 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
-create function action_enter(px int, py int) returns void as $$
-begin
-  perform check_can_run_action('enter', px, py);
-  perform selected_piece_move_to(px, py);
-  perform do_next_move_subphase(false);
-end;
-$$ language plpgsql volatile strict;
-
---create function action_exit(px int, py int) returns void as $$
---begin
---  perform check_can_run_action('exit', px, py);
---  perform selected_piece_move_to(px, py);
---  perform do_next_move_subphase(false);
---end;
---$$ language plpgsql volatile strict;
-
-create function action_mount(px int, py int) returns void as $$
-begin
-  perform check_can_run_action('mount', px, py);
-  update pieces
-    set x = px,
-        y = py
-    where (ptype,allegiance,tag) =
-      (select ptype,allegiance,tag from selected_piece);
-  --mounting ends the wizard's move
-  perform action_unselect_piece();
-end;
-$$ language plpgsql volatile strict;
-
 /*
 === attacking
 */
 create or replace function action_attack(px int, py int) returns void as $$
 declare
+  ap piece_key;
   r piece_key;
   att int;
   def int;
@@ -3038,6 +3014,19 @@ begin
          natural inner join pieces_on_top
          where (x,y) = (px,py));
 
+  --check for shadow form
+
+  select into ap ptype, allegiance,tag
+    from selected_piece;
+
+  if ap.ptype = 'wizard' and
+     exists(select 1 from wizards
+            where wizard_name = ap.allegiance
+            and shadow_form) then
+    update wizards
+      set shadow_form = false
+      where wizard_name = ap.allegiance;
+  end if;
 
   if not check_random_success('attack', max((att - def) * 10, 10)) then
     --failure
