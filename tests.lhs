@@ -2369,23 +2369,30 @@ testAttackUndeadOnUndead
 
 testAttackNonUndeadOnUndead
 
-testMagicWeaponOnUndead
+testMagicWeaponOnUndead (success, no corpse)
 
 
 == misc todo
+
+engaged stuff: engaged at start of move, and becoming engaged part way
+through walk for multiwalkers
+
+second monster dying on a square - the first corpse should disappear permanently
+
+check moving 2 diagonal squares uses up three squares to move
+
+check mount ends motion subphase for wizard
+
+
 
 check when moving a mounted wizard, that the corpse on that square stays put
 
 trying to walk/fly to occupied squares
 
-shadow form attack
 cobra attack dragon
 
 test select one creature and move, then select a second creature and move
 
-attack undead - unable
-attack undead - able (undead on undead crime, and wizards with magic
-  weapons), check results in no corpse
 
 test monsters in blob cannot be selected, but can be
 moved if free'd that turn
@@ -2394,17 +2401,6 @@ moved if free'd that turn
 
 shadow form attack and moving, shadow form and magic wings at same time
 
-engaged stuff: engaged at start of move, and becoming engaged part way
-through walk for multiwalkers
-
-second monster dying on a square - the first corpse should disappear permanently
-
-test dismount and exit when has shadow form and moves three squares
-
-check moving 2 diagonal squares uses up three squares to move
-
-attack from move phase
-check mount ends motion subphase for wizard
 check attack when has mount moves wizard
 check attack,enter,mount from mount
 
@@ -2866,7 +2862,7 @@ setup a particular game before running some tests
 >     t <- selectTuple conn "select x,y from pieces where ptype='wizard'\n\
 >                      \and allegiance=?" [name]
 >     unless (read (lk "x" t) == x && read (lk "y" t) == y)
->            (runSql conn "update pieces_mr set x = ?, y = ?\n\
+>            (runSql conn "update pieces set x = ?, y = ?\n\
 >                        \where ptype='wizard' and allegiance=?"
 >                    [show x, show y, name]))
 >   -- add extra pieces

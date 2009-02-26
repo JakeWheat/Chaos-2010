@@ -3,7 +3,6 @@
 use subfolders for files
 basic ai
 line of sight
-prompt
 autonomous phase tests and code
 finish simplistic tests for all spells - e.g. missing wizard upgrades,
 and test every single spell

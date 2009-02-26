@@ -309,8 +309,6 @@ select add_foreign_key('init_wizard_display_info_argument',
 select set_relvar_type('init_wizard_display_info_argument', 'stack');
 
 create function init_wizard_display_info() returns void as $$ --tags: init
-declare
-  r record;
 begin
     insert into wizard_display_info (wizard_name, default_sprite,  colour)
        select wizard_name,sprite,colour
@@ -436,19 +434,17 @@ $$ language plpgsql volatile strict;
 === internals
 When next phase is called, moved the cursor to that wizard
 */
-create function action_move_cursor_to_current_wizard() returns void as $$
+create or replace function action_move_cursor_to_current_wizard() returns void as $$
+declare
+ p pos;
 begin
   --don't move cursor during autonomous phase
   if get_turn_phase() != 'autonomous' then
-    update cursor_position set (x,y) =
-      ((select x from pieces
+    select into p x,y from pieces
          inner join current_wizard_table
          on (current_wizard = allegiance)
-         where ptype = 'wizard'),
-       (select y from pieces
-         inner join current_wizard_table
-         on (current_wizard = allegiance)
-         where ptype = 'wizard'));
+         where ptype = 'wizard';
+    update cursor_position set (x,y) = (p.x,p.y);
   end if;
 end;
 $$ language plpgsql volatile strict;
@@ -563,7 +559,7 @@ create table piece_starting_frames (
 select add_key('piece_starting_frames',
                array['ptype', 'allegiance', 'tag']);
 select add_foreign_key('piece_starting_frames',
-                       array['ptype', 'allegiance', 'tag'], 'pieces_mr');
+                       array['ptype', 'allegiance', 'tag'], 'pieces');
 select set_relvar_type('piece_starting_frames', 'data');
 
 
@@ -571,7 +567,7 @@ create function action_update_missing_startframes(fp int)
   returns void as $$
 begin
   insert into piece_starting_frames (ptype,allegiance,tag,start_frame)
-    select ptype,allegiance,tag, fp from pieces_mr
+    select ptype,allegiance,tag, fp from pieces
       where (ptype,allegiance,tag) not in
         (select ptype,allegiance,tag
         from piece_starting_frames);
@@ -825,8 +821,7 @@ begin
   else
     colour := chance_colour(spell_cast_chance(vspell));
   end if;
-  if colour is null then colour := 'blue'; end if;
-  return colour;
+  return coalesce(colour, 'blue');
 end;
 $$ language plpgsql stable strict;
 
@@ -1028,29 +1023,26 @@ begin
       (7, 'Zarathushthra', 'wizard7', 'orange', 'computer');
 end
 $$ language plpgsql volatile strict;
+
 /*
 == actions
 */
-create function action_client_new_game_using_new_game_widget_state()
+
+create or replace function action_client_new_game_using_new_game_widget_state()
   returns void as $$
-declare
-  r record;
-  p int;
 begin
   delete from action_client_new_game_argument;
-  p := 0;
-  for r in select * from new_game_widget_state
-      where state != 'none' order by line loop
-    insert into action_client_new_game_argument
-        (place, wizard_name, sprite, colour, computer_controlled)
-      values
-        (p, r.wizard_name, r.sprite, r.colour,
-         extract_wizard_state(r.state));
-    p := p + 1;
-  end loop;
+  insert into action_client_new_game_argument
+    (place, wizard_name, sprite, colour, computer_controlled)
+    select line, wizard_name, sprite, colour,
+      case when state = 'computer' then true
+           else false end
+      from new_game_widget_state
+      where state != 'none';
   perform action_client_new_game();
 end
 $$ language plpgsql volatile strict;
+
 select set_module_for_preceding_objects('new_game_widget');
 
 /*

@@ -587,9 +587,11 @@ create view allegiances as
 
 /*
 
-TODO: maybe make pieces_mr a table called pieces with just the piece key and position, and then use a view for an analog to pieces_mr with the stats. Create this view from the prototype stats, the pieces table, and have table(s) containing things
-that can affect the stats and the view selects from the the
-piece_prototypes and these tables.
+TODO: maybe make pieces_mr a table called pieces with just the piece
+key and position, and then use a view for an analog to pieces with
+the stats. Create this view from the prototype stats, the pieces
+table, and have table(s) containing things that can affect the stats
+and the view selects from the the piece_prototypes and these tables.
 
 I think all the ways stats can change from the prototypes are listed
 here:
@@ -600,33 +602,198 @@ err... that's it.
 
 */
 
-create table pieces_mr (
+create table pieces (
     ptype text,
     allegiance text,
     tag serial,
 --Piece is on the board at grid position 'x', 'y'.
     x int,
-    y int,
-    flying boolean null,
-    speed int null,
-    agility int null,
-    dead boolean null,
-    imaginary boolean null,
-    undead boolean null,
-    ridable boolean null,
-    attack_strength int null,
-    physical_defense int null,
-    ranged_weapon_type ranged_weapon_type null,
-    range int null,
-    ranged_attack_strength int null,
-    magic_defense int null
+    y int);
+
+select add_key('pieces', array['ptype', 'allegiance', 'tag']);
+select add_foreign_key('pieces', 'ptype', 'piece_prototypes');
+--piece must be on the board, not outside it
+select add_constraint('piece_coordinates_valid',
+  ' not exists(select 1 from pieces
+  cross join board_size
+  where x >= width or y >= height)',
+  array['pieces', 'board_size']);
+select add_foreign_key('pieces', 'allegiance', 'allegiances');
+--temporary constraint while 'fks' to non base relvars are buggy
+select add_constraint('dead_wizard_army_empty',
+  $$ not exists(select 1 from pieces
+    inner join wizards
+    on (allegiance = wizard_name)
+    where expired = true)$$,
+  array['wizards', 'pieces']);
+select set_relvar_type('pieces', 'data');
+
+create type piece_key as (
+    ptype text,
+    allegiance text,
+    tag int
 );
 
-select add_key('pieces_mr', array['ptype', 'allegiance', 'tag']);
-select add_foreign_key('pieces_mr', 'ptype', 'piece_prototypes');
+create function piece_key_equals(piece_key, piece_key) returns boolean as $$
+  select $1.ptype = $2.ptype and
+         $1.allegiance = $2.allegiance and
+         $1.tag = $2.tag;
+$$ language sql stable strict;
 
-create view pieces as
-  select ptype,allegiance,tag,x,y from pieces_mr;
+create operator = (
+    leftarg = piece_key,
+    rightarg = piece_key,
+    procedure = piece_key_equals,
+    commutator = =
+);
+
+create type pos as (
+  x int,
+  y int
+);
+
+create function pos_equals(pos, pos) returns boolean as $$
+  select $1.x = $2.x and
+         $1.y = $2.y;
+$$ language sql stable strict;
+
+create operator = (
+    leftarg = pos,
+    rightarg = pos,
+    procedure = pos_equals,
+    commutator = =
+);
+
+
+/*
+
+add two auxiliary tables to track imaginary monsters and raised
+monsters who are now undead
+
+*/
+create table imaginary_pieces (
+    ptype text,
+    allegiance text,
+    tag int);
+
+select set_relvar_type('imaginary_pieces', 'data');
+select add_key('imaginary_pieces', array['ptype', 'allegiance', 'tag']);
+select add_foreign_key('imaginary_pieces',
+       array['ptype', 'allegiance', 'tag'], 'pieces');
+select add_foreign_key('imaginary_pieces', 'ptype',
+       'monster_prototypes');
+
+create table crimes_against_nature (
+    ptype text,
+    allegiance text,
+    tag int
+);
+
+select set_relvar_type('crimes_against_nature', 'data');
+select add_key('crimes_against_nature', array['ptype', 'allegiance', 'tag']);
+select add_foreign_key('crimes_against_nature',
+       array['ptype', 'allegiance', 'tag'], 'pieces');
+select add_foreign_key('crimes_against_nature', 'ptype',
+       'monster_prototypes');
+
+create view wizard_upgrade_stats as
+select pp.ptype,
+       allegiance,
+       tag,
+       x,
+       y,
+       false as imaginary,
+       magic_wings as flying,
+       case when magic_wings then 6
+            when shadow_form then 3
+            else speed
+       end as speed,
+       case when shadow_form then agility + 2
+            else agility
+       end as agility,
+       undead,
+       ridable,
+       case when magic_bow then 'projectile'
+            else null
+       end as ranged_weapon_type,
+       case when magic_bow then 6
+            else null
+       end as range,
+       case when magic_bow then 6
+            else null
+       end as ranged_attack_strength,
+       case when magic_sword then attack_strength + 4
+            when magic_knife then attack_strength + 2
+            else attack_strength
+       end as attack_strength,
+       case when magic_armour and shadow_form then physical_defense + 6
+            when magic_shield and shadow_form then physical_defense + 4
+            when magic_armour then physical_defense + 4
+            when magic_shield then physical_defense + 2
+            when shadow_form then physical_defense + 2
+            else physical_defense
+       end as physical_defense,
+       magic_defense
+  from pieces p
+  inner join wizards
+    on allegiance = wizard_name
+  inner join piece_prototypes_mr pp
+    on pp.ptype='wizard'
+  where p.ptype = 'wizard';
+
+create view imaginary_or_not_pieces as
+select ptype,allegiance,tag,x,y,true as imaginary
+  from pieces
+  natural inner join imaginary_pieces
+union
+select ptype,allegiance,tag,x,y,false as imaginary
+  from pieces
+  where (ptype,allegiance,tag) not in
+    (select ptype,allegiance,tag from imaginary_pieces);
+
+
+create or replace view pieces_mr as
+select ptype,
+       allegiance,
+       tag,
+       x,
+       y,
+       imaginary,
+       flying,
+       speed,
+       agility,
+       undead or coalesce(raised, false) as undead,
+       ridable,
+       ranged_weapon_type,
+       range,
+       ranged_attack_strength,
+       attack_strength,
+       physical_defense,
+       magic_defense
+        from imaginary_or_not_pieces
+  natural inner join piece_prototypes_mr
+  natural left outer join
+      (select *,true as raised from crimes_against_nature) as a
+  where ptype <> 'wizard'
+union
+select ptype,
+       allegiance,
+       tag,
+       x,
+       y,
+       imaginary,
+       flying,
+       speed,
+       agility,
+       undead,
+       ridable,
+       ranged_weapon_type,
+       range,
+       ranged_attack_strength,
+       attack_strength,
+       physical_defense,
+       magic_defense
+from wizard_upgrade_stats;
 
 create view creature_pieces as
   select ptype,allegiance,tag,x,y,
@@ -639,15 +806,12 @@ create view creature_pieces as
 create view monster_pieces as
   select ptype,allegiance,tag,x,y,
     flying,speed,agility,
-    undead,ridable,imaginary,
-    dead
+    undead,ridable,imaginary
   from creature_pieces
   natural inner join pieces_mr
+  natural inner join imaginary_or_not_pieces
   where undead is not null
-    and ridable is not null
-    and imaginary is not null
-    and dead is not null;
-
+    and ridable is not null;
 
 create view attacking_pieces as
   select ptype,allegiance,tag,x,y,
@@ -673,21 +837,6 @@ create view magic_attackable_pieces as
   from pieces_mr
   where magic_defense is not null;
 
---piece must be on the board, not outside it
-select add_constraint('piece_coordinates_valid',
-  ' not exists(select 1 from pieces
-  cross join board_size
-  where x >= width or y >= height)',
-  array['pieces_mr', 'board_size']);
-select add_foreign_key('pieces_mr', 'allegiance', 'allegiances');
---temporary constraint while 'fks' to non base relvars are buggy
-select add_constraint('dead_wizard_army_empty',
-  $$ not exists(select 1 from pieces
-    inner join wizards
-    on (allegiance = wizard_name)
-    where expired = true)$$,
-  array['wizards', 'pieces_mr']);
-select set_relvar_type('pieces_mr', 'data');
 
 /*
 
@@ -913,7 +1062,7 @@ select add_constraint('dead_wizard_no_spell',
   $$ not exists(select 1 from wizard_spell_choices_mr
     natural inner join wizards
     where expired = true)$$,
-  array['wizards', 'pieces_mr']);
+  array['wizards', 'pieces']);
 
 create view wizard_spell_choices as
   select wizard_name, spell_name
@@ -1133,7 +1282,7 @@ create table pieces_to_move (
 select add_key('pieces_to_move', array['ptype', 'allegiance', 'tag']);
 --cascade delete here:
 select add_foreign_key('pieces_to_move', array['ptype', 'allegiance', 'tag'],
-                       'pieces_mr');
+                       'pieces');
 select add_foreign_key('pieces_to_move', 'allegiance',
                        'current_wizard_table', 'current_wizard');
 select set_relvar_type('pieces_to_move', 'data');
@@ -1154,7 +1303,7 @@ create table selected_piece (
 -- piece key from current wizards army, empty otherwise
 select add_key('selected_piece', array['ptype', 'allegiance', 'tag']);
 select add_foreign_key('selected_piece', array['ptype', 'allegiance', 'tag'],
-                       'pieces_mr');
+                       'pieces');
 select add_foreign_key('selected_piece', 'allegiance',
                        'current_wizard_table', 'current_wizard');
 select constrain_to_zero_or_one_tuple('selected_piece');
@@ -1189,7 +1338,7 @@ $$ ((not exists(select 1 from remaining_walk_table)) or
                   natural inner join selected_piece)
       and (select not flying from creature_pieces
            natural inner join selected_piece))) $$,
-  array['selected_piece', 'pieces_mr', 'remaining_walk_table',
+  array['selected_piece', 'pieces', 'remaining_walk_table',
         'remaining_walk_hack_table', 'creating_new_game_table']);
 
 --this function is used to initialise the turn phase data.
@@ -1339,7 +1488,8 @@ create view object_piece_types
 --replaced with 'dead'
 
 create view dead_monster_pieces as
-  select ptype,allegiance,tag,x,y from monster_pieces where dead = true;
+  select ptype,allegiance,tag,x,y from monster_pieces
+    where allegiance = 'dead';
 
 --Views for on top pieces
 create view piece_on_top_priority as
@@ -1376,49 +1526,6 @@ create view pieces_on_top_view as
     using (ptype,allegiance,tag);
 
 /*
-almost all the updates to pieces are either to the selected piece
-or the piece on top on a given square, to make the latter much
-more concise, create a rule so we can update directly to the
-piece on top view
-*/
-create rule pieces_on_top_update as
-  on update to pieces_on_top_view
-  do instead (
-  update pieces_mr
-     set ptype = NEW.ptype,
-         allegiance = NEW.allegiance,
-         tag = NEW.tag,
-         x = NEW.x,
-         y = NEW.y,
-         flying = NEW.flying,
-         speed = NEW.speed,
-         agility = NEW.agility,
-         dead = NEW.dead,
-         imaginary = NEW.imaginary,
-         undead = NEW.undead,
-         ridable = NEW.ridable,
-         attack_strength = NEW.attack_strength,
-         physical_defense = NEW.physical_defense,
-         ranged_weapon_type = NEW.ranged_weapon_type,
-         range = NEW.range,
-         ranged_attack_strength = NEW.ranged_attack_strength,
-         magic_defense = NEW.magic_defense
-/*
-I don't really know what I'm doing with rules, specifically I couldn't
-find any reference information on how to do the where part. I think
-this will only work when your update uses x,y or the ptype key
-- at the moment, i think all the updates do. I have no idea how to
-support all possible where expressions.
-*/
-   where (ptype = OLD.ptype
-       and allegiance = OLD.allegiance
-      and tag = OLD.tag)
-      or (ptype = (select ptype from pieces_on_top where x = OLD.x)
-       and allegiance = (select allegiance from pieces_on_top where x = OLD.x)
-      and tag = (select tag from pieces_on_top where x = OLD.x));
-);
-
-/*
 === selectable squares and pieces
 
 We can't use the pieces on top for the selection because of
@@ -1434,7 +1541,7 @@ create view selectable_piece_with_squares as
   select x, y, ptype, allegiance, tag, sp from pieces_on_top
   union
   -- set the wizard's sp to -1 so they always get priority
-  select x, y, ptype, allegiance, tag, -1 from pieces_mr
+  select x, y, ptype, allegiance, tag, -1 from pieces
     where ptype = 'wizard';
 
 /*
@@ -1487,7 +1594,7 @@ create view moving_pieces as
 create view corpse_only_squares as
   select x,y from pieces_on_top
     natural inner join monster_pieces
-    where dead;
+    where allegiance='dead';
 
 --empty or corpse only doubles as the list of squares moveable to
 --either by walking or flying
@@ -1844,7 +1951,7 @@ create function check_can_run_action(action_name text, px int, py int)
   returns void as $$
 begin
   if not exists (select 1 from valid_target_actions
-     where action = action_name and x = px and y = py) then
+     where action = action_name and (x,y) = (px,py)) then
     raise exception 'cannot run % on %,% here', action_name, px, py;
   end if;
 end;
@@ -2276,77 +2383,35 @@ create function spell_cast_chance(text) returns integer as $$
   select chance from spell_cast_chance where spell_name = $1;
 $$ language sql stable strict;
 
-create or replace function action_cast_wizard_spell(pwizard_name text, spell_name text)
+create or replace function action_cast_wizard_spell(
+       pwizard_name text, spell_name text)
   returns void as $$
 begin
   --todo: update stats
   if spell_name = 'magic_armour' then
-      update pieces_mr
-        set physical_defense = physical_defense + 4
-        where not (select magic_armour from wizards
-                     where wizard_name = pwizard_name)
-          and ptype = 'wizard'
-          and allegiance = pwizard_name;
       update wizards
         set magic_armour = true
         where wizard_name = pwizard_name;
   elseif spell_name = 'magic_shield' then
-      update pieces_mr
-        set physical_defense = physical_defense + 2
-        where not (select magic_shield from wizards
-                     where wizard_name = pwizard_name)
-          and ptype = 'wizard'
-          and allegiance = pwizard_name;
       update wizards
         set magic_shield = true
         where wizard_name = pwizard_name;
   elseif spell_name = 'magic_knife' then
-      update pieces_mr
-        set attack_strength = attack_strength + 2
-        where not (select magic_knife from wizards
-                     where wizard_name = pwizard_name)
-          and ptype = 'wizard'
-          and allegiance = pwizard_name;
       update wizards
         set magic_knife = true
         where wizard_name = pwizard_name;
   elseif spell_name = 'magic_sword' then
-      update pieces_mr
-        set attack_strength = attack_strength + 4
-        where not (select magic_sword from wizards
-                     where wizard_name = pwizard_name)
-          and ptype = 'wizard'
-          and allegiance = pwizard_name;
       update wizards
         set magic_sword = true
         where wizard_name = pwizard_name;
   elseif spell_name = 'magic_bow' then
-      update pieces_mr
-        set range = 6,
-            ranged_weapon_type='projectile',
-            ranged_attack_strength = 6
-        where ptype = 'wizard'
-          and allegiance = pwizard_name;
       update wizards
         set magic_bow = true
         where wizard_name = pwizard_name;
   elseif spell_name = 'magic_wings' then
-    update pieces_mr
-        set flying = true,
-            speed = 6
-        where ptype = 'wizard'
-          and allegiance = pwizard_name;
     update wizards set magic_wings = true
       where wizard_name = pwizard_name;
   elseif spell_name = 'shadow_form' then
-      update pieces_mr
-        set physical_defense = physical_defense + 2,
-            speed = 3,
-            agility = agility +2
-        where not (select shadow_form from wizards
-                     where wizard_name = pwizard_name)
-          and ptype = 'wizard'
-          and allegiance = pwizard_name;
       update wizards
         set shadow_form = true
         where wizard_name = pwizard_name;
@@ -2390,8 +2455,8 @@ begin
   -- piece teleporting twice
   for r in select x,y from pieces_on_top_view order by x,y loop
     select x,y into tx,ty from empty_squares order by random() limit 1;
-    update pieces_mr set x = tx, y = ty
-      where x = r.x and y = r.y;
+    update pieces set x = tx, y = ty
+      where (x,y) = (r.x,r.y);
     --add histories
 /*    for s in select ptype, allegiance, tag
       from pieces where x = tx and y = ty loop
@@ -2406,9 +2471,9 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
-create function cast_decree_spell(px int, py int) returns void as $$
+create or replace function cast_decree_spell(px int, py int) returns void as $$
 declare
-  r record;
+  r piece_key;
   m int;
 
 begin
@@ -2419,19 +2484,19 @@ begin
   m := (select magic_defense
         from pieces_on_top
         natural inner join magic_attackable_pieces
-        where x = px and y = py);
+        where (x,y)=(px,py));
 
   if not check_random_success('resist', m * 10) then
     select into r ptype, allegiance, tag
       from pieces_on_top_view
-      where x = px and y = py;
+      where (x,y)=(px,py);
     if r.ptype = 'wizard' then
       for r in select ptype, allegiance, tag from pieces
         where allegiance = r.allegiance and ptype != 'wizard' loop
-        perform disintegrate(r.ptype, r.allegiance, r.tag);
+        perform disintegrate(r);
       end loop;
     else
-      perform disintegrate(r.ptype, r.allegiance, r.tag);
+      perform disintegrate(r);
     end if;
     perform add_spell_history();
   end if;
@@ -2439,23 +2504,24 @@ end;
 $$ language plpgsql volatile strict;
 
 create function cast_ballistic_spell(px int, py int) returns void as $$
+declare
+  r piece_key;
 begin
   --todo: should factor in the attack strength?
   if not check_random_success('resist',
       (select physical_defense * 10
        from pieces_on_top_view
-       where x = px and y = py)) then
+       where (x,y) = (px,py))) then
     --need to added the chinned history before the
     --piece is killed or we loose the allegiance
     --need to add the spell successful before the
      --chinned history or the order is wrong
     perform add_spell_history();
-    perform add_chinned_history(px, py);
-    perform kill_piece(
-      (select ptype from pieces_on_top where x = px and y = py),
-      (select allegiance from pieces_on_top where x = px and y = py),
-      (select tag from pieces_on_top where x = px and y = py)
-    );
+    perform add_chinned_history(px,py);
+    select into r ptype,allegiance,tag
+      from pieces_on_top
+      where (x,y) = (px,py);
+    perform kill_piece(r);
   else
     --spell didn't do any damage
     perform add_spell_history(); -- add the spell cast successful history first
@@ -2464,30 +2530,40 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
-create function cast_raise_dead(px int, py int) returns void as $$
+create or replace function cast_raise_dead(px int, py int) returns void as $$
+declare
+  r piece_key;
 begin
   --turn dead creature on square to live undead
-  update pieces_on_top_view
-    set allegiance = get_current_wizard(),
-    dead = false, undead = true
-    where x = px and y = py;
+  select into r ptype,allegiance,tag
+    from pieces_on_top_view
+    where (x,y) = (px,py);
+  update pieces
+    set allegiance = get_current_wizard()
+    where (ptype,allegiance,tag)::piece_key = r;
+  insert into crimes_against_nature (ptype,allegiance,tag)
+    values (r.ptype,get_current_wizard(),r.tag);
   perform add_spell_history();
 end;
 $$ language plpgsql volatile strict;
 
-create function cast_subversion(px int, py int) returns boolean as $$
+create or replace function cast_subversion(px int, py int) returns boolean as $$
+declare
+  r piece_key;
 begin
     if check_random_success('resist',
       (select magic_defense * 10
         from pieces_on_top_view
-        where x = px and y = py)) then
+        where (x,y) = (px, py))) then
     perform add_shrugged_off_history(px, py);
     perform action_cast_failed();
     return false;
   end if;
-  update pieces_on_top_view
+  select into r ptype,allegiance,tag from pieces_on_top
+    where (x,y) = (px, py);
+  update pieces
     set allegiance = get_current_wizard()
-    where x = px and y = py;
+    where (ptype,allegiance,tag)::piece_key = r;
   perform add_chinned_history(px, py);
   perform add_spell_history();
   return true;
@@ -2496,18 +2572,19 @@ $$ language plpgsql volatile strict;
 
 create function cast_disbelieve(px int, py int) returns boolean as $$
 declare
-  r record;
+  r piece_key;
 begin
-  select into r ptype, allegiance, tag, imaginary
-    from pieces_on_top_view where px = x and py = y;
-  if r.imaginary = false then
+  if not (select imaginary from pieces_on_top_view where (x,y) = (px,py)) then
     perform add_shrugged_off_history(px, py);
     perform action_cast_failed();
     return false;
   end if;
+  select into r ptype, allegiance, tag, imaginary
+    from pieces_on_top_view where (x,y) = (px,py);
+
   perform add_spell_history();
   perform add_chinned_history(px, py);
-  perform disintegrate(r.ptype, r.allegiance, r.tag);
+  perform disintegrate(r);
   return true;
 end;
 $$ language plpgsql volatile strict;
@@ -2728,7 +2805,7 @@ begin
 --    s := 'checking ' || ip.x || ',' || ip.y;
     --raise notice 'checking %,%', ip.x, ip.y;
     if exists(select 1 from cast_magic_wood_available_squares
-       where x = r.x and y = r.y) then
+       where (x,y) = (r.x, r.y)) then
        --raise notice 'yes';
        insert into cast_magic_wood_squares(x,y) values (r.x, r.y);
        casted := casted + 1;
@@ -2773,29 +2850,26 @@ turn.
 === selection and subphase
 */
 
-create function action_select_piece(pallegiance text,
-                                    pptype text,ptag int)
-  returns void as $$
+create function action_select_piece(pk piece_key) returns void as $$
 declare
   nextp text;
+  p pos;
 begin
-  perform check_can_run_action('select_piece_at_position',
-    (select x from pieces_on_top
-      where (ptype,allegiance,tag)=(ptype,pallegiance,ptag)),
-    (select y from pieces_on_top
-      where (ptype,allegiance,tag)=(ptype,pallegiance,ptag)));
-  nextp:= piece_next_subphase('start', false, pptype, pallegiance, ptag);
+  select into p x,y from pieces_on_top
+    where (ptype,allegiance,tag)::piece_key=pk;
+  perform check_can_run_action('select_piece_at_position', p.x, p.y);
+  nextp:= piece_next_subphase('start', false, pk);
   if nextp = 'end' then
     --nothing to do
     delete from pieces_to_move
-      where (ptype, allegiance, tag) = (pptype, pallegiance, ptag);
+      where (ptype, allegiance, tag)::piece_key = pk;
     if not exists(select 1 from pieces_to_move) then
       perform action_next_phase();
     end if;
     return;
   end if;
   insert into selected_piece (ptype, allegiance, tag, move_phase) values
-    (pptype, pallegiance, ptag, nextp);
+    (pk.ptype, pk.allegiance, pk.tag, nextp);
 
   if nextp = 'motion' and
        exists(select 1 from selected_piece
@@ -2817,15 +2891,15 @@ $$ language plpgsql volatile strict;
 --this fails silently if the action is not valid
 --client may wrap this in select piece at cursor, but the
 --server doesn't require that the client iface uses a cursor
-create function action_select_piece_at_position(vx int, vy int)
+create or replace function action_select_piece_at_position(vx int, vy int)
   returns void as $$
 declare
-  r record;
+  r piece_key;
 begin
   perform check_can_run_action('select_piece_at_position', vx,vy);
-  select into r allegiance, ptype, tag from selectable_pieces
+  select into r ptype,allegiance, tag from selectable_pieces
          where (x,y) = (vx,vy);
-  perform action_select_piece(r.allegiance, r.ptype, r.tag);
+  perform action_select_piece(r);
 end;
 $$ language plpgsql volatile strict;
 
@@ -2873,7 +2947,7 @@ begin
   select into r * from selected_piece
     natural inner join pieces;
   nextp := piece_next_subphase((select move_phase from selected_piece),
-             skip_attack, r.ptype, r.allegiance, r.tag);
+             skip_attack, (r.ptype, r.allegiance, r.tag)::piece_key);
   if r.move_phase = 'motion' then
     update remaining_walk_hack_table
       set remaining_walk_hack = true;
@@ -2931,7 +3005,7 @@ $$ language plpgsql volatile strict;
 create function action_mount(px int, py int) returns void as $$
 begin
   perform check_can_run_action('mount', px, py);
-  update pieces_mr
+  update pieces
     set x = px,
         y = py
     where (ptype,allegiance,tag) =
@@ -2946,7 +3020,7 @@ $$ language plpgsql volatile strict;
 */
 create or replace function action_attack(px int, py int) returns void as $$
 declare
-  r record;
+  r piece_key;
   att int;
   def int;
 begin
@@ -2955,15 +3029,13 @@ begin
   --if the attacker is a wizard with shadow form, they lose the shadow
   --form when they attack
 
-  
-
   att := (select attack_strength
          from attacking_pieces
          natural inner join selected_piece);
   def := (select physical_defense
          from attackable_pieces
          natural inner join pieces_on_top
-         where x = px and y = py);
+         where (x,y) = (px,py));
 
 
   if not check_random_success('attack', max((att - def) * 10, 10)) then
@@ -2974,8 +3046,8 @@ begin
 
   select into r ptype, allegiance,tag
     from pieces_on_top
-    where x = px and y = py;
-  perform kill_piece(r.ptype, r.allegiance, r.tag);
+    where (x,y) = (px,py);
+  perform kill_piece(r);
 
   --move to the square if walker
   if exists(select 1 from creature_prototypes
@@ -2989,7 +3061,7 @@ $$ language plpgsql volatile strict;
 create or replace function action_ranged_attack(px int, py int)
     returns void as $$
 declare
-  r record;
+  r piece_key;
   att int;
   def int;
 begin
@@ -3002,7 +3074,7 @@ begin
   def := (select physical_defense
          from attackable_pieces
          natural inner join pieces_on_top
-         where x = px and y = py);
+         where (x,y) = (px, py));
 
   if not check_random_success('ranged_attack', max((att - def) * 10, 10)) then
     --failure
@@ -3012,8 +3084,8 @@ begin
 
   select into r ptype, allegiance,tag
     from pieces_on_top
-    where x = px and y = py;
-  perform kill_piece(r.ptype, r.allegiance, r.tag);
+    where (x,y) = (px, py);
+  perform kill_piece(r);
   perform do_next_move_subphase(false);
 end;
 $$ language plpgsql volatile strict;
@@ -3035,22 +3107,21 @@ select x,y,allegiance
   natural inner join pieces_on_top;
 
 create or replace function piece_next_subphase(
-  current_subphase text, skip_attack boolean,
-  pptype text, pallegiance text, ptag int)
+  current_subphase text, skip_attack boolean,pk piece_key)
   returns text as $$
 declare
   r record;
 begin
   select into r x,y from pieces
-    where (ptype,allegiance,tag)=(pptype,pallegiance,ptag);
+    where (ptype,allegiance,tag)::piece_key=pk;
   if current_subphase = 'start' and
       exists(select 1 from creature_pieces
-             where (ptype,allegiance,tag)=(pptype,pallegiance,ptag)) then
+             where (ptype,allegiance,tag)::piece_key = pk) then
     return 'motion';
   elseif current_subphase not in ('attack','ranged-attack')
          and not skip_attack
          and exists(select 1 from attacking_pieces
-                where (ptype,allegiance,tag)=(pptype,pallegiance,ptag))
+                where (ptype,allegiance,tag)::piece_key=pk)
          and exists(select 1 from attackable_pieces ap
            natural inner join pieces_on_top
            --want to keep rows where the attack piece is range 1 from
@@ -3058,12 +3129,12 @@ begin
            --x,y of the piece in question, and the target x,y is the
            --x,y positions of the enemy attackable pieces
            inner join board_ranges b on (b.x,b.y,tx,ty)=(r.x,r.y,ap.x,ap.y)
-           where allegiance <> pallegiance
+           where allegiance <> pk.allegiance
              and range = 1) then
     return 'attack';
   elseif current_subphase not in ('ranged-attack')
     and exists(select 1 from ranged_weapon_pieces
-                where (ptype,allegiance,tag)=(pptype,pallegiance,ptag)) then
+                where (ptype,allegiance,tag)::piece_key = pk) then
     return 'ranged-attack';
   else
     return 'end';
@@ -3072,22 +3143,24 @@ end;
 $$ language plpgsql volatile strict;
 
 create function add_chinned_history(px int, py int) returns void as $$
+declare
+  r piece_key;
 begin
+    select into r ptype, allegiance, tag
+      from pieces_on_top where (x,y) = (px,py);
     insert into action_history_mr (history_name, ptype, allegiance, tag)
-    values ('chinned', (select ptype from pieces_on_top
-                          where x = px and y = py),
-      (select allegiance from pieces_on_top where x = px and y = py),
-      (select tag from pieces_on_top where x = px and y = py));
+    values ('chinned', r.ptype,r.allegiance,r.tag);
 end;
 $$ language plpgsql volatile strict;
 
 create function add_shrugged_off_history(px int, py int) returns void as $$
+declare
+  r piece_key;
 begin
+    select into r ptype, allegiance, tag
+      from pieces_on_top where (x,y) = (px,py);
     insert into action_history_mr(history_name, ptype, allegiance, tag)
-    values ('shrugged off',
-      (select ptype from pieces_on_top where x = px and y = py),
-      (select allegiance from pieces_on_top where x = px and y = py),
-      (select tag from pieces_on_top where x = px and y = py));
+    values ('shrugged off', r.ptype, r.allegiance, r.tag);
 end;
 $$ language plpgsql volatile strict;
 
@@ -3108,7 +3181,7 @@ begin
       natural inner join pieces
       where ptype='wizard') then
      -- move the wizard also
-    update pieces_mr
+    update pieces
       set x = px,
           y = py
       where (ptype,allegiance,tag) =
@@ -3119,7 +3192,7 @@ begin
          where ptype='wizard');
   end if;
 
-  update pieces_mr
+  update pieces
     set x = px,
         y = py
     where (ptype,allegiance,tag) =
@@ -3154,9 +3227,6 @@ $$ language plpgsql volatile strict;
 */
 create function create_wizard(vname text, vcomputer_controlled boolean,
                               vplace int, x int, y int) returns void as $$
-declare
-  r record;
-  i int;
 begin
   --insert into wizards
   insert into wizards (wizard_name, computer_controlled, original_place)
@@ -3220,17 +3290,17 @@ create function create_corpse(vptype text, px int, py int, imaginary boolean)
   returns void as $$
 declare
   vtag int;
+  twiz text;
 begin
   if not exists(select count(*) from monster_prototypes
                 where ptype = vptype) then
     raise exception 'called create corpse on % which is not a monster', vptype;
   end if;
   perform create_piece_internal(vptype,
-                                (select wizard_name
-                                        from wizards limit 1),
+                                'Buddha',
                                 px, py, imaginary);
-  select into vtag tag from pieces_on_top_view where x = px and y = py;
-  perform kill_monster(vptype, (select wizard_name from wizards limit 1), vtag);
+  select into vtag tag from pieces_on_top_view where (x,y) = (px, py);
+  perform kill_monster((vptype, 'Buddha', vtag));
 end
 $$ language plpgsql volatile strict;
 
@@ -3241,22 +3311,12 @@ create function create_piece_internal(vptype text, vallegiance text,
 declare
   vtag int;
 begin
-/*
-assert:
- calling function is "friend": one of the create piece functions
- ptype is a valid ptype
- allegiance is a valid allegiance i.e. a wizard name
- x, y on playing board
- if ptype is not a monster then imaginary is false
 
-TODO: use rules on piece-view to support inserts and updates on it
-  use an insert/ select from piece-prototype view to do insert
-  solve problem with null attributes cos this will be useful in many places
-*/
   if not exists(select count(*) from piece_prototypes where ptype = vptype) then
     raise exception
       'called create piece with % but there is no such piece type.', vptype;
   end if;
+
   if not exists(select count(*) from wizards
                 where wizard_name = vallegiance) then
     raise exception
@@ -3264,16 +3324,12 @@ TODO: use rules on piece-view to support inserts and updates on it
       vallegiance;
   end if;
 
-  --piece_prototypes -> pieces add allegiance (or dead if corpse), x, y
-  insert into pieces_mr (ptype, allegiance, x, y,
-      flying,speed,agility,dead,imaginary,undead,ridable,
-      attack_strength,physical_defense, ranged_weapon_type,
-      range, ranged_attack_strength, magic_defense)
-    select vptype, vallegiance, vx, vy,
-      flying,speed,agility,false,vimaginary,undead,ridable,
-      attack_strength,physical_defense, ranged_weapon_type,
-      range, ranged_attack_strength, magic_defense
-    from piece_prototypes_mr where ptype = vptype;
+  insert into pieces (ptype, allegiance, x, y)
+    select vptype, vallegiance, vx, vy
+    returning tag into vtag;
+
+  insert into imaginary_pieces (ptype,allegiance,tag)
+    select vptype,vallegiance,vtag where vimaginary;
 end
 $$ language plpgsql volatile strict;
 
@@ -3287,15 +3343,14 @@ kill piece: calls appropriate routine:
   kill wizard: calls disintegrate on army and wizard, and other clean up
 */
 
-create function disintegrate(pptype text, pallegiance text, ptag int)
+create function disintegrate(pk piece_key)
   returns void as $$
 begin
-  delete from pieces_mr where (ptype, allegiance, tag) =
-    (pptype, pallegiance, ptag);
+  delete from pieces where (ptype, allegiance, tag)::piece_key = pk;
 end;
 $$ language plpgsql volatile strict;
 
-create function kill_monster(pptype text, pallegiance text, ptag int)
+create function kill_monster(pk piece_key)
   returns void as $$
 begin
   --todo some asserts: monster, non undead
@@ -3305,19 +3360,18 @@ begin
   --todo: generate update rules automatically for entities
   -- and use a single update here
   -- do the sub ones first since the pieces update changes the key
-  update pieces_mr set dead = true,
-                     allegiance = 'dead'
-    where (ptype, allegiance, tag) = (pptype, pallegiance, ptag);
+  update pieces set allegiance = 'dead'
+    where (ptype, allegiance, tag)::piece_key = pk;
 end
 $$ language plpgsql volatile strict;
 
 create function disintegrate_wizards_army(pwizard_name text) returns void as $$
 declare
-  r record;
+  r piece_key;
 begin
-  for r in select ptype, tag from pieces
+  for r in select ptype, allegiance, tag from pieces
     where allegiance = pwizard_name loop
-    perform disintegrate(r.ptype, pwizard_name, r.tag);
+    perform disintegrate(r);
   end loop;
 end;
 $$ language plpgsql volatile strict;
@@ -3348,21 +3402,21 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
-create function kill_piece(pptype text, pallegiance text, ptag int)
+create function kill_piece(pk piece_key)
   returns void as $$
 begin
   --raise notice 'kill';
-  if (select (undead is not null and undead = true) from pieces_mr
-    where (ptype, allegiance, tag) = (pptype, pallegiance, ptag)) or
+  if (select coalesce(undead,false) from pieces_mr
+    where (ptype, allegiance, tag)::piece_key = pk) or
     exists(select 1 from object_piece_types
-    where ptype = pptype) then
-    perform disintegrate(pptype, pallegiance, ptag);
-  elseif exists(select 1 from monster_prototypes where ptype = pptype) then
-    perform kill_monster(pptype, pallegiance, ptag);
-  elseif pptype = 'wizard' then
-    perform kill_wizard(pallegiance);
+    where ptype = pk.ptype) then
+    perform disintegrate(pk);
+  elseif exists(select 1 from monster_prototypes where ptype = pk.ptype) then
+    perform kill_monster(pk);
+  elseif pk.ptype = 'wizard' then
+    perform kill_wizard(pk.allegiance);
   else
-    raise exception 'don''t know how to kill piece with ptype %', pptype;
+    raise exception 'don''t know how to kill piece with ptype %', pk.ptype;
   end if;
 
 end;
@@ -3370,11 +3424,12 @@ $$ language plpgsql volatile strict;
 
 --- testing function
 create function kill_top_piece_at(px int, py int) returns void as $$
+declare
+  r piece_key;
 begin
-  perform kill_piece(
-    (select ptype from pieces_on_top where x = px and y = py),
-    (select allegiance from pieces_on_top where x = px and y = py),
-    (select tag from pieces_on_top where x = px and y = py));
+  select into r ptype,allegiance,tag
+    from pieces_on_top where (x,y) = (px,py);
+  perform kill_piece(r);
 end;
 $$ language plpgsql volatile strict;
 
@@ -3536,7 +3591,8 @@ begin
   delete from turn_number_table;
   --piece data
   delete from spell_books;
-  delete from pieces_mr;
+  delete from imaginary_pieces;
+  delete from pieces;
   delete from wizards;
   delete from board_size;
   delete from world_alignment_table;

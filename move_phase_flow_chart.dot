@@ -129,7 +129,7 @@ digraph simple_hierarchy {
   subgraph cluster_attack_routine {
     label="attack routine";
     ra_do_attack [label="attack successful?"]
-    ra_kill_piece [label="remove piece from pieces_mr"]
+    ra_kill_piece [label="remove piece from pieces"]
     ra_move_killerp [label="attacker can move?"]
     ra_finish_attack [label="finish and return"]
     ra_attack_move_piece [label="call move routine"]
