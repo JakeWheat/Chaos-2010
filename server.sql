@@ -1047,6 +1047,33 @@ select create_update_transition_tuple_constraint(
   'NEW.turn_phase = next_turn_phase(OLD.turn_phase)');
 select no_deletes_inserts_except_new_game('turn_phase_table');
 
+create type turn_pos as (
+    turn_number int,
+    turn_phase turn_phase_enum,
+    current_wizard text
+);
+
+create function turn_pos_equals(turn_pos, turn_pos) returns boolean as $$
+  select $1.turn_number = $2.turn_number and
+         $1.turn_phase = $2.turn_phase and
+         $1.current_wizard = $2.current_wizard;
+$$ language sql stable;
+
+create operator = (
+    leftarg = turn_pos,
+    rightarg = turn_pos,
+    procedure = turn_pos_equals,
+    commutator = =
+);
+
+create function get_current_turn_pos() returns turn_pos as $$
+  select (turn_number, turn_phase, current_wizard)::turn_pos
+    from turn_number_table
+    cross join turn_phase_table
+    cross join current_wizard_table;
+$$ language sql stable;
+
+
 /*
 
 Both spell casting and moving have a bunch of state local to each
@@ -1984,6 +2011,9 @@ whole of the cast phase for all wizards is refered to as the phase or
 a phase...?
 
 */
+
+select create_var('dont_nest_ai_next_phase', 'bool');
+
 create function action_next_phase() returns void as $$
 declare
   c int;
@@ -2018,12 +2048,20 @@ begin
 if the current wizard is ai, then run the ai for this wizard's turn now
 */
   if current_wizard_replicant() then
+/*
+if we run ai, that ai might call next_phase want to return at that
+point so that the non nested next phase runs otherwise we get
+anomolies like a wizard being skipped
+*/
+    if exists(select 1 from dont_nest_ai_next_phase_table) then
+      return;
+    end if;
+    insert into dont_nest_ai_next_phase_table values (true);
     if get_turn_phase() = 'choose' then
       perform ai_choose_spell();
     elseif get_turn_phase() = 'cast' then
       perform ai_cast_spell();
     elseif get_turn_phase() = 'move' then
-      raise notice 'do ai move pieces';
       perform ai_move_pieces();
     end if;
   end if;
@@ -2133,6 +2171,7 @@ phase is run in this function, and all the setup runs after it is run.
 /*
 === continue
 */
+  delete from dont_nest_ai_next_phase_table;
   --if there is nothing to do in the new current phase - continue to
   --next phase automatically
   if next_phase_again then
@@ -3901,10 +3940,10 @@ $$ language plpgsql volatile;
 create function ai_cast_spell() returns void as $$
 declare
   p pos;
-  start_wizard text;
+  tp turn_pos;
 begin
   --make sure we don't recurse when the starting wizard has changed
-  start_wizard := get_current_wizard();
+  tp := get_current_turn_pos();
   if exists(select 1 from valid_activate_actions
             where action = 'cast_activate_spell') then
   elseif exists(select 1 from valid_target_actions
@@ -3914,7 +3953,7 @@ begin
          order by random() limit 1;
      perform action_cast_target_spell(p.x, p.y);
      --recurse for multipart spells
-     if start_wizard = get_current_wizard() then
+     if tp = get_current_turn_pos() then
        perform ai_cast_spell();
      end if;
   end if;
@@ -3924,19 +3963,19 @@ $$ language plpgsql volatile;
 create function ai_move_pieces() returns void as $$
 declare
   p pos;
-  start_wizard text;
+  tp turn_pos;
 begin
-  start_wizard := get_current_wizard();
+  tp := get_current_turn_pos();
   if exists(select 1 from valid_target_actions
             where action = 'select_piece_at_position') then
      select into p x,y from valid_target_actions
        where action = 'select_piece_at_position'
        order by random() limit 1;
      perform action_select_piece_at_position(p.x, p.y);
-     if start_wizard = get_current_wizard() then
+     if tp = get_current_turn_pos() then
        perform ai_move_selected_piece();
      end if;
-     if start_wizard = get_current_wizard() then
+     if tp = get_current_turn_pos() then
        perform ai_move_pieces();
      end if;
   end if;
@@ -3951,9 +3990,9 @@ select x,y,action
 create function ai_move_selected_piece() returns void as $$
 declare
   r record;
-  start_wizard text;
+  tp turn_pos;
 begin
-  start_wizard := get_current_wizard();
+  tp := get_current_turn_pos();
   if exists(select 1 from ai_selected_piece_actions) then
     select into r x,y,action from ai_selected_piece_actions
       order by random() limit 1;
@@ -3969,14 +4008,12 @@ begin
       --protect against infinite loops
       return;
     end if;
-    if start_wizard = get_current_wizard() then
+    if tp = get_current_turn_pos() then
       perform ai_move_selected_piece();
     end if;
   end if;
 end;
 $$ language plpgsql volatile;
-
-
 
 /*
 --------------------------------------------------------------------------------

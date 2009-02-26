@@ -176,7 +176,7 @@ piece info for selected piece
 > infoWidgetNew conn colours spriteMap = do
 >   tv <- myTextViewNew colours
 >   buf <- textViewGetBuffer tv
->   let refresh = do
+>   let refresh = timeName "info refresh" $ do
 >         textBufferClear buf
 >         mapM_ (\items -> D.run conn items >>= render tv)
 >               [turnPhaseInfo
@@ -541,7 +541,7 @@ Draw the board sprites from the saved board
 hook things up the the expose event
 
 >     onExpose canvas
->              (\_ -> do
+>              (\_ -> timeName "board expose" $ do
 >                        (w,h) <- widgetGetSize canvas
 >                        drawin <- widgetGetDrawWindow canvas
 >                        renderWithDrawable drawin
@@ -560,7 +560,7 @@ but that doesn't compile anymore, so just bodged it.
 >           drawWindowInvalidateRegion win reg True
 >           drawWindowProcessUpdates win True
 
->     let refresh = do
+>     let refresh = timeName "board refresh" $ do
 >           --update the frame positions
 >           f <- getFrames
 >           dbAction conn "update_missing_startframes" [show f]
@@ -571,9 +571,9 @@ but that doesn't compile anymore, so just bodged it.
 
 update the board sprites 10 times a second to animate them
 
->     flip timeoutAdd 100 $ do
->       widgetQueueDrawArea canvas 0 0 2000 2000
->       return True
+>     --flip timeoutAdd 1000 $ do
+>     --  widgetQueueDrawArea canvas 0 0 2000 2000
+>     --  return True
 
 >     return (frame, refresh)
 >     where
@@ -631,7 +631,7 @@ red 10-20
 > spellBookWidgetNew conn colours spriteMap = do
 >   tv <- myTextViewNew colours
 >   buf <- textViewGetBuffer tv
->   let refresh =
+>   let refresh = timeName "spell book refresh" $
 >         textBufferClear buf >>
 >         D.run conn items >>= render tv
 >   return (tv, refresh)
@@ -704,7 +704,7 @@ new game widget:
 >   tv <- myTextViewNew colours
 >   buf <- textViewGetBuffer tv
 >
->   let refresh = do
+>   let refresh = timeName "new game refresh" $ do
 
 first check the new_game_widget_state relvar
 
@@ -792,7 +792,7 @@ text box instead of redrawing them all
 
 >   lastHistoryIDBox <- newIORef (-1::Integer)
 
->   let refresh = do
+>   let refresh = timeName "action history refresh" $ do
 >         is <- items lastHistoryIDBox
 >         D.run conn [is] >>= render tv
 >         textViewScrollToBottom tv
@@ -998,10 +998,10 @@ setup the handler so that clicking the button toggles the window visibility
 >                                  else unless (name == "window_manager") $ do
 >                                    widgetHideAll ww
 >                                    runSql conn
->                                      "update windows set state='hidden'\n\
+>                                               "update windows set state='hidden'\n\
 >                                      \where window_name=?;" [name])
 >                          ,Text "\n"]
->         refresh = do
+>         refresh = timeName "window manger refresh" $ do
 >           textBufferClear buf
 >           D.run conn [items] >>= render wm
 
@@ -1020,15 +1020,31 @@ lookup which contains the widget and refresh functions
 
 == Key press handling
 
->     let handleKeyPress e = do
+>     let handleKeyPress e =  timeName "handle keypress" $ do
 >           case e of
 >                  Key { eventKeyName = key } -> do
 >                       --putStrLn ("Key pressed: " ++ key)
 >                       dbAction conn "key_pressed" [key]
 
->                       when (key == "F12") $
->                          putStrLn "manual refresh" >>
->                          mapM_ (\(_,(_,r)) -> r) widgetData'
+
+>                       if key == "F12"
+>                         then do
+>                           putStrLn "manual refresh"
+>                           refresh
+>                           --mapM_ (\(n,(_,r)) -> do
+>                           --       putStrLn $ "call " ++ n
+>                           --       r) widgetData'
+>                         else
+
+Until the notify stuff is working just do a full refresh after every
+action as a kludge
+
+>                           --mapM_ (\(_,(_,r)) -> r) widgetData'
+
+Just updating the board for now, it's so slooowwww.
+
+>                           let (_,r) = fromJust $ lookup "board" widgetData'
+>                           in r
 
 Bit hacky, if we just ran the next_phase action, and the current
 wizard is computer controlled, then run next phase again after a small
@@ -1047,19 +1063,10 @@ pause
 >                                                        "board" widgetData'
 >                               r
 >                               do_ai
->                               return False;
->                             return ();
->                       do_ai
-
-Until the notify stuff is working just do a full refresh after every
-action as a kludge
-
->                       --mapM_ (\(_,(_,r)) -> r) widgetData'
-
-Just updating the board for now, it's so slooowwww.
-
->                       let (_,r) = fromJust $ lookup "board" widgetData'
->                       r
+>                               return False
+>                             return ()
+>                       --do_ai
+>                       return ()
 
 >                  _ -> error "key press handler got non key event"
 

@@ -56,15 +56,27 @@ and updates directly
 >
 
 > import Database.HDBC.PostgreSQL
-> import Database.HDBC
+> import Database.HDBC  hiding (quickQuery'
 
+-- >                             ,run
+-- >                             ,commit
+
+>                             ,execute
+>                             ,prepare
+
+-- >                             ,getColumnNames
+
+>                             ,fetchAllRows'
+
+>                             )
+
+> import qualified Database.HDBC as H
 > import Data.List
 > import qualified Data.Map as M
 > import Control.Monad
 > import Data.Maybe
 > import Control.Exception
 > import Utils hiding (run)
-
 
 > type SqlRow = M.Map String String
 
@@ -286,7 +298,7 @@ shortcut to call a function in postgres hiding all the red tape you
 have to go through i.e. writing the arg list as ?,?,?,...
 
 > callSp :: Connection -> String -> [String] -> IO ()
-> callSp conn spName args = handleSqlError $ do
+> callSp conn spName args = timeName ("callSp " ++ spName) $ handleSqlError $ do
 >     let qs = intersperse ',' $ replicate (length args) '?'
 >     let sqlString = "select " ++ spName ++ "(" ++ qs ++ ")"
 >     quickQuery' conn sqlString $ map toSql args
@@ -310,3 +322,39 @@ call actions functions
 > dbAction conn actionName args = handleSqlError $ do
 >   callSp conn ("action_" ++ actionName) args
 >   commit conn
+
+> quickQuery' :: (IConnection conn) =>
+>                   conn -> String -> [SqlValue] -> IO [[SqlValue]]
+> quickQuery' conn q a = if profileEm
+>                          then timeName ("query " ++ q) $ H.quickQuery' conn q a
+>                          else H.quickQuery' conn q a
+
+
+
+ > run :: (IConnection conn) =>
+ >        conn -> String -> [SqlValue] -> IO Integer
+ > run conn q a = timeName ("run " ++ q) $ H.run conn q a
+
+ > commit :: (IConnection conn) => conn -> IO ()
+ > commit conn = timeName "commit" $ H.commit conn
+
+> execute :: Statement -> [SqlValue] -> IO Integer
+> execute st a = if profileEm
+>                  then timeName "execute" $ H.execute st a
+>                  else H.execute st a
+
+> prepare :: (IConnection conn) => conn -> String -> IO Statement
+> prepare conn q = if profileEm
+>                    then timeName ("prepare " ++ q) $ H.prepare conn q
+>                    else H.prepare conn q
+
+ > getColumnNames :: Statement -> IO [String]
+ > getColumnNames st = timeName "getColumnNames" $ H.getColumnNames st
+
+> fetchAllRows' :: Statement -> IO [[SqlValue]]
+> fetchAllRows' st = if profileEm
+>                      then timeName "fetchAllRows'" $ H.fetchAllRows' st
+>                      else H.fetchAllRows st
+
+> profileEm :: Bool
+> profileEm = True

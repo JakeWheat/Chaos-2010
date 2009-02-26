@@ -16,6 +16,7 @@ for examples of how it's used
 > import ChaosDB
 > import Data.Maybe
 > import qualified Data.Map as M
+> import Utils
 
 These are the elements that you create that eventually end up in the
 textbuffer. For stuff which doesn't depend on the database, there is
@@ -38,7 +39,7 @@ is probably not needed, could convert the Nothings to empty lists and
 it would probably be clearer.
 
 > run :: Connection -> [Item] -> IO [T.Item]
-> run conn items = do
+> run conn items = timeName "dbtvrun" $ do
 >   x <- (mapM runIt items)
 >   return $ concat $ catMaybes x
 >     where runIt i = case i of

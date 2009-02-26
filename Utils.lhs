@@ -8,6 +8,7 @@ didn't find them.
 > module Utils (applyMany,
 >               findAllFiles,
 >               time,
+>               timeName,
 >               updateLookup,
 >               hasKey,
 >               safeLookup,
@@ -91,6 +92,25 @@ tracking down problems
 >              let tdiff = diffClockTimes et st
 >              putStrLn $ "time taken: " ++ timeDiffToString tdiff)
 >           . const
+
+> diffTimes :: ClockTime -> ClockTime -> Integer
+> diffTimes (TOD sts stps) (TOD ets etps) = (ets * 1000 + div109 etps) -
+>                                           (sts * 1000 + div109 stps)
+>                                           where
+>                                             div109 a = a `div`
+>                                                ((10::Integer) ^ (9::Integer))
+
+
+> timeName :: String -> IO c -> IO c
+> timeName name =
+>   bracket (do
+>             x <- getClockTime
+>             return x)
+>           (\st -> do
+>              et <- getClockTime
+>              putStrLn $ name ++ ": " ++ show (diffTimes st et))
+>           . const
+
 
 > for :: [a] -> (a -> b) -> [b]
 > for = flip map
