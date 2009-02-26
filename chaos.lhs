@@ -708,9 +708,9 @@ new game widget:
 
 first check the new_game_widget_state relvar
 
->         selectValueIfC conn "select count(*) from new_game_widget_state" []
->            (\c -> when (c == "0")
->              (dbAction conn "reset_new_game_widget_state" []))
+>         c <- selectValue conn "select count(*) from new_game_widget_state" []
+>         when (c == "0")
+>              (dbAction conn "reset_new_game_widget_state" [])
 
 >         textBufferClear buf
 >         D.run conn items >>= render tv
@@ -887,10 +887,10 @@ display to the user
 
 >     let niceNameF = map
 >                     (\c -> if c == '_' then ' ' else c)
->     selectValueIfC conn "select count(*) from windows\n\
->                      \where window_name = 'window_manager'" []
->                 (\c -> when (read c == (0::Int))
->                    (dbAction conn "reset_windows" []))
+>     c <- selectValue conn "select count(*) from windows\n\
+>                            \where window_name = 'window_manager'" []
+>     when (read c == (0::Int))
+>          (dbAction conn "reset_windows" [])
 
 == create windows
 
@@ -1026,15 +1026,38 @@ lookup which contains the widget and refresh functions
 >                       --putStrLn ("Key pressed: " ++ key)
 >                       dbAction conn "key_pressed" [key]
 
-
 >                       when (key == "F12") $
 >                          putStrLn "manual refresh" >>
 >                          mapM_ (\(_,(_,r)) -> r) widgetData'
+
+Bit hacky, if we just ran the next_phase action, and the current
+wizard is computer controlled, then run next phase again after a small
+pause
+
+>                       let do_ai = do
+>                           cc <- selectValue conn
+>                                   "select computer_controlled\n\
+>                                   \from wizards\n\
+>                                   \inner join current_wizard_table\n\
+>                                   \  on wizard_name = current_wizard" []
+>                           when (read cc::Bool) $ do
+>                             flip timeoutAdd 2000 $ do
+>                               dbAction conn "key_pressed" ["space"]
+>                               let (_,r) = fromJust $ lookup
+>                                                        "board" widgetData'
+>                               r
+>                               do_ai
+>                               return False;
+>                             return ();
+>                       do_ai
 
 Until the notify stuff is working just do a full refresh after every
 action as a kludge
 
 >                       --mapM_ (\(_,(_,r)) -> r) widgetData'
+
+Just updating the board for now, it's so slooowwww.
+
 >                       let (_,r) = fromJust $ lookup "board" widgetData'
 >                       r
 

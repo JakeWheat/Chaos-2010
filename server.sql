@@ -1869,6 +1869,11 @@ select x,y, 'ranged_attack'::text as action
 ) as s
 where not exists (select 1 from game_completed_table);
 
+create function current_wizard_replicant() returns bool as $$
+  select computer_controlled from wizards
+    inner join current_wizard_table
+      on wizard_name=current_wizard;
+$$ language sql stable;
 
 /*
 create a view with the choose spell predicates automatically
@@ -2008,6 +2013,19 @@ begin
       values ('game drawn');
     delete from current_wizard_table;
     return;
+  end if;
+/*
+if the current wizard is ai, then run the ai for this wizard's turn now
+*/
+  if current_wizard_replicant() then
+    if get_turn_phase() = 'choose' then
+      perform ai_choose_spell();
+    elseif get_turn_phase() = 'cast' then
+      perform ai_cast_spell();
+    elseif get_turn_phase() = 'move' then
+      raise notice 'do ai move pieces';
+      perform ai_move_pieces();
+    end if;
   end if;
 
 /*
@@ -3862,12 +3880,103 @@ moving enemy pieces
 moving:
 if defensive move pieces starting with close
 
+The ai code below represents a development of these ideas which is too
+sophisticated to document here.
+
 */
 
 create function ai_choose_spell() returns void as $$
+declare
+  vspell_name text;
 begin
+  select into vspell_name spell_name
+    from spell_books
+    inner join current_wizard_table
+      on current_wizard = wizard_name
+      order by random() limit 1;
+  perform action_choose_spell(vspell_name);
 end;
 $$ language plpgsql volatile;
+
+create function ai_cast_spell() returns void as $$
+declare
+  p pos;
+  start_wizard text;
+begin
+  --make sure we don't recurse when the starting wizard has changed
+  start_wizard := get_current_wizard();
+  if exists(select 1 from valid_activate_actions
+            where action = 'cast_activate_spell') then
+  elseif exists(select 1 from valid_target_actions
+                where action = 'cast_target_spell') then
+     select into p x,y from valid_target_actions
+       where action = 'cast_target_spell'
+         order by random() limit 1;
+     perform action_cast_target_spell(p.x, p.y);
+     --recurse for multipart spells
+     if start_wizard = get_current_wizard() then
+       perform ai_cast_spell();
+     end if;
+  end if;
+end;
+$$ language plpgsql volatile;
+
+create function ai_move_pieces() returns void as $$
+declare
+  p pos;
+  start_wizard text;
+begin
+  start_wizard := get_current_wizard();
+  if exists(select 1 from valid_target_actions
+            where action = 'select_piece_at_position') then
+     select into p x,y from valid_target_actions
+       where action = 'select_piece_at_position'
+       order by random() limit 1;
+     perform action_select_piece_at_position(p.x, p.y);
+     if start_wizard = get_current_wizard() then
+       perform ai_move_selected_piece();
+     end if;
+     if start_wizard = get_current_wizard() then
+       perform ai_move_pieces();
+     end if;
+  end if;
+end;
+$$ language plpgsql volatile;
+
+create view ai_selected_piece_actions as
+select x,y,action
+  from valid_target_actions
+  where action in('walk', 'fly', 'attack', 'ranged_attack');
+
+create function ai_move_selected_piece() returns void as $$
+declare
+  r record;
+  start_wizard text;
+begin
+  start_wizard := get_current_wizard();
+  if exists(select 1 from ai_selected_piece_actions) then
+    select into r x,y,action from ai_selected_piece_actions
+      order by random() limit 1;
+    if r.action = 'walk' then
+      perform action_walk(r.x, r.y);
+    elseif r.action = 'fly' then
+      perform action_fly(r.x, r.y);
+    elseif r.action = 'attack' then
+      perform action_attack(r.x, r.y);
+    elseif r.action = 'ranged_attack' then
+      perform action_ranged_attack(r.x, r.y);
+    else
+      --protect against infinite loops
+      return;
+    end if;
+    if start_wizard = get_current_wizard() then
+      perform ai_move_selected_piece();
+    end if;
+  end if;
+end;
+$$ language plpgsql volatile;
+
+
 
 /*
 --------------------------------------------------------------------------------
