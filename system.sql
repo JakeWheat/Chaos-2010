@@ -1106,6 +1106,7 @@ all objects without a module which is the objects which have
 just been added, and set their module. This saves having to add
 each object to a module individually
 */
+
 create function set_module_for_preceding_objects(vmodule_name text)
   returns void as $$
 begin

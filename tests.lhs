@@ -143,7 +143,9 @@ Run all the tests.
 >                        testNextPhase conn
 >                       ,testNextPhaseWizardDead conn
 >                       ,testNextPhaseTwoWizardsDead conn
+>                       ,testNextPhaseAI conn
 >                       ]
+
 >        ,testGroup "casting" [
 >                        testCastGoblin conn
 >                       ,testFailCastGoblin conn
@@ -531,6 +533,14 @@ automatic next phase tests:
 casting the last part of a spell moves to the next player automatically
 moving the last creature moves to the next player automatically
 these are tested in the spell cast and move sections respectively
+
+> testNextPhaseAI :: Connection -> Test.Framework.Test
+> testNextPhaseAI = tctor "testNextPhaseAI" $ \conn -> do
+>   startNewGameAI conn
+>   forM_ ["choose","cast","move","choose","cast","move"] (\phase ->
+>     forM_ [0..7] (\i -> do
+>        checkCurrentWizardPhase conn (wizardNames !! i) phase
+>        sendKeyPress conn "space"))
 
 
 ================================================================================
@@ -3109,6 +3119,14 @@ board after a spell has succeeded and after it has failed
 > startNewGame :: Connection -> IO ()
 > startNewGame conn = do
 >   dbAction conn "reset_new_game_widget_state" []
+>   runSql conn "update new_game_widget_state set state='human'" []
+>   dbAction conn "client_new_game_using_new_game_widget_state" []
+>   checkNewGameRelvars conn
+
+> startNewGameAI :: Connection -> IO ()
+> startNewGameAI conn = do
+>   dbAction conn "reset_new_game_widget_state" []
+>   runSql conn "update new_game_widget_state set state='computer'" []
 >   dbAction conn "client_new_game_using_new_game_widget_state" []
 >   checkNewGameRelvars conn
 

@@ -62,7 +62,7 @@ function to reset the windows to default, can be used if the windows
 get too messed up or e.g. the window manager row is deleted
 
 */
-create function action_reset_windows() returns void as $$ --tags: init
+create function action_reset_windows() returns void as $$
 begin
   delete from windows;
   insert into windows (window_name, px, py, sx, sy, state) values
@@ -148,7 +148,7 @@ be loaded or the game will refuse to run
 */
 select new_module('sprites', 'client');
 
-create table sprites ( --tags:readonly
+create table sprites (
   sprite text, -- name of sprite, also part of the name of the png frames
   animation_speed int
 --todo: add sprite data here
@@ -306,7 +306,7 @@ select add_foreign_key('init_wizard_display_info_argument',
                        'sprite', 'sprites');
 select set_relvar_type('init_wizard_display_info_argument', 'stack');
 
-create function init_wizard_display_info() returns void as $$ --tags: init
+create function init_wizard_display_info() returns void as $$
 begin
     insert into wizard_display_info (wizard_name, default_sprite,  colour)
        select wizard_name,sprite,colour
@@ -1029,6 +1029,7 @@ $$ language plpgsql volatile;
 create or replace function action_client_new_game_using_new_game_widget_state()
   returns void as $$
 begin
+  --raise notice 'ngws start %', clock_timestamp();
   delete from action_client_new_game_argument;
   insert into action_client_new_game_argument
     (place, wizard_name, sprite, colour, computer_controlled)
@@ -1038,6 +1039,7 @@ begin
       from new_game_widget_state
       where state != 'none';
   perform action_client_new_game();
+  --raise notice 'ngws end %', clock_timestamp();
 end
 $$ language plpgsql volatile;
 
@@ -1189,9 +1191,9 @@ select create_client_action_wrapper('spell_book_show_all_update_on',
 select create_client_action_wrapper('spell_book_show_all_update_off',
        $$spell_book_show_all_update(false)$$);
 
-create function action_key_pressed(pkeycode text) returns void as $$
+create or replace function action_key_pressed(pkeycode text) returns void as $$
 declare
-  r record;
+  a text;
 begin
 /*
 basic plan
@@ -1199,26 +1201,37 @@ have a table with key code, and action name
 then a strategy of taking an action and
      a. deciding where to get the arguments
      b. deciding if it is allowed
+
+profiling progress: started out about 1 sec to run when using for
+loop, got rid of that, got it down to about 0.1 sec but this is for an
+unmatched keypress, need to be faster.
+
 */
-  --raise notice 'action_key_pressed %', pkeycode;
-  for r in select * from key_control_settings where key_code = pkeycode loop
-    if exists (select 1 from client_valid_activate_actions
-        where action=r.action_name) then
-      --raise notice 'running %', r.action_name;
-      execute 'select action_' || r.action_name || '();';
-    elseif exists(select 1 from client_valid_target_actions
-            natural inner join cursor_position
-            where action = r.action_name) then
-      execute 'select action_' || r.action_name ||
+  raise log 'start action_key_pressed %', clock_timestamp();
+  select into a action_name from key_control_settings k
+    inner join client_valid_activate_actions v
+      on k.action_name = v.action
+      where key_code = pkeycode;
+  if not a is null then
+      --raise notice 'run activate: %', a;
+      execute 'select action_' || a || '();';
+  else
+    select into a action_name from key_control_settings k
+      inner join client_valid_target_actions v
+        on k.action_name = v.action
+      natural inner join cursor_position
+        where key_code = pkeycode;
+    if not a is null then
+      --raise notice 'run target: %', a;
+      execute 'select action_' || a ||
               '(' || (select x from cursor_position) ||
               ', ' || (select y from cursor_position) || ');';
-      --raise notice 'running %', r.action_name;
     else
-      --just ignore instead of raising exception
-      --raise notice 'no matches';
       null;
+   --raise notice '**************************no action for this key %', pkeycode;
     end if;
-  end loop;
+  end if;
+  raise log 'end action_key_pressed %', clock_timestamp();
 end;
 $$ language plpgsql volatile;
 
@@ -1388,7 +1401,7 @@ select add_constraint('action_client_new_game_place_valid',
 select set_relvar_type('action_client_new_game_argument', 'stack');
 
 --this calls server new game
-create function action_client_new_game() returns void as $$
+create or replace function action_client_new_game() returns void as $$
 begin
   --assert: argument has between 2 and 8 active wizards
   delete from action_new_game_argument;
@@ -1427,7 +1440,11 @@ begin
   perform init_cursor_position();
 end
 $$ language plpgsql volatile;
+
 select set_module_for_preceding_objects('client_new_game');
 
 select protect_readonly_relvars();
 select set_all_attributes_to_not_null();
+
+vacuum full;
+analyze;

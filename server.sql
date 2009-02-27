@@ -55,7 +55,7 @@ part of the tests, will check all the relvars which aren't defined in
 system.sql are tagged.
 */
 
-create function check_code_some_tags() returns boolean as $$
+create or replace function check_code_some_tags() returns boolean as $$
 declare
   r record;
   success boolean;
@@ -482,7 +482,7 @@ create domain alignment as text check (value in ('law', 'neutral', 'chaos'));
 select create_var('world_alignment', 'int');
 select set_relvar_type('world_alignment_table', 'data');
 
-create function init_world_alignment() returns void as $$ --tags: init
+create function init_world_alignment() returns void as $$
 begin
   insert into world_alignment_table values (0);
 end;
@@ -2013,6 +2013,7 @@ a phase...?
 */
 
 select create_var('dont_nest_ai_next_phase', 'bool');
+select set_relvar_type('dont_nest_ai_next_phase_table', 'stack');
 
 create function action_next_phase() returns void as $$
 declare
@@ -2064,6 +2065,7 @@ anomolies like a wizard being skipped
     elseif get_turn_phase() = 'move' then
       perform ai_move_pieces();
     end if;
+    delete from dont_nest_ai_next_phase_table;
   end if;
 
 /*
@@ -2171,7 +2173,6 @@ phase is run in this function, and all the setup runs after it is run.
 /*
 === continue
 */
-  delete from dont_nest_ai_next_phase_table;
   --if there is nothing to do in the new current phase - continue to
   --next phase automatically
   if next_phase_again then
@@ -3306,7 +3307,35 @@ $$ language plpgsql volatile;
 /*
 == helpers for piece creation and destruction
 */
-create function create_wizard(vname text, vcomputer_controlled boolean,
+
+/*
+help to speed up start game - this allows us to select 19 non unique
+random spells quicker than using order by random() limit 1 in a loop
+*/
+
+create table spell_indexes_no_dis_turm (
+  row_number serial,
+  spell_name text
+);
+select set_relvar_type('spell_indexes_no_dis_turm', 'readonly');
+
+create or replace function makeNRandoms(n int, maxi int) returns setof int as $$
+--declare
+--  randoms int [] = '{}';
+begin
+  for i in 1..n loop
+    --randoms := randoms || (random() * maxi)::int;
+    return next (random() * maxi + 0.5)::int;
+  end loop;
+  return;
+end;
+$$ language plpgsql volatile;
+
+insert into spell_indexes_no_dis_turm (spell_name)
+  select spell_name from spells_mr
+    where spell_name not in ('disbelieve', 'turmoil');
+
+create or replace function create_wizard(vname text, vcomputer_controlled boolean,
                               vplace int, x int, y int) returns void as $$
 begin
   --insert into wizards
@@ -3316,34 +3345,26 @@ begin
   perform create_piece_internal('wizard', vname, x, y, false);
   --init spell book
   -- disbelieve plus 19 {random spells not disbelieve or turmoil}
-  --todo: write a function to select a random spell with option to
-  --exclude turmoil
-  -- write an action to add a spell to a wizards spell book
-  --   to use here and for magic trees
-  -- todo: turmoil can only be received from a magic tree
-  --       - a wizard cannot start with this spell
-  if exists(select 1 from spell_books where wizard_name = vname) then
-    raise exception 'creating wizard %, spell book not empty', vname;
-  end if;
   insert into spell_books (wizard_name, spell_name)
     values (vname, 'disbelieve');
-  for i in 0..18 loop
-    insert into spell_books (wizard_name, spell_name)
-      values (vname,
-       (select spell_name from spells
-         where spell_name not in ('disbelieve', 'turmoil')
-          order by random() limit 1));
-  end loop;
-  --assert |spell_books| has increased by exactly 20
+
+  raise log 'start add_spells %', clock_timestamp();
+
+  insert into spell_books (wizard_name, spell_name)
+    select vname, spell_name
+      from spell_indexes_no_dis_turm
+      inner join makeNRandoms(19,53)
+        on row_number = makeNRandoms;
   --this check seems a bit gratuitous
   if ((select count(*) from spell_books where wizard_name = vname) != 20) then
     raise exception
-      'creating wizard %, constructed spell book doesn''t have 20 entries',
-      vname;
+      'creating wizard %, constructed spell book doesn''t have 20 entries, has %',
+      vname, (select count(*) from spell_books where wizard_name = vname);
   end if;
+
+  raise log 'end add_spells %', clock_timestamp();
 end;
 $$ language plpgsql volatile;
-
 
 create function create_object(vptype text, vallegiance text, x int, y int)
   returns void as $$
@@ -3573,7 +3594,7 @@ different boards.
 
 select new_module('new_game', 'server');
 
-create table wizard_starting_positions ( --tags: readonly
+create table wizard_starting_positions (
   wizard_count int,
   place int,
   x int,
@@ -3629,7 +3650,7 @@ copy wizard_starting_positions (wizard_count, place, x, y) from stdin;
 == new game action
 */
 
-create table action_new_game_argument ( --tags: argument
+create table action_new_game_argument (
   place int, -- place 0..cardinality
   wizard_name text,
   computer_controlled boolean
@@ -3651,6 +3672,8 @@ declare
   r record;
   t int;
 begin
+  raise log 'start action_new_game %', clock_timestamp();
+
   update creating_new_game_table set creating_new_game = true;
   --assert: all tables tagged data are in this delete list
   --(only need base table of entities since these cascade)
@@ -3687,6 +3710,7 @@ begin
   perform init_board_size();
 
   --create wizards
+  raise log 'start create_wiz %', clock_timestamp();
   for r in
     select wizard_name, computer_controlled, place, x, y
       from action_new_game_argument
@@ -3697,6 +3721,7 @@ begin
     perform create_wizard(r.wizard_name, r.computer_controlled,
                           r.place, r.x, r.y);
   end loop;
+  raise log 'end create_wiz %', clock_timestamp();
 
   --turn stuff
   perform init_turn_stuff();
@@ -3712,8 +3737,11 @@ begin
     values ('new game');
 
   update creating_new_game_table set creating_new_game = false;
+  raise log 'end action_new_game %', clock_timestamp();
+
 end
 $$ language plpgsql volatile;
+
 /*
 ================================================================================
 
@@ -3721,7 +3749,7 @@ $$ language plpgsql volatile;
 */
 --TODO: make this function dump the current game to unique file for backup
 create function setup_test_board(flavour text) returns void as $$
-declare           --tags: action, development
+declare
   i int;
   rec record;
   vwidth int;

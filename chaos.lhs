@@ -571,9 +571,9 @@ but that doesn't compile anymore, so just bodged it.
 
 update the board sprites 10 times a second to animate them
 
->     --flip timeoutAdd 1000 $ do
->     --  widgetQueueDrawArea canvas 0 0 2000 2000
->     --  return True
+>     flip timeoutAdd 1000 $ do
+>       widgetQueueDrawArea canvas 0 0 2000 2000
+>       return True
 
 >     return (frame, refresh)
 >     where
@@ -1065,7 +1065,7 @@ pause
 >                               do_ai
 >                               return False
 >                             return ()
->                       --do_ai
+>                       do_ai
 >                       return ()
 
 >                  _ -> error "key press handler got non key event"

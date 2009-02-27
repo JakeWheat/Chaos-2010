@@ -103,12 +103,11 @@ tracking down problems
 
 > timeName :: String -> IO c -> IO c
 > timeName name =
->   bracket (do
->             x <- getClockTime
->             return x)
+>   bracket getClockTime
 >           (\st -> do
 >              et <- getClockTime
->              putStrLn $ name ++ ": " ++ show (diffTimes st et))
+>              let x = diffTimes st et
+>              when (x > 50) $ putStrLn $ show x ++ " TIME " ++ name)
 >           . const
 
 

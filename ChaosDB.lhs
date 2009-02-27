@@ -59,14 +59,15 @@ and updates directly
 > import Database.HDBC  hiding (quickQuery'
 
 -- >                             ,run
--- >                             ,commit
 
->                             ,execute
->                             ,prepare
+--- >                             ,commit
+
+-- >                             ,execute
+--- >                             ,prepare
 
 -- >                             ,getColumnNames
 
->                             ,fetchAllRows'
+-- >                             ,fetchAllRows'
 
 >                             )
 
@@ -201,7 +202,7 @@ returned when no callback is supplied is a Map String String.
 >                        -> (SqlRow -> b)
 >                        -> Bool
 >                        -> IO (Maybe b)
-> selectTupleInternal conn query args callback enf = handleSqlError $ do
+> selectTupleInternal conn query args callback enf = timeName query $ handleSqlError $ do
 >   sth <- prepare conn query
 >   execute sth $ map sToSql args
 >   cn <- getColumnNames sth
@@ -244,7 +245,7 @@ IO version, this allows you to pass a callback which performs io.
 >                   -> [String]
 >                   -> (SqlRow -> IO b)
 >                   -> IO [b]
-> selectTuplesIO conn query args callback = handleSqlError $ do
+> selectTuplesIO conn query args callback = timeName query $ handleSqlError $ do
 >   sth <- prepare conn query
 >   execute sth $ map sToSql args
 >   cn <- getColumnNames sth
@@ -257,7 +258,7 @@ IO version, this allows you to pass a callback which performs io.
 >                      -> [String]
 >                      -> (SqlRow -> c)
 >                      -> IO [c]
-> selectTuplesInternal conn query args callback = handleSqlError $ do
+> selectTuplesInternal conn query args callback = timeName query $ handleSqlError $ do
 >   sth <- prepare conn query
 >   execute sth $ map sToSql args
 >   cn <- getColumnNames sth
@@ -298,7 +299,7 @@ shortcut to call a function in postgres hiding all the red tape you
 have to go through i.e. writing the arg list as ?,?,?,...
 
 > callSp :: Connection -> String -> [String] -> IO ()
-> callSp conn spName args = timeName ("callSp " ++ spName) $ handleSqlError $ do
+> callSp conn spName args = do
 >     let qs = intersperse ',' $ replicate (length args) '?'
 >     let sqlString = "select " ++ spName ++ "(" ++ qs ++ ")"
 >     quickQuery' conn sqlString $ map toSql args
@@ -338,23 +339,23 @@ call actions functions
  > commit :: (IConnection conn) => conn -> IO ()
  > commit conn = timeName "commit" $ H.commit conn
 
-> execute :: Statement -> [SqlValue] -> IO Integer
-> execute st a = if profileEm
->                  then timeName "execute" $ H.execute st a
->                  else H.execute st a
+ > execute :: Statement -> [SqlValue] -> IO Integer
+ > execute st a = if profileEm
+ >                  then timeName "execute" $ H.execute st a
+ >                  else H.execute st a
 
-> prepare :: (IConnection conn) => conn -> String -> IO Statement
-> prepare conn q = if profileEm
->                    then timeName ("prepare " ++ q) $ H.prepare conn q
->                    else H.prepare conn q
+ > prepare :: (IConnection conn) => conn -> String -> IO Statement
+ > prepare conn q = if profileEm
+ >                    then timeName ("prepare " ++ q) $ H.prepare conn q
+ >                    else H.prepare conn q
 
  > getColumnNames :: Statement -> IO [String]
  > getColumnNames st = timeName "getColumnNames" $ H.getColumnNames st
 
-> fetchAllRows' :: Statement -> IO [[SqlValue]]
-> fetchAllRows' st = if profileEm
->                      then timeName "fetchAllRows'" $ H.fetchAllRows' st
->                      else H.fetchAllRows st
+ > fetchAllRows' :: Statement -> IO [[SqlValue]]
+ > fetchAllRows' st = if profileEm
+ >                      then timeName "fetchAllRows'" $ H.fetchAllRows' st
+ >                      else H.fetchAllRows st
 
 > profileEm :: Bool
 > profileEm = True
