@@ -84,7 +84,26 @@ and updates directly
 > type SqlRow = M.Map String String
 
 > withConn :: String -> (Connection -> IO c) -> IO c
-> withConn cs = bracket (connectPostgreSQL cs) disconnect
+> withConn cs f = bracket (connectPostgreSQL cs) disconnect
+>                   (\conn -> do
+>                     runSql conn "update pg_settings\n\
+>                                 \  set setting=true\n\
+>                                 \  where name='log_duration'" []
+>                     runSql conn "update pg_settings\n\
+>                                 \  set setting='all'\n\
+>                                 \  where name='log_statement'" []
+>                     runSql conn "update pg_settings\n\
+>                                 \  set setting='1'\n\
+>                                 \  where name='log_min_duration_statement'" []
+>                     f conn)
+
+log_min_duration_statement
+update pg_settings
+  set setting=true
+  where name='log_duration';
+update pg_settings
+  set setting='all'
+  where name='log_statement';
 
 > lg :: String -> String -> IO c -> IO c
 > lg l m = Logging.pLog ("chaos.ChaosDB." ++ l) m

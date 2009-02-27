@@ -577,7 +577,7 @@ but that doesn't compile anymore, so just bodged it.
 
 update the board sprites 10 times a second to animate them
 
->     flip timeoutAdd 1000 $ do
+>     flip timeoutAdd 100 $ do
 >       widgetQueueDrawArea canvas 0 0 2000 2000
 >       return True
 
@@ -800,7 +800,9 @@ text box instead of redrawing them all
 
 >   let refresh = lg "actionHistoryWidgetNew.refresh" "" $ do
 >         is <- items lastHistoryIDBox
->         D.run conn [is] >>= render tv
+>         r <- D.run conn [is]
+>         writeText r
+>         render tv r
 >         textViewScrollToBottom tv
 >
 >   return (tv, refresh)
@@ -858,7 +860,11 @@ text box instead of redrawing them all
 >                      [Text "the game is a draw."]
 >                  _ -> [Text $ lk "history_name" h ++ " FIXME"]
 >       defG c = if c == "" then "grey" else c
-
+>       writeText is = mapM_ writeItem is
+>       writeItem i = case i of
+>                     Text t -> putStr t
+>                     TaggedText t _ -> putStr t
+>                     _ -> return ()
 
 ================================================================================
 
@@ -1041,17 +1047,19 @@ lookup which contains the widget and refresh functions
 >                           --mapM_ (\(n,(_,r)) -> do
 >                           --       putStrLn $ "call " ++ n
 >                           --       r) widgetData'
->                         else
+>                         else do
 
 Until the notify stuff is working just do a full refresh after every
 action as a kludge
 
 >                           --mapM_ (\(_,(_,r)) -> r) widgetData'
 
-Just updating the board for now, it's so slooowwww.
+Just updating the board and history for now, it's so slooowwww.
 
 >                           let (_,r) = fromJust $ lookup "board" widgetData'
->                           in r
+>                           r
+>                           let (_,r1) = fromJust $ lookup "action_history" widgetData'
+>                           r1
 
 Bit hacky, if we just ran the next_phase action, and the current
 wizard is computer controlled, then run next phase again after a small
@@ -1064,15 +1072,17 @@ pause
 >                                   \inner join current_wizard_table\n\
 >                                   \  on wizard_name = current_wizard" []
 >                           when (read cc::Bool) $ do
->                             flip timeoutAdd 2000 $ do
+>                             flip timeoutAdd 1000 $ do
 >                               dbAction conn "key_pressed" ["space"]
 >                               let (_,r) = fromJust $ lookup
 >                                                        "board" widgetData'
 >                               r
+>                               let (_,r1) = fromJust $ lookup "action_history" widgetData'
+>                               r1
 >                               do_ai
 >                               return False
 >                             return ()
->                       do_ai
+>                       when (key == "space") do_ai
 >                       return ()
 
 >                  _ -> error "key press handler got non key event"

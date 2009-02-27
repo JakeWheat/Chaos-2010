@@ -183,6 +183,9 @@ create view monster_prototypes as
     from piece_prototypes_mr
     where undead is not null and ridable is not null;
 
+create view object_piece_types as
+  select ptype from piece_prototypes_mr where speed is null;
+
 create view ridable_prototypes as
   select ptype from piece_prototypes_mr
     where ridable;
@@ -745,16 +748,11 @@ select pp.ptype,
     on pp.ptype='wizard'
   where p.ptype = 'wizard';
 
-create view imaginary_or_not_pieces as
-select ptype,allegiance,tag,x,y,true as imaginary
-  from pieces
-  natural inner join imaginary_pieces
-union
-select ptype,allegiance,tag,x,y,false as imaginary
-  from pieces
-  where (ptype,allegiance,tag) not in
-    (select ptype,allegiance,tag from imaginary_pieces);
-
+-- create view imaginary_or_not_pieces as
+-- select ptype,allegiance,tag,x,y,coalesce(imaginary,false) as imaginary
+--   from pieces
+--   natural left outer join (select *,true as imaginary
+--                            from imaginary_pieces) as a;
 
 create or replace view pieces_mr as
 select ptype,
@@ -762,7 +760,8 @@ select ptype,
        tag,
        x,
        y,
-       imaginary,
+       coalesce(imaginary,case when not ridable is null then false
+                               else null end) as imaginary,
        flying,
        speed,
        agility,
@@ -774,30 +773,15 @@ select ptype,
        attack_strength,
        physical_defense,
        magic_defense
-        from imaginary_or_not_pieces
+  from pieces
   natural inner join piece_prototypes_mr
-  natural left outer join
-      (select *,true as raised from crimes_against_nature) as a
+  natural left outer join (select *,true as imaginary
+                           from imaginary_pieces) as a
+  natural left outer join (select *,true as raised
+                           from crimes_against_nature) as b
   where ptype <> 'wizard'
 union
-select ptype,
-       allegiance,
-       tag,
-       x,
-       y,
-       imaginary,
-       flying,
-       speed,
-       agility,
-       undead,
-       ridable,
-       ranged_weapon_type,
-       range,
-       ranged_attack_strength,
-       attack_strength,
-       physical_defense,
-       magic_defense
-from wizard_upgrade_stats;
+select * from wizard_upgrade_stats;
 
 create view creature_pieces as
   select ptype,allegiance,tag,x,y,
@@ -811,10 +795,11 @@ create view monster_pieces as
   select ptype,allegiance,tag,x,y,
     flying,speed,agility,
     undead,ridable,imaginary
-  from creature_pieces
-  natural inner join pieces_mr
-  natural inner join imaginary_or_not_pieces
-  where undead is not null
+  from pieces_mr
+  where flying is not null
+    and speed is not null
+    and agility is not null
+    and undead is not null
     and ridable is not null;
 
 create view attacking_pieces as
@@ -1512,32 +1497,16 @@ The pieces_on_top view also determines what sprite is shown in a
 square in the ui
 
 */
-create view object_piece_types
-  as select ptype from piece_prototypes except
-     select ptype from creature_prototypes;
 
---now to create a view of pieces with the ptype for dead monsters
---replaced with 'dead'
-
-create view dead_monster_pieces as
-  select ptype,allegiance,tag,x,y from monster_pieces
-    where allegiance = 'dead';
-
---Views for on top pieces
-create view piece_on_top_priority as
-  select 0 as sp, ptype as pptype from object_piece_types as x union
-  select 1 as sp, ptype as pptype from monster_prototypes union
-  select 2 as sp, 'wizard' as pptype union
-  select 3 as sp, 'dead' as pptype;
-
-create view pieces_with_priorities as
-  select * from
-  ((select ptype, allegiance, tag, x, y, ptype as pptype from pieces
-    except select ptype, allegiance, tag, x, y, ptype as pptype
-    from dead_monster_pieces)
-  union
-  select ptype, allegiance, tag, x, y, 'dead' as pptype from dead_monster_pieces
-  ) as a natural inner join piece_on_top_priority;
+create or replace view pieces_with_priorities as
+  select ptype,allegiance,tag,x,y,
+    case
+      when allegiance='dead' then 3
+      when ptype='wizard' then 2
+      when ptype in (select ptype from monster_prototypes) then 1
+      else 0
+    end as sp
+    from pieces;
 
 --restrict this view taking only the top piece from each square to get
 --the final result
@@ -1569,12 +1538,19 @@ combined with all the wizards even if they are not on top.
 This is finished off using the pieces_to_move relvar.
 
 */
-create view selectable_piece_with_squares as
-  select x, y, ptype, allegiance, tag, sp from pieces_on_top
-  union
-  -- set the wizard's sp to -1 so they always get priority
-  select x, y, ptype, allegiance, tag, -1 from pieces
-    where ptype = 'wizard';
+create view moving_pieces as
+  select ptype, allegiance, tag,x,y from pieces_mr
+    where speed is not null
+      or attack_strength is not null
+      or ranged_attack_strength is not null;
+
+create view selectable_pieces_with_priorities as
+  select ptype,allegiance,tag,x,y,
+    case
+      when ptype='wizard' then 0
+      else 1
+    end as sp
+    from moving_pieces;
 
 /*
 
@@ -1612,13 +1588,6 @@ create view empty_squares as
   except
   select x,y from pieces;
 
-create view moving_pieces as
-  select ptype, allegiance, tag from pieces_mr
-    where speed is not null
-      or attack_strength is not null
-      or ranged_attack_strength is not null;
-
-
 -- this view contains all the squares containing corpses
 --create view corpse_squares as
 --  select x,y from monster_pieces where dead;
@@ -1646,11 +1615,11 @@ create view mount_or_enter_squares as
 -- this view contains all the squares which are exactly one square
 -- away from a tree (doesn't include the tree squares themselves)
 create view adjacent_to_tree_squares as
-  select tx as x, ty as y from
-    board_ranges natural inner join
-    pieces natural inner join
-    object_piece_types where ptype ~ '.*tree'
-    and range = 1;
+  select tx as x, ty as y
+    from board_ranges
+    natural inner join pieces
+    where ptype ~ '.*tree'
+      and range = 1;
 --
 create view empty_and_not_adjacent_to_tree_squares as
   select * from empty_squares
@@ -1737,7 +1706,7 @@ create view current_wizard_spell_squares as
 -- whether there is a selected piece or not
 
 create view selectable_pieces as
-  select distinct on (x,y) * from selectable_piece_with_squares
+  select distinct on (x,y) * from selectable_pieces_with_priorities
   natural inner join pieces_to_move
   where not exists(select 1 from selected_piece)
   order by x,y,sp;
@@ -1867,10 +1836,12 @@ create view valid_target_actions as
 select * from (
 --target spells
 select x,y, 'cast_target_spell'::text as action
-  from current_wizard_spell_squares
-  where get_turn_phase() = 'cast'
+  from turn_phase_table
+  cross join current_wizard_spell_squares
+  where turn_phase = 'cast'
 --selecting a piece
 union
+select x,y,action from (
 select x,y, 'select_piece_at_position':: text as action
   from selectable_pieces
 --walking
@@ -1893,6 +1864,8 @@ select x,y, 'attack'::text as action
 union
 select x,y, 'ranged_attack'::text as action
   from selected_piece_ranged_attackable_squares
+)as s1
+where get_turn_phase()='move'
 ) as s
 where not exists (select 1 from game_completed_table);
 
@@ -2229,6 +2202,10 @@ begin
       update wizard_spell_choices_mr
         set imaginary = false
         where wizard_name = get_current_wizard();
+    else
+      update wizard_spell_choices_mr
+        set imaginary = null
+        where wizard_name = get_current_wizard();
     end if;
   end if;
   insert into action_history_mr (history_name, wizard_name, spell_name)
@@ -2307,10 +2284,8 @@ begin
   perform check_can_run_action('cast_target_spell', px, py);
 
   if not check_spell_success() then
-    --raise notice 'access denied';
     return;
   end if;
-  --raise notice 'continuing with cast';
 
   if exists(select 1 from current_wizard_spell
       natural inner join monster_spells) then
@@ -2664,20 +2639,14 @@ $$ language plpgsql volatile;
 
 
 create function cast_monster_spell(x int, y int) returns void as $$
-declare
-  t boolean;
 begin
-  t := (select imaginary
-      from wizard_spell_choices_imaginary
-      where wizard_name = get_current_wizard());
-
   perform create_monster(
     (select ptype from current_wizard_spell
       natural inner join summon_spells),
-    get_current_wizard(), x, y, (
+    get_current_wizard(), x, y, coalesce((
       select imaginary
       from wizard_spell_choices_imaginary
-      where wizard_name = get_current_wizard()));
+      where wizard_name = get_current_wizard()),false));
   perform add_spell_history();
 end;
 $$ language plpgsql volatile;
@@ -2687,7 +2656,6 @@ begin
   -- if already checked then return true
   if (select cast_success_checked
     from cast_success_checked_table) then
-    --raise notice 'already';
     return true;
   end if;
 
@@ -2695,7 +2663,6 @@ begin
   if (select coalesce(imaginary, false)
     from wizard_spell_choices_mr
     natural inner join current_wizard) then
-    --raise notice 'imaginary';
     return true;
   end if;
 
@@ -2703,11 +2670,9 @@ begin
        (select chance
         from spell_cast_chance
         natural inner join current_wizard_spell)) then
-     --raise notice 'fail';
      perform action_cast_failed();
      return false;
   else
-     --raise notice 'success';
      update cast_success_checked_table
        set cast_success_checked = true;
      return true;
@@ -2866,14 +2831,12 @@ begin
     select into r * from get_square_range(wx, wy, range)
       where index = pos_in_square;
 --    s := 'checking ' || ip.x || ',' || ip.y;
-    --raise notice 'checking %,%', ip.x, ip.y;
     if exists(select 1 from cast_magic_wood_available_squares
        where (x,y) = (r.x, r.y)) then
-       --raise notice 'yes';
        insert into cast_magic_wood_squares(x,y) values (r.x, r.y);
        casted := casted + 1;
     else
-       --raise notice 'no';
+      null;
     end if;
     if pos_in_square = max_pos_in_square then
       range := range + 1;
@@ -3115,7 +3078,6 @@ declare
   def int;
 begin
   perform check_can_run_action('ranged_attack', px, py);
-  --raise notice 'actrange';
 
   att := (select ranged_attack_strength
          from ranged_weapon_pieces
@@ -3348,8 +3310,6 @@ begin
   insert into spell_books (wizard_name, spell_name)
     values (vname, 'disbelieve');
 
-  raise log 'start add_spells %', clock_timestamp();
-
   insert into spell_books (wizard_name, spell_name)
     select vname, spell_name
       from spell_indexes_no_dis_turm
@@ -3362,7 +3322,6 @@ begin
       vname, (select count(*) from spell_books where wizard_name = vname);
   end if;
 
-  raise log 'end add_spells %', clock_timestamp();
 end;
 $$ language plpgsql volatile;
 
@@ -3431,7 +3390,7 @@ begin
     returning tag into vtag;
 
   insert into imaginary_pieces (ptype,allegiance,tag)
-    select vptype,vallegiance,vtag where vimaginary;
+    select vptype,vallegiance,vtag where coalesce(vimaginary,false);
 end
 $$ language plpgsql volatile;
 
@@ -3481,7 +3440,6 @@ $$ language plpgsql volatile;
 create function kill_wizard(pwizard_name text) returns void as $$
 begin
 --if current wizard then next_wizard
-  --raise notice 'kill: % (%)', get_current_wizard(), pwizard_name;
   if get_current_wizard() = pwizard_name then
     perform action_next_phase();
     --check if this is the last wizard, slightly hacky
@@ -3491,14 +3449,12 @@ begin
         values ('game drawn');
       delete from current_wizard_table;
     end if;
-    --raise notice 'new current wizard %', get_current_wizard();
   end if;
 --wipe spell book
   delete from spell_books where wizard_name  = pwizard_name;
 --kill army
   perform disintegrate_wizards_army(pwizard_name);
 --set expired to true
-  ---raise notice 'kill: %', get_current_wizard();
   update wizards set expired = true
     where wizard_name = pwizard_name;
 end;
@@ -3507,7 +3463,6 @@ $$ language plpgsql volatile;
 create function kill_piece(pk piece_key)
   returns void as $$
 begin
-  --raise notice 'kill';
   if (select coalesce(undead,false) from pieces_mr
     where (ptype, allegiance, tag)::piece_key = pk) or
     exists(select 1 from object_piece_types
@@ -3672,7 +3627,6 @@ declare
   r record;
   t int;
 begin
-  raise log 'start action_new_game %', clock_timestamp();
 
   update creating_new_game_table set creating_new_game = true;
   --assert: all tables tagged data are in this delete list
@@ -3710,7 +3664,6 @@ begin
   perform init_board_size();
 
   --create wizards
-  raise log 'start create_wiz %', clock_timestamp();
   for r in
     select wizard_name, computer_controlled, place, x, y
       from action_new_game_argument
@@ -3721,7 +3674,6 @@ begin
     perform create_wizard(r.wizard_name, r.computer_controlled,
                           r.place, r.x, r.y);
   end loop;
-  raise log 'end create_wiz %', clock_timestamp();
 
   --turn stuff
   perform init_turn_stuff();
@@ -3737,7 +3689,6 @@ begin
     values ('new game');
 
   update creating_new_game_table set creating_new_game = false;
-  raise log 'end action_new_game %', clock_timestamp();
 
 end
 $$ language plpgsql volatile;

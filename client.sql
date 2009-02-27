@@ -503,19 +503,20 @@ sprite is 'sprite', sprite priority is sp.
 */
 create view piece_sprite as
   select x, y, ptype, sprite, colour, tag, allegiance
-    from pieces inner join
-    wizard_sprites on (allegiance = wizard_name)
+    from pieces
+    inner join wizard_sprites
+    on (allegiance = wizard_name)
       where ptype = 'wizard'
   union
   select x, y, ptype, 'dead_' || ptype as sprite, colour, tag, allegiance
-    from dead_monster_pieces
+    from pieces
     natural inner join allegiance_colours
+    where allegiance='dead'
   union
-  select x, y, ptype, ptype as sprite, colour, tag, allegiance from
-    (select * from pieces where ptype != 'wizard'
-     except
-     select * from dead_monster_pieces) as a
-    natural inner join allegiance_colours;
+  select x, y, ptype, ptype as sprite, colour, tag, allegiance
+    from pieces
+    natural inner join allegiance_colours
+    where ptype <> 'wizard' and allegiance <> 'dead';
 
 /*
 == highlights
@@ -581,7 +582,7 @@ put the piece sprites, the highlight and the cursor
 together to give the full list of sprites
 
 */
-create view board_sprites as
+create or replace view board_sprites as
   select x,y,ptype,allegiance,tag,
     sprite,colour,sp,start_frame, animation_speed
     from piece_sprite
@@ -590,12 +591,12 @@ create view board_sprites as
   natural inner join sprites
 union
 select x,y, '', '', -1,'cursor', 'white', 6,0, animation_speed
-from cursor_position
- inner join sprites on sprite='cursor'
+  from cursor_position
+  inner join sprites on sprite='cursor'
 union
 select x,y, '', '', -1, sprite, 'white', 5,0, animation_speed
-from board_highlights
-natural inner join sprites
+  from board_highlights
+  natural inner join sprites
 order by sp;
 
 /*
@@ -1029,7 +1030,6 @@ $$ language plpgsql volatile;
 create or replace function action_client_new_game_using_new_game_widget_state()
   returns void as $$
 begin
-  --raise notice 'ngws start %', clock_timestamp();
   delete from action_client_new_game_argument;
   insert into action_client_new_game_argument
     (place, wizard_name, sprite, colour, computer_controlled)
@@ -1039,7 +1039,6 @@ begin
       from new_game_widget_state
       where state != 'none';
   perform action_client_new_game();
-  --raise notice 'ngws end %', clock_timestamp();
 end
 $$ language plpgsql volatile;
 
@@ -1207,13 +1206,11 @@ loop, got rid of that, got it down to about 0.1 sec but this is for an
 unmatched keypress, need to be faster.
 
 */
-  raise log 'start action_key_pressed %', clock_timestamp();
   select into a action_name from key_control_settings k
     inner join client_valid_activate_actions v
       on k.action_name = v.action
       where key_code = pkeycode;
   if not a is null then
-      --raise notice 'run activate: %', a;
       execute 'select action_' || a || '();';
   else
     select into a action_name from key_control_settings k
@@ -1222,16 +1219,13 @@ unmatched keypress, need to be faster.
       natural inner join cursor_position
         where key_code = pkeycode;
     if not a is null then
-      --raise notice 'run target: %', a;
       execute 'select action_' || a ||
               '(' || (select x from cursor_position) ||
               ', ' || (select y from cursor_position) || ');';
     else
       null;
-   --raise notice '**************************no action for this key %', pkeycode;
     end if;
   end if;
-  raise log 'end action_key_pressed %', clock_timestamp();
 end;
 $$ language plpgsql volatile;
 
