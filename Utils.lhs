@@ -8,7 +8,7 @@ didn't find them.
 > module Utils (applyMany,
 >               findAllFiles,
 >               time,
->               timeName,
+>               --timeName,
 >               updateLookup,
 >               hasKey,
 >               safeLookup,
@@ -93,22 +93,22 @@ tracking down problems
 >              putStrLn $ "time taken: " ++ timeDiffToString tdiff)
 >           . const
 
-> diffTimes :: ClockTime -> ClockTime -> Integer
-> diffTimes (TOD sts stps) (TOD ets etps) = (ets * 1000 + div109 etps) -
->                                           (sts * 1000 + div109 stps)
->                                           where
->                                             div109 a = a `div`
->                                                ((10::Integer) ^ (9::Integer))
+ > diffTimes :: ClockTime -> ClockTime -> Integer
+ > diffTimes (TOD sts stps) (TOD ets etps) = (ets * 1000 + div109 etps) -
+ >                                           (sts * 1000 + div109 stps)
+ >                                           where
+ >                                             div109 a = a `div`
+ >                                                ((10::Integer) ^ (9::Integer))
 
 
-> timeName :: String -> IO c -> IO c
-> timeName name =
->   bracket getClockTime
->           (\st -> do
->              et <- getClockTime
->              let x = diffTimes st et
->              when (x > 50) $ putStrLn $ show x ++ " TIME " ++ name)
->           . const
+ > timeName :: String -> IO c -> IO c
+ > timeName name =
+ >   bracket getClockTime
+ >           (\st -> do
+ >              et <- getClockTime
+ >              let x = diffTimes st et
+ >              when (x > 50) $ putStrLn $ show x ++ " TIME " ++ name)
+ >           . const
 
 
 > for :: [a] -> (a -> b) -> [b]

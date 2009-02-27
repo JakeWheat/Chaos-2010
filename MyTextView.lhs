@@ -15,6 +15,7 @@ textbuffer contents using pure/ non-imperative code.
 > import Data.Maybe
 > import Utils
 > import GtkUtils
+> import qualified Logging
 
 == text view utils
 
@@ -104,7 +105,7 @@ See chaos.lhs for examples of use.
 > type ButtonCallback = IO()
 
 > render :: TextView -> [Item] -> IO ()
-> render tv irl = timeName "mtvrender" $ do
+> render tv irl = Logging.pLog "chaos.MyTextView.render" "" $ do
 >   tb <- textViewGetBuffer tv
 >   let renderIt i = case i of
 >                      Text s -> textBufferInsertAtCursor tb s

@@ -119,6 +119,7 @@ to find a way of testing the database constraints themselves).
 > import ChaosDB
 > import Conf
 > import Utils
+> import qualified Logging
 
 ================================================================================
 
@@ -128,6 +129,7 @@ Run all the tests.
 
 > main :: IO ()
 > main = time $ do
+>   Logging.setupLogging
 >   conf <- getConfig
 >   withConn ("host=localhost dbname=" ++
 >             dbName conf ++ " user=" ++ username conf ++

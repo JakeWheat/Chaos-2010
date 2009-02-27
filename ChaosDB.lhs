@@ -62,12 +62,13 @@ and updates directly
 
 --- >                             ,commit
 
--- >                             ,execute
+>                             ,execute
+
 --- >                             ,prepare
 
 -- >                             ,getColumnNames
 
--- >                             ,fetchAllRows'
+>                             ,fetchAllRows'
 
 >                             )
 
@@ -78,11 +79,15 @@ and updates directly
 > import Data.Maybe
 > import Control.Exception
 > import Utils hiding (run)
+> import qualified Logging
 
 > type SqlRow = M.Map String String
 
 > withConn :: String -> (Connection -> IO c) -> IO c
 > withConn cs = bracket (connectPostgreSQL cs) disconnect
+
+> lg :: String -> String -> IO c -> IO c
+> lg l m = Logging.pLog ("chaos.ChaosDB." ++ l) m
 
 == notify listeners
 
@@ -148,7 +153,8 @@ just return the value
 > selectValueInternal :: (IConnection conn) =>
 >                        conn  -> String -> [String] -> (String -> b) ->
 >                        Bool -> IO (Maybe b)
-> selectValueInternal conn query args callback enf = handleSqlError $ do
+> selectValueInternal conn query args callback enf =
+>   lg "selectValueInternal" query $ handleSqlError $ do
 >   r <- quickQuery' conn query $ map sToSql args
 >   case length r of
 >     0 -> if enf
@@ -202,7 +208,8 @@ returned when no callback is supplied is a Map String String.
 >                        -> (SqlRow -> b)
 >                        -> Bool
 >                        -> IO (Maybe b)
-> selectTupleInternal conn query args callback enf = timeName query $ handleSqlError $ do
+> selectTupleInternal conn query args callback enf =
+>   lg "selectTupleInternal" query $ handleSqlError $ do
 >   sth <- prepare conn query
 >   execute sth $ map sToSql args
 >   cn <- getColumnNames sth
@@ -245,7 +252,8 @@ IO version, this allows you to pass a callback which performs io.
 >                   -> [String]
 >                   -> (SqlRow -> IO b)
 >                   -> IO [b]
-> selectTuplesIO conn query args callback = timeName query $ handleSqlError $ do
+> selectTuplesIO conn query args callback =
+>   lg "selectTuplesIO" query $ handleSqlError $ do
 >   sth <- prepare conn query
 >   execute sth $ map sToSql args
 >   cn <- getColumnNames sth
@@ -258,7 +266,8 @@ IO version, this allows you to pass a callback which performs io.
 >                      -> [String]
 >                      -> (SqlRow -> c)
 >                      -> IO [c]
-> selectTuplesInternal conn query args callback = timeName query $ handleSqlError $ do
+> selectTuplesInternal conn query args callback =
+>   lg "selectTuplesInternal" query $ handleSqlError $ do
 >   sth <- prepare conn query
 >   execute sth $ map sToSql args
 >   cn <- getColumnNames sth
@@ -299,7 +308,7 @@ shortcut to call a function in postgres hiding all the red tape you
 have to go through i.e. writing the arg list as ?,?,?,...
 
 > callSp :: Connection -> String -> [String] -> IO ()
-> callSp conn spName args = do
+> callSp conn spName args = lg "callSp" spName $ do
 >     let qs = intersperse ',' $ replicate (length args) '?'
 >     let sqlString = "select " ++ spName ++ "(" ++ qs ++ ")"
 >     quickQuery' conn sqlString $ map toSql args
@@ -309,7 +318,7 @@ have to go through i.e. writing the arg list as ?,?,?,...
 ==== runSql
 
 > runSql :: Connection -> String -> [String] -> IO ()
-> runSql conn query args = handleSqlError $ do
+> runSql conn query args = lg "runSql" query $ handleSqlError $ do
 >   run conn query $ map toSql args
 >   commit conn
 
@@ -320,29 +329,19 @@ separate from the callsp function since this code should only ever
 call actions functions
 
 > dbAction :: Connection -> String -> [String] -> IO ()
-> dbAction conn actionName args = handleSqlError $ do
+> dbAction conn actionName args = lg "dbAction" actionName $ handleSqlError $ do
 >   callSp conn ("action_" ++ actionName) args
 >   commit conn
 
 > quickQuery' :: (IConnection conn) =>
 >                   conn -> String -> [SqlValue] -> IO [[SqlValue]]
-> quickQuery' conn q a = if profileEm
->                          then timeName ("query " ++ q) $ H.quickQuery' conn q a
->                          else H.quickQuery' conn q a
-
-
-
- > run :: (IConnection conn) =>
- >        conn -> String -> [SqlValue] -> IO Integer
- > run conn q a = timeName ("run " ++ q) $ H.run conn q a
+> quickQuery' conn q a = lg "quickQuery'" q $ H.quickQuery' conn q a
 
  > commit :: (IConnection conn) => conn -> IO ()
  > commit conn = timeName "commit" $ H.commit conn
 
- > execute :: Statement -> [SqlValue] -> IO Integer
- > execute st a = if profileEm
- >                  then timeName "execute" $ H.execute st a
- >                  else H.execute st a
+> execute :: Statement -> [SqlValue] -> IO Integer
+> execute st a = lg "execute" "" $ H.execute st a
 
  > prepare :: (IConnection conn) => conn -> String -> IO Statement
  > prepare conn q = if profileEm
@@ -352,10 +351,5 @@ call actions functions
  > getColumnNames :: Statement -> IO [String]
  > getColumnNames st = timeName "getColumnNames" $ H.getColumnNames st
 
- > fetchAllRows' :: Statement -> IO [[SqlValue]]
- > fetchAllRows' st = if profileEm
- >                      then timeName "fetchAllRows'" $ H.fetchAllRows' st
- >                      else H.fetchAllRows st
-
-> profileEm :: Bool
-> profileEm = True
+> fetchAllRows' :: Statement -> IO [[SqlValue]]
+> fetchAllRows' st = lg "fetchAllRows'" "" $ H.fetchAllRows st

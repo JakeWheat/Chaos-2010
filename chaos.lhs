@@ -88,24 +88,25 @@ move
 > import qualified Data.Map as M
 > import qualified Data.Char as DC
 > import Numeric
-> --import Data.Word
-> --import System.Directory
 > import Control.Monad
 > import System.FilePath
 > import Data.Maybe
 > import Data.IORef
-> import ChaosDB
 > import System.Time
 > import Text.Regex.Posix
-> import qualified DBAdmin as DBAdmin
 > import System.Environment
+> import Control.Concurrent
+> --import System.Log.Logger
+
+> import ChaosDB
+> import qualified DBAdmin as DBAdmin
 > import GtkUtils
 > import qualified Conf as Conf
 > import Utils
 > import FileAdmin
-> import Control.Concurrent
 > import MyTextView
 > import qualified DBTextView as D
+> import qualified Logging
 
 ================================================================================
 
@@ -117,6 +118,7 @@ all that main needs to do is call this and call the two gtk init actions
 
 > main :: IO ()
 > main = do
+>  Logging.setupLogging
 >  conf <- Conf.getConfig
 >  args <- getArgs
 >  case True of
@@ -159,6 +161,10 @@ todo: if cannot connect to database give info to this effect
 >              windowManagerNew conn
 >              mainGUI)
 
+> lg :: String -> String -> IO c -> IO c
+> lg l m = Logging.pLog ("chaos.chaos." ++ l) m
+
+
 ================================================================================
 
 = Info Widget
@@ -176,7 +182,7 @@ piece info for selected piece
 > infoWidgetNew conn colours spriteMap = do
 >   tv <- myTextViewNew colours
 >   buf <- textViewGetBuffer tv
->   let refresh = timeName "info refresh" $ do
+>   let refresh = lg "infoWidgetNew.refresh" "" $ do
 >         textBufferClear buf
 >         mapM_ (\items -> D.run conn items >>= render tv)
 >               [turnPhaseInfo
@@ -541,7 +547,7 @@ Draw the board sprites from the saved board
 hook things up the the expose event
 
 >     onExpose canvas
->              (\_ -> timeName "board expose" $ do
+>              (\_ -> lg "boardWidgetNew.onExpose" "" $ do
 >                        (w,h) <- widgetGetSize canvas
 >                        drawin <- widgetGetDrawWindow canvas
 >                        renderWithDrawable drawin
@@ -560,7 +566,7 @@ but that doesn't compile anymore, so just bodged it.
 >           drawWindowInvalidateRegion win reg True
 >           drawWindowProcessUpdates win True
 
->     let refresh = timeName "board refresh" $ do
+>     let refresh = lg "boardWidgetNew.refresh" "" $ do
 >           --update the frame positions
 >           f <- getFrames
 >           dbAction conn "update_missing_startframes" [show f]
@@ -631,7 +637,7 @@ red 10-20
 > spellBookWidgetNew conn colours spriteMap = do
 >   tv <- myTextViewNew colours
 >   buf <- textViewGetBuffer tv
->   let refresh = timeName "spell book refresh" $
+>   let refresh = lg "spellBookWidgetNew.refresh" "" $
 >         textBufferClear buf >>
 >         D.run conn items >>= render tv
 >   return (tv, refresh)
@@ -704,7 +710,7 @@ new game widget:
 >   tv <- myTextViewNew colours
 >   buf <- textViewGetBuffer tv
 >
->   let refresh = timeName "new game refresh" $ do
+>   let refresh = lg "newGameWidgetNew.refresh" "" $ do
 
 first check the new_game_widget_state relvar
 
@@ -792,7 +798,7 @@ text box instead of redrawing them all
 
 >   lastHistoryIDBox <- newIORef (-1::Integer)
 
->   let refresh = timeName "action history refresh" $ do
+>   let refresh = lg "actionHistoryWidgetNew.refresh" "" $ do
 >         is <- items lastHistoryIDBox
 >         D.run conn [is] >>= render tv
 >         textViewScrollToBottom tv
@@ -1001,7 +1007,7 @@ setup the handler so that clicking the button toggles the window visibility
 >                                               "update windows set state='hidden'\n\
 >                                      \where window_name=?;" [name])
 >                          ,Text "\n"]
->         refresh = timeName "window manger refresh" $ do
+>         refresh = lg "windowManagerNew.refresh" "" $ do
 >           textBufferClear buf
 >           D.run conn [items] >>= render wm
 
@@ -1020,7 +1026,8 @@ lookup which contains the widget and refresh functions
 
 == Key press handling
 
->     let handleKeyPress e =  timeName "handle keypress" $ do
+>     let handleKeyPress e = Logging.pLog "chaos.chaos.windowManagerNew.\
+>                                         \handleKeyPress" "" $ do
 >           case e of
 >                  Key { eventKeyName = key } -> do
 >                       --putStrLn ("Key pressed: " ++ key)
