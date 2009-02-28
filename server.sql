@@ -1605,20 +1605,13 @@ create view empty_or_corpse_only_squares as
   union
   select * from corpse_only_squares;
 
-create view mount_or_enter_squares as
-  select x,y,allegiance from pieces
-    natural inner join
-      (select ptype from enterable_piece_types
-       union
-       select ptype from ridable_prototypes) as a;
-
 -- this view contains all the squares which are exactly one square
 -- away from a tree (doesn't include the tree squares themselves)
 create view adjacent_to_tree_squares as
   select tx as x, ty as y
     from board_ranges
     natural inner join pieces
-    where ptype ~ '.*tree'
+    where ptype in ('magic_tree', 'shadow_tree')
       and range = 1;
 --
 create view empty_and_not_adjacent_to_tree_squares as
@@ -1663,23 +1656,24 @@ create view spell_valid_squares as
 --for the current wizard's current spell, not taking into
 --account the wizard's position and the spell's range.
 create view current_wizard_spell_type_squares as
-  select x,y from
-    (select x,y from wizard_spell_choices
+  select x,y from wizard_spell_choices
        inner join current_wizard_table on (wizard_name = current_wizard)
        natural inner join spell_valid_square_types
-       natural inner join spell_valid_squares) as a;
+       natural inner join spell_valid_squares;
 
 --rewrote joining to board_ranges as a where for speed purposes
 create view current_wizard_spell_range_squares as
-  select tx as x, ty as y from
-    board_ranges where (x,y,range) =
-    (select x, y, range from pieces
-    inner join current_wizard_table
-    on (allegiance = current_wizard)
-    inner join wizard_spell_choices on (wizard_name = current_wizard)
-    natural inner join spell_ranges
-    where ptype = 'wizard');
-
+  select tx as x, ty as y
+  from board_ranges
+  where (x,y,range) =
+       (select x, y, range
+          from pieces
+          inner join current_wizard_table
+            on (allegiance = current_wizard)
+          inner join wizard_spell_choices
+            on (wizard_name = current_wizard)
+          natural inner join spell_ranges
+          where ptype = 'wizard');
 
 --this view contains all the squares which are valid targets
 -- for the current wizard's current spell
@@ -1695,97 +1689,85 @@ create view current_wizard_spell_squares as
     inner join current_wizard_table
     on (allegiance = current_wizard) where ptype='wizard';
 
---this view lists all the squares which have pieces which can be
---selected. It is empty when:
---  not in move phase
---  there is a currently selected piece
---  the current wizard has no pieces left to select
--- the pieces to move only has entries for
--- the current wizard who's moving, else it's empty
--- so only need to switch the contents dependant on
--- whether there is a selected piece or not
 
-create view selectable_pieces as
-  select distinct on (x,y) * from selectable_pieces_with_priorities
-  natural inner join pieces_to_move
-  where not exists(select 1 from selected_piece)
-  order by x,y,sp;
-
-create view selected_piece_walkfly_squares as
-  select x,y from
-    (select x,y from empty_or_corpse_only_squares
+/*
+create a view containing all the squares the selected piece
+could move to if they had unlimited speed
+*/
+create view selected_piece_move_squares as
+  select x,y from empty_or_corpse_only_squares
+  union
+  select x,y from pieces
+  natural inner join
+    (select ptype from enterable_piece_types
      union
-     select x,y from mount_or_enter_squares m
-       inner join selected_piece s on m.allegiance = s.allegiance
-    ) as a;
-
--- this view contains all the squares which the currently
--- selected piece can walk to.
--- it is empty if there is:
---   no selected piece
---   the selected piece flys or cannot move
---   the selected piece has completed it's walking subphase
+     select ptype from ridable_prototypes) as a
+  where allegiance = (select allegiance from selected_piece);
 
 -- = all squares range one from piece, which
 -- dont contain anything but
 create view selected_piece_walk_squares as
---get the valid squares that can be walked on
-select x,y from
-  selected_piece_walkfly_squares
-intersect
+  select x,y from
+    selected_piece_move_squares
+  intersect
 --adjust for 1 square away from selected piece:
 --get the ranges
-select tx as x, ty as y from board_ranges
-  natural inner join
---get the selected piece x,y
-  (select x,y,flying from selected_piece
-   natural inner join creature_pieces) as a
+  select tx as x, ty as y from board_ranges
+    natural inner join selected_piece
+    natural inner join pieces
 --restrict to 1 range
 --exclude flying creatures
-  where range = 1 and not flying
+    where range = 1
+
+      and not (select flying
+               from creature_pieces
+               natural inner join selected_piece)
 -- only if the selected piece has squares left to walk
-  and get_remaining_walk() > 0;
+    and get_remaining_walk() > 0;
 
 create view squares_within_selected_piece_flight_range as
   select tx as x, ty as y from board_ranges
-    where (x,y) = (select x,y from selected_piece
-                   natural inner join pieces)
-        and range <= (select speed from selected_piece
-                   natural inner join creature_pieces
-                   where flying);
+  natural inner join selected_piece
+  natural inner join creature_pieces
+  where flying and range <= speed;
 
 --this view is the analogue of selected_piece_walk_squares
 -- for flying creatures
 create view selected_piece_fly_squares as
-select x,y from selected_piece_walkfly_squares
+select x,y from selected_piece_move_squares
 intersect
 select x,y from squares_within_selected_piece_flight_range
 -- only if the selected piece hasn't moved
   where (select move_phase from selected_piece) = 'motion';
 
-create view pieces_next_to_current_piece as
-  select * from (select tx as x, ty as y
-                   from board_ranges
-                 natural inner join pieces
-                 natural inner join selected_piece
-                 where range = 1) r
+create view selected_piecexy as
+  select * from selected_piece
   natural inner join pieces;
 
-create view attackable_pieces_next_to_current_piece as
-  select * from pieces_next_to_current_piece
-  natural inner join attackable_squares
-  where allegiance != (select allegiance from selected_piece);
+create view selected_piece_shootable_squares as
+  select x,y from pieces_on_top
+  natural inner join attackable_pieces
+  where allegiance <> (select allegiance
+                       from selected_piece);
 
+create view selected_piece_attackable_squares as
+  select x,y from pieces_on_top
+  natural inner join attackable_pieces
+  where allegiance <> (select allegiance
+                       from selected_piece);
 
-create view selected_piece_attack_squares as
-  select x,y from attackable_pieces_next_to_current_piece
-  where (select move_phase from selected_piece) in ('motion','attack');
-
+create view selected_piece_walk_attack_squares as
+  select x,y from selected_piece_attackable_squares
+  intersect
+  select tx,ty from board_ranges r
+    natural inner join selected_piecexy
+    where range = 1
+      and move_phase in ('motion','attack');
 
 create view selected_piece_fly_attack_squares as
-  select x,y from attackable_squares
+  select x,y from selected_piece_attackable_squares
   natural inner join squares_within_selected_piece_flight_range
-  where (select move_phase from selected_piece) in ('motion');
+  where (select move_phase from selected_piece) = 'motion';
 
 create view selected_piece_in_range_squares as
   select tx as x, ty as y from board_ranges b
@@ -1794,37 +1776,26 @@ create view selected_piece_in_range_squares as
   where b.range <= s.range;
 
 create view selected_piece_ranged_attackable_squares as
-  select x,y from attackable_squares
+  select x,y from selected_piece_shootable_squares
   natural inner join selected_piece_in_range_squares;
 
-create view selected_piece_mountable_squares as
-  select x,y from pieces_next_to_current_piece
-  natural inner join monster_pieces
-    where allegiance = get_current_wizard()
-      and (select ptype='wizard' from selected_piece)
-      and ridable;
+/*
+this view lists all the squares which have pieces which can be
+selected. It is empty when:
+  not in move phase
+  there is a currently selected piece
+  the current wizard has no pieces left to select
+the pieces to move only has entries for
+ the current wizard who's moving, else it's empty
+ so only need to switch the contents dependant on
+ whether there is a selected piece or not
+*/
 
-create view selected_piece_enterable_squares as
-  select x,y from pieces_next_to_current_piece
-    natural inner join enterable_piece_types
-    where allegiance = get_current_wizard()
-      and (select ptype='wizard' from selected_piece);
-
-create view selected_piece_occupying as
-  select 1 from pieces
-    natural inner join enterable_piece_types
-    where (select ptype = 'wizard' from selected_piece)
-      and (x,y) = (select x,y from pieces
-                   natural inner join selected_piece);
-
---create view selected_piece_exitable_squares as
---  select x,y from selected_piece_walk_squares
---    cross join selected_piece_occupying;
-
---can only dismount if you've selected a monster that
---the wizard is mounted on and the monster hasn't moved yet
---create view selected_piece_dismountable_squares as
---  select 1 as x,1 as y where false; --x,y from selected_piece_walk_squares
+create view selectable_pieces as
+  select distinct on (x,y) * from selectable_pieces_with_priorities
+  natural inner join pieces_to_move
+  where not exists(select 1 from selected_piece)
+  order by x,y,sp;
 
 /*
 === valid actions
@@ -1855,7 +1826,7 @@ select x,y, 'fly'::text as action
 --attacking
 union
 select x,y, 'attack'::text as action
-  from selected_piece_attack_squares
+  from selected_piece_walk_attack_squares
 --fly attacking
 union
 select x,y, 'attack'::text as action

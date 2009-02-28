@@ -502,21 +502,15 @@ sprite is 'sprite', sprite priority is sp.
 
 */
 create view piece_sprite as
-  select x, y, ptype, sprite, colour, tag, allegiance
-    from pieces
-    inner join wizard_sprites
-    on (allegiance = wizard_name)
-      where ptype = 'wizard'
-  union
-  select x, y, ptype, 'dead_' || ptype as sprite, colour, tag, allegiance
-    from pieces
-    natural inner join allegiance_colours
-    where allegiance='dead'
-  union
-  select x, y, ptype, ptype as sprite, colour, tag, allegiance
-    from pieces
-    natural inner join allegiance_colours
-    where ptype <> 'wizard' and allegiance <> 'dead';
+  select x,y,ptype,
+    case when ptype='wizard' then w.sprite
+         when allegiance='dead' then 'dead_' || ptype
+         else ptype
+    end as sprite,
+    colour,tag,allegiance
+  from pieces p
+  left outer join wizard_sprites w
+    on (allegiance = wizard_name and ptype='wizard');
 
 /*
 == highlights
@@ -530,7 +524,7 @@ select x,y,'highlight_cast_target_spell' as sprite
   from current_wizard_spell_squares
   where get_turn_phase() = 'choose'
 union
-select x,y,'highlight_' || action  as sprite
+select x,y,'highlight_' || action as sprite
   from valid_target_actions;
 
 /*
