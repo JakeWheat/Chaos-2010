@@ -223,7 +223,7 @@ supposed to be doing
 >             \wi -> [
 >                     Text "\nWizard up: "
 >                    ,TaggedText (lk "current_wizard" wi)
->                                (filter (/="none") [lk "colour" wi])
+>                                [lk "colour" wi]
 >                    ,sprite $ lk "sprite" wi
 >                    ]
 
@@ -312,16 +312,14 @@ on the square the cursor is on
 >        ,sprite $ lk "sprite" pit] ++
 >        (case True of
 >           _ | lk "ptype" pit == "wizard" ->
->                 [TaggedText (lk "allegiance" pit) (case lk "colour" pit of
->                                                 "none" -> []
->                                                 s -> [s])]
+>                 [TaggedText (lk "allegiance" pit) [lk "colour" pit]]
 >             | lk "dead" pit == "true" ->
 >                 [TaggedText ("dead " ++ lk "ptype" pit ++ "-" ++ lk "tag" pit)
 >                             ["grey"]]
 >             | otherwise -> [
 >                   Text (lk "ptype" pit ++ "-" ++ lk "tag" pit ++ "(")
->                  ,TaggedText (lk "allegiance" pit) (filter (/="none")
->                              [(lk "colour" pit)])
+>                  ,TaggedText (lk "allegiance" pit)
+>                              [lk "colour" pit]
 >                  ,Text ")"]) ++
 
 boolean stats are treated differently:
@@ -1072,16 +1070,29 @@ pause
 >                                   \inner join current_wizard_table\n\
 >                                   \  on wizard_name = current_wizard" []
 >                           when (read cc::Bool) $ do
->                             flip timeoutAdd 1000 $ do
->                               dbAction conn "key_pressed" ["space"]
->                               let (_,r) = fromJust $ lookup
->                                                        "board" widgetData'
->                               r
->                               let (_,r1) = fromJust $ lookup "action_history" widgetData'
->                               r1
->                               do_ai
->                               return False
+>                             let autoNP = do
+>                                   dbAction conn "key_pressed" ["space"]
+>                                   let (_,r) = fromJust $ lookup
+>                                                            "board" widgetData'
+>                                   r
+>                                   let (_,r1) = fromJust $ lookup "action_history"
+>                                                                  widgetData'
+>                                   r1
+>                                   do_ai
+
+>                             tp <- selectValue conn
+>                                     "select turn_phase from turn_phase_table" []
+>                             -- add a 1 second delay when casting or moving
+>                             if tp == "choose"
+>                               then
+>                                 autoNP
+>                               else do
+>                                 flip timeoutAdd 1000 $ do
+>                                   autoNP
+>                                   return False
+>                                 return ()
 >                             return ()
+>                           return ()
 >                       when (key == "space") do_ai
 >                       return ()
 

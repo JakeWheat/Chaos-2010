@@ -55,7 +55,7 @@ part of the tests, will check all the relvars which aren't defined in
 system.sql are tagged.
 */
 
-create or replace function check_code_some_tags() returns boolean as $$
+create function check_code_some_tags() returns boolean as $$
 declare
   r record;
   success boolean;
@@ -754,7 +754,7 @@ select pp.ptype,
 --   natural left outer join (select *,true as imaginary
 --                            from imaginary_pieces) as a;
 
-create or replace view pieces_mr as
+create view pieces_mr as
 select ptype,
        allegiance,
        tag,
@@ -1498,7 +1498,7 @@ square in the ui
 
 */
 
-create or replace view pieces_with_priorities as
+create view pieces_with_priorities as
   select ptype,allegiance,tag,x,y,
     case
       when allegiance='dead' then 3
@@ -1588,9 +1588,6 @@ create view empty_squares as
   except
   select x,y from pieces;
 
--- this view contains all the squares containing corpses
---create view corpse_squares as
---  select x,y from monster_pieces where dead;
 -- this view contains all the squares containing corpses and nothing else
 create view corpse_only_squares as
   select x,y from pieces_on_top
@@ -1638,17 +1635,23 @@ create view monster_on_top_squares as
 -- different spell target categories. Doesn't take into account range
 create view spell_valid_squares as
   select 'empty' as valid_square_category, *
-    from empty_squares union
+    from empty_squares
+  union
   select 'empty_or_corpse_only' as valid_square_category, *
-    from empty_or_corpse_only_squares union
+    from empty_or_corpse_only_squares
+  union
   select 'attackable' as valid_square_category, *
-    from attackable_squares union
+    from attackable_squares
+  union
   select 'creature_on_top' as valid_square_category, *
-    from creature_on_top_squares union
+    from creature_on_top_squares
+  union
   select 'monster_on_top' as valid_square_category, *
-    from monster_on_top_squares union
+    from monster_on_top_squares
+  union
   select 'corpse_only' as valid_square_category, *
-    from corpse_only_squares union
+    from corpse_only_squares
+  union
   select 'empty_and_not_adjacent_to_tree' as valid_square_category, *
     from empty_and_not_adjacent_to_tree_squares;
 
@@ -1746,9 +1749,7 @@ create view selected_piecexy as
 
 create view selected_piece_shootable_squares as
   select x,y from pieces_on_top
-  natural inner join attackable_pieces
-  where allegiance <> (select allegiance
-                       from selected_piece);
+  natural inner join attackable_pieces;
 
 create view selected_piece_attackable_squares as
   select x,y from pieces_on_top
@@ -2392,7 +2393,7 @@ create function spell_cast_chance(text) returns integer as $$
   select chance from spell_cast_chance where spell_name = $1;
 $$ language sql stable;
 
-create or replace function action_cast_wizard_spell(
+create function action_cast_wizard_spell(
        pwizard_name text, spell_name text)
   returns void as $$
 begin
@@ -2462,7 +2463,7 @@ begin
   -- at the start so updates in the for loop are not
   -- seen by the for loop so there is no risk of a
   -- piece teleporting twice
-  for r in select x,y from pieces_on_top_view order by x,y loop
+  for r in select x,y from pieces_on_top order by x,y loop
     select x,y into tx,ty from empty_squares order by random() limit 1;
     update pieces set x = tx, y = ty
       where (x,y) = (r.x,r.y);
@@ -2480,7 +2481,7 @@ begin
 end;
 $$ language plpgsql volatile;
 
-create or replace function cast_decree_spell(px int, py int) returns void as $$
+create function cast_decree_spell(px int, py int) returns void as $$
 declare
   r piece_key;
   m int;
@@ -2497,7 +2498,7 @@ begin
 
   if not check_random_success('resist', m * 10) then
     select into r ptype, allegiance, tag
-      from pieces_on_top_view
+      from pieces_on_top
       where (x,y)=(px,py);
     if r.ptype = 'wizard' then
       for r in select ptype, allegiance, tag from pieces
@@ -2539,13 +2540,13 @@ begin
 end;
 $$ language plpgsql volatile;
 
-create or replace function cast_raise_dead(px int, py int) returns void as $$
+create function cast_raise_dead(px int, py int) returns void as $$
 declare
   r piece_key;
 begin
   --turn dead creature on square to live undead
   select into r ptype,allegiance,tag
-    from pieces_on_top_view
+    from pieces_on_top
     where (x,y) = (px,py);
   update pieces
     set allegiance = get_current_wizard()
@@ -2556,7 +2557,7 @@ begin
 end;
 $$ language plpgsql volatile;
 
-create or replace function cast_subversion(px int, py int) returns boolean as $$
+create function cast_subversion(px int, py int) returns boolean as $$
 declare
   r piece_key;
 begin
@@ -2889,7 +2890,7 @@ $$ language plpgsql volatile;
 --this fails silently if the action is not valid
 --client may wrap this in select piece at cursor, but the
 --server doesn't require that the client iface uses a cursor
-create or replace function action_select_piece_at_position(vx int, vy int)
+create function action_select_piece_at_position(vx int, vy int)
   returns void as $$
 declare
   r piece_key;
@@ -2924,7 +2925,7 @@ begin
 end;
 $$ language plpgsql volatile;
 
-create or replace function action_cancel() returns void as $$
+create function action_cancel() returns void as $$
 begin
   perform check_can_run_action('cancel');
   perform do_next_move_subphase(true);
@@ -2933,7 +2934,7 @@ $$ language plpgsql volatile;
 /*
 ==== internals
 */
-create or replace function do_next_move_subphase(skip_attack boolean)
+create function do_next_move_subphase(skip_attack boolean)
     returns void as $$
 declare
   r record;
@@ -2987,7 +2988,7 @@ $$ language plpgsql volatile;
 /*
 === attacking
 */
-create or replace function action_attack(px int, py int) returns void as $$
+create function action_attack(px int, py int) returns void as $$
 declare
   ap piece_key;
   r piece_key;
@@ -3041,7 +3042,7 @@ begin
 end;
 $$ language plpgsql volatile;
 
-create or replace function action_ranged_attack(px int, py int)
+create function action_ranged_attack(px int, py int)
     returns void as $$
 declare
   r piece_key;
@@ -3083,12 +3084,7 @@ the piece attacked when it was in the motion subphase
 
 */
 
-create view attackable_pieces_next_to_piece as
-select x,y,allegiance
-  from attackable_pieces
-  natural inner join pieces_on_top;
-
-create or replace function piece_next_subphase(
+create function piece_next_subphase(
   current_subphase text, skip_attack boolean,pk piece_key)
   returns text as $$
 declare
@@ -3203,7 +3199,7 @@ select ptype,allegiance,tag from pieces
                   where ptype='magic_tree');
 
 
-create or replace function do_autonomous_phase() returns void as $$
+create function do_autonomous_phase() returns void as $$
 declare
   r piece_key;
   r1 piece_key;
@@ -3251,14 +3247,21 @@ create table spell_indexes_no_dis_turm (
   spell_name text
 );
 select set_relvar_type('spell_indexes_no_dis_turm', 'readonly');
+select add_key('spell_indexes_no_dis_turm', 'row_number');
 
-create or replace function makeNRandoms(n int, maxi int) returns setof int as $$
---declare
---  randoms int [] = '{}';
+
+create type random_entry as (
+  line int,
+  num int
+);
+
+create function makeNRandoms(n int, maxi int) returns setof random_entry as $$
+declare
+  r random_entry;
 begin
   for i in 1..n loop
-    --randoms := randoms || (random() * maxi)::int;
-    return next (random() * maxi + 0.5)::int;
+    r := (i - 1, (random() * maxi + 0.5)::int);
+    return next r;
   end loop;
   return;
 end;
@@ -3267,34 +3270,6 @@ $$ language plpgsql volatile;
 insert into spell_indexes_no_dis_turm (spell_name)
   select spell_name from spells_mr
     where spell_name not in ('disbelieve', 'turmoil');
-
-create or replace function create_wizard(vname text, vcomputer_controlled boolean,
-                              vplace int, x int, y int) returns void as $$
-begin
-  --insert into wizards
-  insert into wizards (wizard_name, computer_controlled, original_place)
-      values (vname, vcomputer_controlled, vplace);
-  --insert into pieces
-  perform create_piece_internal('wizard', vname, x, y, false);
-  --init spell book
-  -- disbelieve plus 19 {random spells not disbelieve or turmoil}
-  insert into spell_books (wizard_name, spell_name)
-    values (vname, 'disbelieve');
-
-  insert into spell_books (wizard_name, spell_name)
-    select vname, spell_name
-      from spell_indexes_no_dis_turm
-      inner join makeNRandoms(19,53)
-        on row_number = makeNRandoms;
-  --this check seems a bit gratuitous
-  if ((select count(*) from spell_books where wizard_name = vname) != 20) then
-    raise exception
-      'creating wizard %, constructed spell book doesn''t have 20 entries, has %',
-      vname, (select count(*) from spell_books where wizard_name = vname);
-  end if;
-
-end;
-$$ language plpgsql volatile;
 
 create function create_object(vptype text, vallegiance text, x int, y int)
   returns void as $$
@@ -3328,10 +3303,9 @@ begin
                 where ptype = vptype) then
     raise exception 'called create corpse on % which is not a monster', vptype;
   end if;
-  perform create_piece_internal(vptype,
+  vtag := create_piece_internal(vptype,
                                 'Buddha',
                                 px, py, imaginary);
-  select into vtag tag from pieces_on_top_view where (x,y) = (px, py);
   perform kill_monster((vptype, 'Buddha', vtag));
 end
 $$ language plpgsql volatile;
@@ -3339,22 +3313,10 @@ $$ language plpgsql volatile;
 -----------------------------------------------------
 create function create_piece_internal(vptype text, vallegiance text,
                                       vx int, vy int, vimaginary boolean)
-                                      returns void as $$
+                                      returns int as $$
 declare
   vtag int;
 begin
-
-  if not exists(select count(*) from piece_prototypes where ptype = vptype) then
-    raise exception
-      'called create piece with % but there is no such piece type.', vptype;
-  end if;
-
-  if not exists(select count(*) from wizards
-                where wizard_name = vallegiance) then
-    raise exception
-      'called create piece with allegiance % but there is no such wizard',
-      vallegiance;
-  end if;
 
   insert into pieces (ptype, allegiance, x, y)
     select vptype, vallegiance, vx, vy
@@ -3362,6 +3324,7 @@ begin
 
   insert into imaginary_pieces (ptype,allegiance,tag)
     select vptype,vallegiance,vtag where coalesce(vimaginary,false);
+  return vtag;
 end
 $$ language plpgsql volatile;
 
@@ -3435,9 +3398,9 @@ create function kill_piece(pk piece_key)
   returns void as $$
 begin
   if (select coalesce(undead,false) from pieces_mr
-    where (ptype, allegiance, tag)::piece_key = pk) or
-    exists(select 1 from object_piece_types
-    where ptype = pk.ptype) then
+        where (ptype, allegiance, tag)::piece_key = pk)
+    or exists(select 1 from object_piece_types
+                where ptype = pk.ptype) then
     perform disintegrate(pk);
   elseif exists(select 1 from monster_prototypes where ptype = pk.ptype) then
     perform kill_monster(pk);
@@ -3468,6 +3431,25 @@ select set_module_for_preceding_objects('actions');
 
 = history
 save a short description of each action completed during play
+
+cast target spell
+cast activate spell
+: success, failure
+walk
+fly
+attack
+ranged attack
+:success, failure
+set imag, real
+game won
+game drawn
+skip casting spell
+new turn
+wizard up
+choose spell
+new game
+autonomous: receive spell, spread, disappear
+
 */
 select new_module('action_history', 'server');
 
@@ -3485,16 +3467,15 @@ create table action_history_mr (
 select add_key('action_history_mr', 'id');
 select set_relvar_type('action_history_mr', 'data');
 
-create view action_history as
-  select id, history_name from action_history_mr;
-create view action_history_cast_succeeded as
-  select id, history_name, wizard_name, spell_name
-    from action_history_mr
-    where history_name = 'spell cast succeeded'
-    --these should always be true is history_name is spell_cast_succeeded
-    and wizard_name is not null
-    and spell_name is not null;
+/*
 
+create a view to hide the details which players shouldn't be able to
+see - this is the view that the ui should use:
+hide set real, imaginary
+hide spell received in tree
+
+
+*/
 
 select set_module_for_preceding_objects('action_history');
 
@@ -3606,6 +3587,8 @@ begin
 
   -- clear data tables
   delete from action_history_mr;
+  perform setval('action_history_mr_id_seq', 1);
+
   --turn data
   delete from game_completed_table;
   delete from cast_alignment_table;
@@ -3635,17 +3618,38 @@ begin
   perform init_board_size();
 
   --create wizards
-  for r in
-    select wizard_name, computer_controlled, place, x, y
+  --  wizard table
+  insert into wizards (wizard_name, computer_controlled, original_place)
+    select wizard_name, computer_controlled, place
+      from action_new_game_argument;
+  --  pieces
+  t := (select count(*) from action_new_game_argument);
+  insert into pieces (ptype, allegiance, x, y)
+    select 'wizard', wizard_name, x,y
       from action_new_game_argument
       natural inner join wizard_starting_positions
-      where wizard_count =
-      (select count(*) from action_new_game_argument)
-      loop
-    perform create_wizard(r.wizard_name, r.computer_controlled,
-                          r.place, r.x, r.y);
-  end loop;
+       where wizard_count = t;
+  --  spell books
+  --init spell book
+  -- disbelieve plus 19 {random spells not disbelieve or turmoil}
+  insert into spell_books (wizard_name, spell_name)
+    select wizard_name, 'disbelieve'
+      from action_new_game_argument;
 
+  insert into spell_books (wizard_name, spell_name)
+    select wizard_name,spell_name
+      from action_new_game_argument
+      inner join (select line, spell_name
+                  from spell_indexes_no_dis_turm
+                  inner join makeNRandoms(t * 19, 53)
+                    on row_number = num) as a
+      on (line/19) = place;
+  --sanity check that bad boy
+  if exists(select 1 from (select wizard_name, count(spell_name)
+                           from spell_books group by wizard_name
+                          ) as a where count <> 20) then
+    raise exception 'miscount in initial spell books';
+  end if;
   --turn stuff
   perform init_turn_stuff();
 

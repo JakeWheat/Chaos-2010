@@ -37,9 +37,8 @@ textbuffer contents using pure/ non-imperative code.
 >   tagTable <- textBufferGetTagTable tb
 >   forM_ tags (\tagName -> do
 >     tag <-  textTagTableLookup tagTable tagName
->     case tag of
->               Just tag' -> textBufferApplyTag tb tag' startIter iter1
->               Nothing -> error ("Didn't match tag named: " ++ tagName))
+>     when (isJust tag) $ do
+>       textBufferApplyTag tb (fromJust tag) startIter iter1)
 >   return ()
 
 > textViewInsertWidgetAtCursor :: WidgetClass a => TextView -> a -> IO ()

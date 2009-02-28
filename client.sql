@@ -432,7 +432,7 @@ $$ language plpgsql volatile;
 === internals
 When next phase is called, moved the cursor to that wizard
 */
-create or replace function action_move_cursor_to_current_wizard() returns void as $$
+create function action_move_cursor_to_current_wizard() returns void as $$
 declare
  p pos;
 begin
@@ -471,13 +471,13 @@ Want to produce a list of x,y,sprite rows
 for the pieces on top, the cursor,
 and the highlights for the currently available actions
 
-create a view to supply none as colour for corpses (corpses don't have
+create a view to supply grey as colour for corpses (corpses don't have
 an allegiance)
 
 */
 create view allegiance_colours as
   select wizard_name as allegiance, colour from wizard_display_info union
-  select 'dead' as allegiance, 'none' as colour;
+  select 'dead' as allegiance, 'grey' as colour;
 
 /*
 wizard sprites: look in the action history to find the most recent upgrade
@@ -488,10 +488,12 @@ create view wizard_sprites as
       from wizard_display_info
     union
     select id as o, wizard_name, 'wizard_' || spell_name
-      from action_history_cast_succeeded
+      from action_history_mr
       natural inner join spells
       where spell_name != 'shadow_form'
-      and spell_category = 'wizard') as a
+      and spell_category = 'wizard'
+      and history_name = 'spell cast succeeded'
+      ) as a
   natural inner join wizard_display_info as w
   order by wizard_name, o desc;
 
@@ -576,7 +578,7 @@ put the piece sprites, the highlight and the cursor
 together to give the full list of sprites
 
 */
-create or replace view board_sprites as
+create view board_sprites as
   select x,y,ptype,allegiance,tag,
     sprite,colour,sp,start_frame, animation_speed
     from piece_sprite
@@ -1021,7 +1023,7 @@ $$ language plpgsql volatile;
 == actions
 */
 
-create or replace function action_client_new_game_using_new_game_widget_state()
+create function action_client_new_game_using_new_game_widget_state()
   returns void as $$
 begin
   delete from action_client_new_game_argument;
@@ -1184,7 +1186,7 @@ select create_client_action_wrapper('spell_book_show_all_update_on',
 select create_client_action_wrapper('spell_book_show_all_update_off',
        $$spell_book_show_all_update(false)$$);
 
-create or replace function action_key_pressed(pkeycode text) returns void as $$
+create function action_key_pressed(pkeycode text) returns void as $$
 declare
   a text;
 begin
@@ -1285,7 +1287,7 @@ use the action valid views to provide the user with information on
 what their options are.
 
 */
-create or replace view action_instructions as
+create view action_instructions as
 select 'cast_target_spell'::text as action,
        'Cast spell: Select a square to cast ' ||
         get_current_wizard_spell() || ' on' as help
@@ -1389,7 +1391,7 @@ select add_constraint('action_client_new_game_place_valid',
 select set_relvar_type('action_client_new_game_argument', 'stack');
 
 --this calls server new game
-create or replace function action_client_new_game() returns void as $$
+create function action_client_new_game() returns void as $$
 begin
   --assert: argument has between 2 and 8 active wizards
   delete from action_new_game_argument;
