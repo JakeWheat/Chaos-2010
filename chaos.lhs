@@ -1075,39 +1075,25 @@ wizard is computer controlled, then run next phase again after a small
 pause
 
 >                       let do_ai = do
->                           cc <- selectValue conn
->                                   "select computer_controlled\n\
->                                   \from wizards\n\
->                                   \inner join current_wizard_table\n\
->                                   \  on wizard_name = current_wizard" []
->                           when (read cc::Bool) $ do
->                             let autoNP = do
->                                   dbAction conn "key_pressed" ["space"]
->                                   let (_,r) = fromJust $ lookup
->                                                            "board" widgetData'
->                                   r
->                                   let (_,r1) = fromJust $ lookup "action_history"
->                                                                  widgetData'
->                                   r1
->                                   do_ai
-
->                             tp <- selectValue conn
->                                     "select turn_phase from turn_phase_table" []
->                             -- add a 1 second delay when casting or moving
->                             if True -- tp == "choose"
->                               then do
->                                 flip timeoutAdd 50 $ do
->                                   autoNP
->                                   return False
->                                 return ()
->                               else do
->                                 flip timeoutAdd 1000 $ do
->                                   autoNP
->                                   return False
->                                 return ()
->                             return ()
->                           return ()
->                       when (key == "space") do_ai
+>                             ai <- selectValue conn "select count(1)\n\
+>                                              \  from valid_activate_actions\n\
+>                                              \   where action = 'ai_continue'" []
+>                             when ((read ai::Integer) /= 0) $ do
+>                               tp <- selectValue conn "select turn_phase\n\
+>                                                      \from turn_phase_table" []
+>                               flip timeoutAdd
+>                                    (if tp == "choose" then 50 else 500) $ do
+>                                 dbAction conn "ai_continue" []
+>                                 let (_,r) = fromJust $ lookup
+>                                                          "board" widgetData'
+>                                 r
+>                                 let (_,r1) = fromJust $ lookup "action_history"
+>                                                                widgetData'
+>                                 r1
+>                                 do_ai
+>                                 return False
+>                               return ()
+>                       do_ai
 >                       return ()
 
 >                  _ -> error "key press handler got non key event"

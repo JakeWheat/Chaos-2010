@@ -1915,6 +1915,12 @@ select 'choose_' || spell_name || '_spell'::text as action
 union
 select 'choose_no_spell'::text as action
   from turn_phase_table where turn_phase ='choose'
+union
+select 'ai_continue'
+  from wizards
+  inner join current_wizard_table
+    on wizard_name = current_wizard
+    where computer_controlled
 ) as a
 where not exists (select 1 from game_completed_table);
 
@@ -1961,8 +1967,8 @@ a phase...?
 
 */
 
-select create_var('dont_nest_ai_next_phase', 'bool');
-select set_relvar_type('dont_nest_ai_next_phase_table', 'stack');
+--select create_var('dont_nest_ai_next_phase', 'bool');
+--select set_relvar_type('dont_nest_ai_next_phase_table', 'stack');
 
 create function action_next_phase() returns void as $$
 declare
@@ -1989,28 +1995,6 @@ begin
     perform add_history_game_drawn();
     delete from current_wizard_table;
     return;
-  end if;
-/*
-if the current wizard is ai, then run the ai for this wizard's turn now
-*/
-  if current_wizard_replicant() then
-/*
-if we run ai, that ai might call next_phase want to return at that
-point so that the non nested next phase runs otherwise we get
-anomolies like a wizard being skipped
-*/
-    if exists(select 1 from dont_nest_ai_next_phase_table) then
-      return;
-    end if;
-    insert into dont_nest_ai_next_phase_table values (true);
-    if get_turn_phase() = 'choose' then
-      perform ai_choose_spell();
-    elseif get_turn_phase() = 'cast' then
-      perform ai_cast_spell();
-    elseif get_turn_phase() = 'move' then
-      perform ai_move_pieces();
-    end if;
-    delete from dont_nest_ai_next_phase_table;
   end if;
 
 /*
@@ -4020,7 +4004,29 @@ if defensive move pieces starting with close
 The ai code below represents a development of these ideas which is too
 sophisticated to document here.
 
+The system for running the ai is to make an action available when the
+current wizard is an ai to continue the ai's turn. This will do one
+action, and move to the next phase if the ai has completed it's
+action. This api allows the client to control how and at what speed
+the ai's turns are run, we use this to run one ai action every half
+second so you can see what the ai is doing by watching the board
+change.
+
 */
+
+create function action_ai_continue() returns void as $$
+begin
+  perform check_can_run_action('ai_continue');
+    if get_turn_phase() = 'choose' then
+      perform ai_choose_spell();
+      perform action_next_phase();
+    elseif get_turn_phase() = 'cast' then
+      perform ai_cast_spell();
+    elseif get_turn_phase() = 'move' then
+      perform ai_move_pieces();
+    end if;
+end;
+$$ language plpgsql volatile;
 
 create function ai_choose_spell() returns void as $$
 declare
@@ -4044,16 +4050,15 @@ begin
   tp := get_current_turn_pos();
   if exists(select 1 from valid_activate_actions
             where action = 'cast_activate_spell') then
+     perform action_cast_activate_spell();
   elseif exists(select 1 from valid_target_actions
                 where action = 'cast_target_spell') then
      select into p x,y from valid_target_actions
        where action = 'cast_target_spell'
          order by random() limit 1;
      perform action_cast_target_spell(p.x, p.y);
-     --recurse for multipart spells
-     if tp = get_current_turn_pos() then
-       perform ai_cast_spell();
-     end if;
+  else
+    perform action_next_phase();
   end if;
 end;
 $$ language plpgsql volatile;
@@ -4064,19 +4069,27 @@ declare
   tp turn_pos;
 begin
   tp := get_current_turn_pos();
-  if exists(select 1 from valid_target_actions
+  --if no piece selected and none selectable, go to next phase
+  if not exists(select 1 from selected_piece)
+     and not exists(select 1 from valid_target_actions
+            where action = 'select_piece_at_position') then
+     perform action_next_phase();
+     return;
+  end if;
+  --if no piece selected try to select one
+  if not exists(select 1 from selected_piece)
+     and exists(select 1 from valid_target_actions
             where action = 'select_piece_at_position') then
      select into p x,y from valid_target_actions
        where action = 'select_piece_at_position'
        order by random() limit 1;
      perform action_select_piece_at_position(p.x, p.y);
-     if tp = get_current_turn_pos() then
-       perform ai_move_selected_piece();
-     end if;
-     if tp = get_current_turn_pos() then
-       perform ai_move_pieces();
+     --check if it has been immediately unselected
+     if not exists(select 1 from selected_piece) then
+       return;
      end if;
   end if;
+  perform ai_move_selected_piece();
 end;
 $$ language plpgsql volatile;
 
@@ -4088,9 +4101,7 @@ select x,y,action
 create function ai_move_selected_piece() returns void as $$
 declare
   r record;
-  tp turn_pos;
 begin
-  tp := get_current_turn_pos();
   if exists(select 1 from ai_selected_piece_actions) then
     select into r x,y,action from ai_selected_piece_actions
       order by random() limit 1;
@@ -4104,11 +4115,10 @@ begin
       perform action_ranged_attack(r.x, r.y);
     else
       --protect against infinite loops
-      return;
+      perform action_cancel();
     end if;
-    if tp = get_current_turn_pos() then
-      perform ai_move_selected_piece();
-    end if;
+  else
+    perform action_cancel();
   end if;
 end;
 $$ language plpgsql volatile;
