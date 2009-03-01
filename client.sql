@@ -235,6 +235,20 @@ wizard_magic_knife	50
 wizard_magic_shield	250
 wizard_magic_sword	50
 wizard_magic_wings	50
+wizard0_shadow	20
+wizard1_shadow	20
+wizard2_shadow	20
+wizard3_shadow	20
+wizard4_shadow	20
+wizard5_shadow	20
+wizard6_shadow	20
+wizard7_shadow	20
+wizard_magic_armour_shadow	20
+wizard_magic_bow_shadow	20
+wizard_magic_knife_shadow	20
+wizard_magic_shield_shadow	20
+wizard_magic_sword_shadow	20
+wizard_magic_wings_shadow	20
 wraith	10
 zombie	25
 magic_bolt	250
@@ -473,7 +487,10 @@ and the highlights for the currently available actions
 wizard sprites: look in the action history to find the most recent upgrade
 */
 create view wizard_sprites as
-  select distinct on (wizard_name) o, wizard_name, sprite, w.colour from
+  select distinct on (wizard_name) o, wizard_name,
+    case when shadow_form then sprite || '_shadow'
+         else sprite
+    end as sprite, w.colour from
   (select -1 as o, wizard_name, default_sprite as sprite
       from wizard_display_info
     union
@@ -486,6 +503,7 @@ create view wizard_sprites as
       and history_name = 'spell_succeeded'
       ) as a
   natural inner join wizard_display_info as w
+  natural inner join wizards
   order by wizard_name, o desc;
 
 /*
@@ -553,7 +571,7 @@ create function action_update_missing_startframes(fp int)
   returns void as $$
 begin
   insert into piece_starting_frames (ptype,allegiance,tag,start_frame)
-    select ptype,allegiance,tag, fp from pieces
+    select ptype,allegiance,tag, fp + random()*25 from pieces
       where (ptype,allegiance,tag) not in
         (select ptype,allegiance,tag
         from piece_starting_frames);

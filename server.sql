@@ -802,11 +802,16 @@ create view monster_pieces as
     and undead is not null
     and ridable is not null;
 
+create view dead_monster_pieces as
+  select * from monster_pieces
+    where allegiance = 'dead';
+
 create view attacking_pieces as
   select ptype,allegiance,tag,x,y,
     attack_strength
   from pieces_mr
-  where attack_strength is not null;
+  where attack_strength is not null
+    and allegiance <> 'dead';
 
 create view ranged_weapon_pieces as
   select ptype,allegiance,tag,x,y,
@@ -1591,8 +1596,7 @@ create view empty_squares as
 -- this view contains all the squares containing corpses and nothing else
 create view corpse_only_squares as
   select x,y from pieces_on_top
-    natural inner join monster_pieces
-    where allegiance='dead';
+    natural inner join dead_monster_pieces;
 
 --empty or corpse only doubles as the list of squares moveable to
 --either by walking or flying
@@ -3857,49 +3861,49 @@ begin
      --fix history
     update action_history_mr
       set spell_name = 'shadow_form',
-      wizard_name='Buddha'
+      allegiance='Buddha'
       where spell_name is null;
     perform action_cast_wizard_spell(
       (select wizard_name from wizards where original_place = 1),
       'magic_sword');
     update action_history_mr
       set spell_name = 'magic_sword',
-      wizard_name = 'Kong Fuzi'
+      allegiance = 'Kong Fuzi'
       where spell_name is null;
     perform action_cast_wizard_spell(
       (select wizard_name from wizards where original_place = 2),
       'magic_knife');
     update action_history_mr
       set spell_name = 'magic_knife',
-      wizard_name = 'Laozi'
+      allegiance = 'Laozi'
       where spell_name is null;
     perform action_cast_wizard_spell(
       (select wizard_name from wizards where original_place = 3),
       'magic_shield');
     update action_history_mr
       set spell_name = 'magic_shield',
-      wizard_name='Moshe'
+      allegiance='Moshe'
       where spell_name is null;
     perform action_cast_wizard_spell(
       (select wizard_name from wizards where original_place = 4),
       'magic_wings');
     update action_history_mr
       set spell_name = 'magic_wings',
-      wizard_name='Muhammad'
+      allegiance='Muhammad'
       where spell_name is null;
     perform action_cast_wizard_spell(
       (select wizard_name from wizards where original_place = 5),
       'magic_armour');
     update action_history_mr
       set spell_name = 'magic_armour',
-      wizard_name='Shiva'
+      allegiance='Shiva'
       where spell_name is null;
     perform action_cast_wizard_spell(
       (select wizard_name from wizards where original_place = 6),
       'magic_bow');
     update action_history_mr
       set spell_name = 'magic_bow',
-      wizard_name = 'Yeshua'
+      allegiance = 'Yeshua'
       where spell_name is null;
   elseif flavour = 'overlapping' then
     --assert at least 5 wizards

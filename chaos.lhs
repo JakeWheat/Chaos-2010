@@ -1095,8 +1095,11 @@ pause
 >                                     "select turn_phase from turn_phase_table" []
 >                             -- add a 1 second delay when casting or moving
 >                             if True -- tp == "choose"
->                               then
->                                 autoNP
+>                               then do
+>                                 flip timeoutAdd 50 $ do
+>                                   autoNP
+>                                   return False
+>                                 return ()
 >                               else do
 >                                 flip timeoutAdd 1000 $ do
 >                                   autoNP
