@@ -2676,7 +2676,7 @@ and target action views are empty.
 >   sendKeyPress conn "space"
 >   assertRelvarValue "game won history entry"
 >                     conn "select count(1) from action_history_mr\n\
->                          \where history_name='game won';" []
+>                          \where history_name='game_won';" []
 >                     (1::Int)
 >   assertRelvarValue "now valid target actions"
 >                     conn "select count(1)\n\
@@ -2720,7 +2720,7 @@ are no wizards left.
 >   goSquare conn 3 0
 >   assertRelvarValue "game drawn history entry"
 >                     conn "select count(1) from action_history_mr\n\
->                          \where history_name='game drawn';" []
+>                          \where history_name='game_drawn';" []
 >                     (1::Int)
 >   assertRelvarValue "now valid target actions"
 >                     conn "select count(1)\n\

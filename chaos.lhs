@@ -814,50 +814,61 @@ text box instead of redrawing them all
 >               \h -> do
 >                 writeIORef lhIDBox $ read $ lk "id" h
 >                 return $ th h ++ [Text "\n"]
->       th h = let wc = TaggedText (lk "wizard_name" h)
->                                  [defG $ lk "wizard_colour" h]
->                  pTag = [Text $ lk "ptype" h ++ "-"
->                         ,TaggedText (lk "allegiance" h)
->                                     [defG $ lk "allegiance_colour" h]
->                         ,Text $ '-' : lk "tag" h]
+>       th h = let cTag = [lk "colour" h]
+>                  wc = TaggedText (lk "allegiance" h) cTag
+>                  ptype = [Text $ lk "ptype" h ++ "-"
+>                          ,TaggedText (lk "allegiance" h) cTag
+>                          ,Text $ '-' : lk "tag" h]
 >              in (Text $ lk "id" h ++ ". ") :
 
 -- unfinished...
 
 >                case lk "history_name" h of
->                  "new game" ->
->                      [Text "new game started"]
->                  "choose spell" ->
+>                  "new_game" ->
+>                      [Text $ "new game: " ++ lk "num_wizards" h ++
+>                         " wizards are well up for a ruck"]
+>                  "choose_spell" ->
 >                      [wc
 >                      ,TaggedText (" chose " ++ lk "spell_name" h) ["yellow"]]
->                  "next phase" ->
->                      [Text $ "next phase: " ++ lk "current_wizard" h ++
->                       " - " ++ lk "current_phase" h]
->                  "skip spell" ->
+>                  "wizard_up" ->
+>                      [Text "wizard_up: "
+>                      ,TaggedText (lk "allegiance" h) cTag
+>                      ,Text (" - " ++ lk "turn_phase" h ++ " phase")]
+>                  "spell_skipped" ->
 >                      [wc
 >                      ,TaggedText (" skipped casting " ++ lk "spell_name" h)
 >                                  ["yellow"]]
->                  "spell cast succeeded" ->
+>                  "spell_succeeded" ->
 >                      [wc
 >                      ,TaggedText (" successfully cast " ++ lk "spell_name" h)
 >                                  ["green"]]
->                  "spell cast failed" ->
+>                  "spell_failed" ->
 >                      [wc
 >                      ,TaggedText (" failed to cast " ++ lk "spell_name" h)
 >                                  ["red"]]
->                  "piece teleport" ->
->                      pTag ++ [Text " teleported"]
 >                  "chinned" ->
->                      pTag ++ [Text " was chinned"]
->                  "shrugged off" ->
->                      pTag ++ [Text " shrugged off the attack"]
->                  "game won" ->
+>                      ptype ++ [Text " was chinned"]
+>                  "shrugged_off" ->
+>                      ptype ++ [Text " shrugged off the attack"]
+>                  "moved" ->
+>                      ptype ++ [Text " moved"]
+>                  "attack" ->
+>                      ptype ++ [Text " attacked"]
+>                  "new_turn" ->
+>                      [Text $ "New turn: " ++ lk "turn_number" h]
+>                  "game_won" ->
 >                      [wc
 >                      ,Text " has won!"]
->                  "game drawn" ->
+>                  "game_drawn" ->
 >                      [Text "the game is a draw."]
 >                  _ -> [Text $ lk "history_name" h ++ " FIXME"]
->       defG c = if c == "" then "grey" else c
+
+                       "set_imaginary"
+                       "set_real"
+                       "spread"
+                       "recede"
+                       "disappear"
+
 >       writeText is = mapM_ writeItem is
 >       writeItem i = case i of
 >                     Text t -> putStr t
@@ -1083,7 +1094,7 @@ pause
 >                             tp <- selectValue conn
 >                                     "select turn_phase from turn_phase_table" []
 >                             -- add a 1 second delay when casting or moving
->                             if tp == "choose"
+>                             if True -- tp == "choose"
 >                               then
 >                                 autoNP
 >                               else do

@@ -9,7 +9,7 @@ read only data - piece prototypes and spells revlars
 game data - mainly wizards, spellbooks and pieces relvars
 turn sequence - relvars for turn sequence progression
 actions - action valid, actions for turn sequence, casting, moving, etc.
-history - relvar to record actions
+history - relar to record actions
 new game - functions to reset data relvars and set up new games
 test board support - functions to set up a few board layouts for testing
 ai - ai for computer controlled wizards
@@ -1978,15 +1978,11 @@ begin
     perform game_completed();
     update current_wizard_table set current_wizard =
       (select wizard_name from wizards where not expired);
-    insert into action_history_mr
-      (history_name, wizard_name)
-      values ('game won',
-              (select wizard_name from wizards where not expired));
+    perform add_history_game_won();
     return;
   elseif c = 0 then --game is drawn
     perform game_completed();
-    insert into action_history_mr (history_name)
-      values ('game drawn');
+    perform add_history_game_drawn();
     delete from current_wizard_table;
     return;
   end if;
@@ -2063,6 +2059,7 @@ phase is run in this function, and all the setup runs after it is run.
     if (select turn_phase = 'move' from turn_phase_table) then
       update turn_number_table
         set turn_number = turn_number + 1;
+      perform add_history_new_turn();
     end if;
 
     --move to the next turn phase
@@ -2108,13 +2105,11 @@ phase is run in this function, and all the setup runs after it is run.
         on allegiance = current_wizard;
   end if;
 
-  insert into action_history_mr
-    (history_name, current_wizard, current_phase)
-    values ('next phase', get_current_wizard(), get_turn_phase());
-
   --finished our updates for this next phase
   update in_next_phase_hack_table
     set in_next_phase_hack = false;
+
+  perform add_history_wizard_up();
 /*
 === continue
 */
@@ -2180,8 +2175,7 @@ begin
         where wizard_name = get_current_wizard();
     end if;
   end if;
-  insert into action_history_mr (history_name, wizard_name, spell_name)
-    values ('choose spell', get_current_wizard(), vspell_name);
+  perform add_history_choose_spell();
 end;
 $$ language plpgsql volatile;
 
@@ -2241,10 +2235,7 @@ drop function generate_spell_choice_actions();
 */
 create function skip_spell() returns void as $$
 begin
-  insert into action_history_mr
-    (history_name, wizard_name, spell_name)
-    values ('skip spell', get_current_wizard(),
-      get_current_wizard_spell());
+  perform add_history_spell_skipped();
   perform spend_current_wizard_spell();
 end;
 $$ language plpgsql volatile;
@@ -2428,7 +2419,7 @@ begin
   else
     raise exception 'unrecognised wizard spell %', spell_name;
   end if;
-  perform add_spell_history();
+  perform add_history_spell_succeeded();
 end;
 $$ language plpgsql volatile;
 
@@ -2437,7 +2428,7 @@ begin
   --don't need to do anything, the effect is
   --restricted to the alignment effect which
   --is handled in the same place for all spells
-  perform add_spell_history();
+  perform add_history_spell_succeeded();
 end;
 $$ language plpgsql volatile;
 
@@ -2477,7 +2468,7 @@ begin
     array['piece teleport', s.ptype, s.allegiance, s.tag::text]);
     end loop;*/
   end loop;
-  perform add_spell_history();
+  perform add_history_spell_succeeded();
 end;
 $$ language plpgsql volatile;
 
@@ -2508,7 +2499,7 @@ begin
     else
       perform disintegrate(r);
     end if;
-    perform add_spell_history();
+    perform add_history_spell_succeeded();
   end if;
 end;
 $$ language plpgsql volatile;
@@ -2526,7 +2517,7 @@ begin
     --piece is killed or we loose the allegiance
     --need to add the spell successful before the
      --chinned history or the order is wrong
-    perform add_spell_history();
+    perform add_history_spell_succeeded();
     perform add_chinned_history(px,py);
     select into r ptype,allegiance,tag
       from pieces_on_top
@@ -2534,8 +2525,8 @@ begin
     perform kill_piece(r);
   else
     --spell didn't do any damage
-    perform add_spell_history(); -- add the spell cast successful history first
-    perform add_shrugged_off_history(px, py);
+    perform add_history_spell_succeeded();
+    perform add_history_shrugged_off(px, py);
   end if;
 end;
 $$ language plpgsql volatile;
@@ -2553,7 +2544,7 @@ begin
     where (ptype,allegiance,tag)::piece_key = r;
   insert into crimes_against_nature (ptype,allegiance,tag)
     values (r.ptype,get_current_wizard(),r.tag);
-  perform add_spell_history();
+  perform add_history_spell_succeeded();
 end;
 $$ language plpgsql volatile;
 
@@ -2565,7 +2556,7 @@ begin
       (select magic_defense * 10
         from pieces_on_top_view
         where (x,y) = (px, py))) then
-    perform add_shrugged_off_history(px, py);
+    perform add_history_shrugged_off(px, py);
     perform action_cast_failed();
     return false;
   end if;
@@ -2575,7 +2566,7 @@ begin
     set allegiance = get_current_wizard()
     where (ptype,allegiance,tag)::piece_key = r;
   perform add_chinned_history(px, py);
-  perform add_spell_history();
+  perform add_history_spell_succeeded();
   return true;
 end;
 $$ language plpgsql volatile;
@@ -2585,14 +2576,14 @@ declare
   r piece_key;
 begin
   if not (select imaginary from pieces_on_top_view where (x,y) = (px,py)) then
-    perform add_shrugged_off_history(px, py);
+    perform add_history_shrugged_off(px, py);
     perform action_cast_failed();
     return false;
   end if;
   select into r ptype, allegiance, tag, imaginary
     from pieces_on_top_view where (x,y) = (px,py);
 
-  perform add_spell_history();
+  perform add_history_spell_succeeded();
   perform add_chinned_history(px, py);
   perform disintegrate(r);
   return true;
@@ -2605,7 +2596,7 @@ begin
     (select ptype from current_wizard_spell
      natural inner join summon_spells),
      get_current_wizard(), px, py);
-  perform add_spell_history();
+  perform add_history_spell_succeeded();
 end;
 $$ language plpgsql volatile;
 
@@ -2619,7 +2610,7 @@ begin
       select imaginary
       from wizard_spell_choices_imaginary
       where wizard_name = get_current_wizard()),false));
-  perform add_spell_history();
+  perform add_history_spell_succeeded();
 end;
 $$ language plpgsql volatile;
 
@@ -2652,15 +2643,6 @@ begin
 end;
 $$ language plpgsql volatile;
 
-create function add_spell_history() returns void as $$
-begin
-  insert into action_history_mr
-    (history_name, wizard_name, spell_name)
-    values ('spell cast succeeded', get_current_wizard(),
-      get_current_wizard_spell());
-end;
-$$ language plpgsql volatile;
-
 create function update_alignment_from_cast() returns void as $$
 begin
   update cast_alignment_table
@@ -2673,11 +2655,7 @@ $$ language plpgsql volatile;
 
 create function action_cast_failed() returns void as $$
 begin
-  insert into action_history_mr
-    (history_name, wizard_name, spell_name)
-    values ('spell cast failed', get_current_wizard(),
-      (select spell_name from wizard_spell_choices
-        where wizard_name = get_current_wizard()));
+  perform add_history_spell_failed();
   perform spend_current_wizard_spell();
 end;
 $$ language plpgsql volatile;
@@ -2823,7 +2801,7 @@ begin
       'magic_tree', get_current_wizard(), r.x, r.y);
   end loop;
   delete from cast_magic_wood_squares;
-  perform add_spell_history();
+  perform add_history_spell_succeeded();
 end;
 $$ language plpgsql volatile;
 
@@ -2972,6 +2950,7 @@ begin
   perform check_can_run_action('walk', px, py);
   perform selected_piece_move_to(px, py);
   if get_remaining_walk() = 0 then
+    perform add_history_moved();
     perform do_next_move_subphase(false);
   end if;
 end;
@@ -2981,6 +2960,7 @@ create function action_fly(px int, py int) returns void as $$
 begin
   perform check_can_run_action('fly', px, py);
   perform selected_piece_move_to(px, py);
+  perform add_history_moved();
   perform do_next_move_subphase(false);
 end;
 $$ language plpgsql volatile;
@@ -3022,15 +3002,20 @@ begin
       where wizard_name = ap.allegiance;
   end if;
 
-  if not check_random_success('attack', max((att - def) * 10, 10)) then
-    --failure
-    perform do_next_move_subphase(true);
-    return;
-  end if;
+  perform add_history_attack();
 
   select into r ptype, allegiance,tag
     from pieces_on_top
     where (x,y) = (px,py);
+
+  if not check_random_success('attack', max((att - def) * 10, 10)) then
+    --failure
+    perform add_history_shrugged_off(r);
+    perform do_next_move_subphase(true);
+    return;
+  end if;
+
+  perform add_history_chinned(r);
   perform kill_piece(r);
 
   --move to the square if walker
@@ -3059,15 +3044,19 @@ begin
          natural inner join pieces_on_top
          where (x,y) = (px, py));
 
-  if not check_random_success('ranged_attack', max((att - def) * 10, 10)) then
-    --failure
-    perform do_next_move_subphase(false);
-    return;
-  end if;
+  perform add_history_attack();
 
   select into r ptype, allegiance,tag
     from pieces_on_top
     where (x,y) = (px, py);
+  if not check_random_success('ranged_attack', max((att - def) * 10, 10)) then
+    --failure
+    perform add_history_shrugged_off(r);
+    perform do_next_move_subphase(false);
+    return;
+  end if;
+
+  perform add_history_chinned(r);
   perform kill_piece(r);
   perform do_next_move_subphase(false);
 end;
@@ -3126,19 +3115,17 @@ declare
 begin
     select into r ptype, allegiance, tag
       from pieces_on_top where (x,y) = (px,py);
-    insert into action_history_mr (history_name, ptype, allegiance, tag)
-    values ('chinned', r.ptype,r.allegiance,r.tag);
+    perform add_history_chinned(r);
 end;
 $$ language plpgsql volatile;
 
-create function add_shrugged_off_history(px int, py int) returns void as $$
+create function add_history_shrugged_off(px int, py int) returns void as $$
 declare
   r piece_key;
 begin
     select into r ptype, allegiance, tag
       from pieces_on_top where (x,y) = (px,py);
-    insert into action_history_mr(history_name, ptype, allegiance, tag)
-    values ('shrugged off', r.ptype, r.allegiance, r.tag);
+    perform add_history_shrugged_off(r);
 end;
 $$ language plpgsql volatile;
 
@@ -3379,8 +3366,7 @@ begin
     --check if this is the last wizard, slightly hacky
     if get_current_wizard() = pwizard_name then
       perform game_completed();
-      insert into action_history_mr (history_name)
-        values ('game drawn');
+      perform add_history_game_drawn();
       delete from current_wizard_table;
     end if;
   end if;
@@ -3432,40 +3418,195 @@ select set_module_for_preceding_objects('actions');
 = history
 save a short description of each action completed during play
 
-cast target spell
-cast activate spell
-: success, failure
-walk
-fly
-attack
-ranged attack
-:success, failure
-set imag, real
-game won
-game drawn
-skip casting spell
-new turn
-wizard up
-choose spell
-new game
-autonomous: receive spell, spread, disappear
-
+TODO: create a detailed history that allows a game to be replayed
+then create a view to show the player visible log with some events
+removed and some combined.
 */
+
 select new_module('action_history', 'server');
+
+create domain history_name_enum as text
+       check (value in (
+                        'spell_succeeded'
+                       ,'spell_failed'
+                       ,'chinned'
+                       ,'shrugged_off'
+                       ,'moved'
+                       ,'attack'
+                       ,'set_imaginary'
+                       ,'set_real'
+                       ,'game_won'
+                       ,'game_drawn'
+                       ,'spell_skipped'
+                       ,'new_turn'
+                       ,'wizard_up'
+                       ,'choose_spell'
+                       ,'spread'
+                       ,'recede'
+                       ,'disappear'
+                       ,'new_game'
+                       ));
+
 
 create table action_history_mr (
   id serial not null,
-  history_name text not null,
-  wizard_name  text null,
-  spell_name text null,
-  current_wizard text null,
-  current_phase text  null,
+  history_name history_name_enum not null,
   ptype  text null,
   allegiance text  null,
-  tag int null
+  tag int null,
+  spell_name text null,
+  turn_number int null,
+  turn_phase  turn_phase_enum null,
+  num_wizards int null
 );
 select add_key('action_history_mr', 'id');
 select set_relvar_type('action_history_mr', 'data');
+
+create function add_history_spell_succeeded() returns void as $$
+begin
+  insert into action_history_mr (history_name, allegiance, spell_name)
+    values ('spell_succeeded', get_current_wizard(), get_current_wizard_spell());
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_spell_failed() returns void as $$
+begin
+  insert into action_history_mr (history_name, allegiance, spell_name)
+    values ('spell_failed', get_current_wizard(), get_current_wizard_spell());
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_chinned(k piece_key) returns void as $$
+begin
+  insert into action_history_mr (history_name, ptype, allegiance,tag)
+    values ('chinned', k.ptype, k.allegiance, k.tag);
+
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_shrugged_off(k piece_key) returns void as $$
+begin
+  insert into action_history_mr (history_name, ptype, allegiance,tag)
+    values ('shrugged_off', k.ptype, k.allegiance, k.tag);
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_moved() returns void as $$
+declare
+  k piece_key;
+begin
+  select into k ptype,allegiance,tag from selected_piece;
+  insert into action_history_mr (history_name, ptype, allegiance,tag)
+    values ('moved', k.ptype, k.allegiance, k.tag);
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_attack() returns void as $$
+declare
+  k piece_key;
+begin
+  select into k ptype,allegiance,tag from selected_piece;
+  insert into action_history_mr (history_name, ptype, allegiance,tag)
+    values ('attack', k.ptype, k.allegiance, k.tag);
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_set_imaginary() returns void as $$
+begin
+  insert into action_history_mr (history_name, allegiance)
+    values ('set_imaginary', get_current_wizard());
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_set_real() returns void as $$
+begin
+  insert into action_history_mr (history_name, allegiance)
+    values ('set_real', get_current_wizard());
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_game_won() returns void as $$
+begin
+  insert into action_history_mr (history_name, allegiance)
+    values ('game_won', (select allegiance
+                         from pieces
+                         where ptype='wizard'));
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_game_drawn() returns void as $$
+begin
+  insert into action_history_mr (history_name)
+    values ('game_drawn');
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_spell_skipped() returns void as $$
+begin
+  insert into action_history_mr (history_name, allegiance, spell_name)
+    values ('spell_skipped', get_current_wizard(), get_current_wizard_spell());
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_new_turn() returns void as $$
+begin
+  insert into action_history_mr (history_name, turn_number)
+    values ('new_turn', get_turn_number());
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_wizard_up() returns void as $$
+begin
+  insert into action_history_mr (history_name, allegiance, turn_phase)
+    values ('wizard_up', get_current_wizard(), get_turn_phase());
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_choose_spell() returns void as $$
+begin
+  insert into action_history_mr (history_name, allegiance, spell_name)
+    values ('choose_spell', get_current_wizard(), get_current_wizard_spell());
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_new_game() returns void as $$
+begin
+  insert into action_history_mr (history_name, num_wizards)
+    values ('new_game', (select count(1) from wizards));
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_receive_spell(pwizard_name text, pspell_name text) returns void as $$
+begin
+  insert into action_history_mr (history_name, allegiance, spell_name)
+    values ('choose_spell', pwizard_name, pspell_name);
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_spread(k piece_key) returns void as $$
+begin
+  insert into action_history_mr (history_name, ptype,allegiance,tag)
+    values ('spread', k.ptype,k.allegiance,k.tag);
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_recede(k piece_key) returns void as $$
+begin
+  insert into action_history_mr (history_name, ptype,allegiance,tag)
+    values ('recede', k.ptype,k.allegiance,k.tag);
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_disappear(k piece_key) returns void as $$
+begin
+  insert into action_history_mr (history_name, ptype,allegiance,tag)
+    values ('disappear', k.ptype,k.allegiance,k.tag);
+end;
+$$ language plpgsql volatile strict;
+
+
+
+
 
 /*
 
@@ -3660,8 +3801,7 @@ begin
   wizard spell choices, pieces to move, current moving piece
   */
   --TODO: add new game action history
-  insert into action_history_mr (history_name)
-    values ('new game');
+  perform add_history_new_game();
 
   update creating_new_game_table set creating_new_game = false;
 

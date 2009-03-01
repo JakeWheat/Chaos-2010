@@ -322,19 +322,18 @@ select set_module_for_preceding_objects('wizard_display_info');
 
 == action history with colours
 
+create a view to supply grey as colour for corpses (corpses don't have
+an allegiance)
+
 */
+create view allegiance_colours as
+  select wizard_name as allegiance, colour from wizard_display_info union
+  select 'dead' as allegiance, 'grey' as colour;
+
 create view action_history_colour_mr as
-select a.*,
-       wn.colour as wizard_name_colour,
-       cw.colour as current_wizard_colour,
-       al.colour as allegiance_colour
+select a.*, colour
   from action_history_mr a
-  left outer join wizard_display_info wn
-    on a.wizard_name = wn.wizard_name
-  left outer join wizard_display_info cw
-    on a.current_wizard = wn.wizard_name
-  left outer join wizard_display_info al
-    on a.allegiance = wn.wizard_name;
+  natural inner join allegiance_colours;
 
 /*
 ================================================================================
@@ -471,15 +470,6 @@ Want to produce a list of x,y,sprite rows
 for the pieces on top, the cursor,
 and the highlights for the currently available actions
 
-create a view to supply grey as colour for corpses (corpses don't have
-an allegiance)
-
-*/
-create view allegiance_colours as
-  select wizard_name as allegiance, colour from wizard_display_info union
-  select 'dead' as allegiance, 'grey' as colour;
-
-/*
 wizard sprites: look in the action history to find the most recent upgrade
 */
 create view wizard_sprites as
@@ -487,12 +477,13 @@ create view wizard_sprites as
   (select -1 as o, wizard_name, default_sprite as sprite
       from wizard_display_info
     union
-    select id as o, wizard_name, 'wizard_' || spell_name
+    select id as o, allegiance as wizard_name,
+      'wizard_' || spell_name
       from action_history_mr
       natural inner join spells
       where spell_name != 'shadow_form'
       and spell_category = 'wizard'
-      and history_name = 'spell cast succeeded'
+      and history_name = 'spell_succeeded'
       ) as a
   natural inner join wizard_display_info as w
   order by wizard_name, o desc;
