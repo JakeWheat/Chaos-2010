@@ -1707,8 +1707,10 @@ create view selected_piece_move_squares as
   select x,y from pieces
   natural inner join
     (select ptype from enterable_piece_types
+       where (select ptype='wizard' from selected_piece)
      union
-     select ptype from ridable_prototypes) as a
+     select ptype from ridable_prototypes
+       where (select ptype='wizard' from selected_piece)) as a
   where allegiance = (select allegiance from selected_piece);
 
 -- = all squares range one from piece, which
@@ -1751,15 +1753,16 @@ create view selected_piecexy as
   select * from selected_piece
   natural inner join pieces;
 
-create view selected_piece_shootable_squares as
-  select x,y from pieces_on_top
-  natural inner join attackable_pieces;
+--create view selected_piece_shootable_squares as
+--  select x,y from pieces_on_top
+--  natural inner join attackable_pieces;
 
 create view selected_piece_attackable_squares as
   select x,y from pieces_on_top
   natural inner join attackable_pieces
   where allegiance <> (select allegiance
-                       from selected_piece);
+                       from selected_piece)
+     and allegiance <> 'dead';
 
 create view selected_piece_walk_attack_squares as
   select x,y from selected_piece_attackable_squares
@@ -1781,7 +1784,7 @@ create view selected_piece_in_range_squares as
   where b.range <= s.range;
 
 create view selected_piece_ranged_attackable_squares as
-  select x,y from selected_piece_shootable_squares
+  select x,y from selected_piece_attackable_squares
   natural inner join selected_piece_in_range_squares;
 
 /*

@@ -107,6 +107,7 @@ move
 > import MyTextView
 > import qualified DBTextView as D
 > import qualified Logging
+> import SoundLib
 
 ================================================================================
 
@@ -717,13 +718,14 @@ first check the new_game_widget_state relvar
 >              (dbAction conn "reset_new_game_widget_state" [])
 
 >         textBufferClear buf
->         D.run conn items >>= render tv
+>         D.run conn (items refresh) >>= render tv
 >   return (tv, refresh)
 >     where
 
 Fill in the rows which correspond to each wizard
 
->       items = [D.SelectTuples "select * from new_game_widget_state\n\
+>       items refresh=
+>               [D.SelectTuples "select * from new_game_widget_state\n\
 >                              \order by line" [] $ \l ->
 
 draw our sprite for this wizard
@@ -754,8 +756,9 @@ reset the panel
 >                             --temp:
 >                             --win <- getParentWidget tv
 >                             --widgetHideAll win
->                          ,MyTextView.Button "reset this window" $
+>                          ,MyTextView.Button "reset this window" $ do
 >                             dbAction conn "reset_new_game_widget_state" []
+>                             refresh
 >                          ,Text "\n"
 >                          ] ++
 
@@ -769,6 +772,7 @@ add some temporary buttons to start custom games for testing purposes
 >                                            "client_new_game_using_\
 >                                            \new_game_widget_state" []
 >                                   callSp conn "setup_test_board" [l])
+>                                   -- need to call refresh all here somehow
 >               ]
 >       sprite s = let (pb,_,_) = safeMLookup ("show sprite " ++ s) s spriteMap
 >                  in Pixbuf $ head pb
@@ -896,6 +900,8 @@ window manager widget
 
 >     colours <- readColours conn
 >     spriteMap <- loadSprites conn
+>     player <- initPlayer
+
 >     wm <- myTextViewNew colours
 >     buf <- textViewGetBuffer wm
 
@@ -971,6 +977,42 @@ that window and hook pressing F12 up to refresh all the widgets
 >                              \from windows" []
 >                     (\r -> makeWindow (lk "window_name" r))
 
+== do effects
+
+save the current history id
+
+then after each database update, before updating the board, check the
+new histories to see if a sound effect or visual should be triggered
+
+>     lhid' <- selectValue conn "select max(id) from action_history_mr" []
+>     lastHistoryIDRef <- newIORef (read lhid' :: Int)
+
+>     let checkForEffect = do
+>           --putStrLn "check"
+>           oldLhid <- readIORef lastHistoryIDRef
+>           newHistories <- selectTuples conn "select * from action_history_mr\n\
+>                                             \  where id > ?" [show oldLhid]
+>           forM_ newHistories $ \h -> do
+>             putStrLn $ "checking: " ++ lk "id" h ++ ": " ++ lk "history_name" h
+>             let soundEffects = [
+>                           ("moved", "walk")
+>                          ,("attack", "attack")
+>                          ,("game_drawn", "draw")
+>                          ,("game_won", "win")
+>                          ,("spell_failed", "fail")
+>                          ,("spell_succeeded", "success")
+>                          ,("shrugged_off", "shrugged_off")
+>                          ,("wizard_up", "wizard_up")
+>                          ,("new_game", "new_game")
+>                          ,("chinned", "kill")
+>                          ]
+>             case lookup (lk "history_name" h) soundEffects of
+>               Just s -> play player s
+>               Nothing -> return ()
+>           lhid <- selectValue conn "select max(id) from action_history_mr" []
+>           writeIORef lastHistoryIDRef (read lhid :: Int)
+
+
 == refresh
 
 Add a button for each widget which toggles whether the window for that
@@ -1020,7 +1062,7 @@ setup the handler so that clicking the button toggles the window visibility
 >                                    widgetHideAll ww
 >                                    runSql conn
 >                                               "update windows set state='hidden'\n\
->                                      \where window_name=?;" [name])
+>                                               \where window_name=?;" [name])
 >                          ,Text "\n"]
 >         refresh = lg "windowManagerNew.refresh" "" $ do
 >           textBufferClear buf
@@ -1037,7 +1079,13 @@ lookup which contains the widget and refresh functions
 >
 >     refresh
 >
->
+>     --used for testing when the full refresh is too slow
+>     let limitedRefresh = do
+>                           let (_,r) = fromJust $ lookup "board" widgetData'
+>                           r
+>                           let (_,r1) = fromJust $ lookup "action_history" widgetData'
+>                           r1
+
 
 == Key press handling
 
@@ -1047,28 +1095,18 @@ lookup which contains the widget and refresh functions
 >                  Key { eventKeyName = key } -> do
 >                       --putStrLn ("Key pressed: " ++ key)
 >                       dbAction conn "key_pressed" [key]
-
-
+>                       checkForEffect
 >                       if key == "F12"
 >                         then do
 >                           putStrLn "manual refresh"
 >                           refresh
->                           --mapM_ (\(n,(_,r)) -> do
->                           --       putStrLn $ "call " ++ n
->                           --       r) widgetData'
 >                         else do
 
 Until the notify stuff is working just do a full refresh after every
 action as a kludge
 
->                           --mapM_ (\(_,(_,r)) -> r) widgetData'
+>                           refresh
 
-Just updating the board and history for now, it's so slooowwww.
-
->                           let (_,r) = fromJust $ lookup "board" widgetData'
->                           r
->                           let (_,r1) = fromJust $ lookup "action_history" widgetData'
->                           r1
 
 Bit hacky, if we just ran the next_phase action, and the current
 wizard is computer controlled, then run next phase again after a small
@@ -1082,14 +1120,10 @@ pause
 >                               tp <- selectValue conn "select turn_phase\n\
 >                                                      \from turn_phase_table" []
 >                               flip timeoutAdd
->                                    (if tp == "choose" then 50 else 500) $ do
+>                                    (if tp == "choose" then 50 else 1000) $ do
 >                                 dbAction conn "ai_continue" []
->                                 let (_,r) = fromJust $ lookup
->                                                          "board" widgetData'
->                                 r
->                                 let (_,r1) = fromJust $ lookup "action_history"
->                                                                widgetData'
->                                 r1
+>                                 checkForEffect
+>                                 refresh
 >                                 do_ai
 >                                 return False
 >                               return ()
