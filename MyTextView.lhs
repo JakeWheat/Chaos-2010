@@ -14,7 +14,7 @@ textbuffer contents using pure/ non-imperative code.
 > import Control.Monad
 > import Data.Maybe
 > import Utils
-> import GtkUtils
+> --import GtkUtils
 > import qualified Logging
 
 == text view utils
@@ -64,7 +64,7 @@ Shortcut method to clear buffer - i.e. wipe the textview clean to start again
 >   textBufferDelete tb si ei
 
 > textViewScrollToBottom :: TextView -> IO ()
-> textViewScrollToBottom tv = do
+> textViewScrollToBottom _ = do
 
 haven't worked out how to do this in gtk2hs yet.
 
@@ -75,7 +75,7 @@ insert instead of before
 
 attempt to get hold of the adjustments, couldn't get it working
 
->   sw' <- getParentWidget tv
+>   -- sw' <- getParentWidget tv
 >   --putStrLn $ show sw'
 >   --let sw = castToScrolledWindow sw'
 >   --adj <- get sw scrolledWindowVAdjustment

@@ -97,6 +97,7 @@ move
 > import System.Environment
 > import Control.Concurrent
 > --import System.Log.Logger
+> --import Control.Exception
 
 > import ChaosDB
 > import qualified DBAdmin as DBAdmin
@@ -423,8 +424,9 @@ sprite.
 
 TODO: visual and sound effects
 
-> boardWidgetNew :: Connection -> ColourList -> SpriteMap -> IO (Frame, IO())
-> boardWidgetNew conn _ spriteMap = do
+> boardWidgetNew :: Connection -> SoundPlayer -> ColourList ->
+>                   SpriteMap -> IO (Frame, IO())
+> boardWidgetNew conn player _ spriteMap = do
 >     frame <- frameNew
 >     canvas <- drawingAreaNew
 >     containerAdd frame canvas
@@ -439,6 +441,9 @@ method, and only read this cached data when handling an expose event
 
 >     bd <- readBoardSprites
 >     boardData <- newIORef bd
+>     efc' <- selectTuples conn "select * from board_effects" []
+>     effectsRef <- newIORef efc'
+>     soundsRef <- newIORef ([]::[(Int,String)])
 
 use getFrames to tell us how many frames have passed since the app was
 started, this is used to determine which frame of each sprite to show
@@ -476,28 +481,26 @@ create toX and toY functions, you pass these the square
 position and it returns the drawing co-ords of the top
 left of that square
 
- >             toX a = fromIntegral a * squareWidth
- >             toY b = fromIntegral b * squareHeight
+>             toX a = a * squareWidth
+>             toY b = b * squareHeight
 
 
- >             drawGrid = do
- >                        setSourceRGB 0.2 0.2 0.2
- >                        --draw vertical gridlines
- >                        mapM_ (\x -> do
- >                              moveTo (toX x) 0
- >                              lineTo (toX x) (toY 10)) [1..14]
- >                        setLineWidth 1
- >                        stroke
- >                        --draw horizontal gridlines
-
- >                        mapM_ (\y -> do
- >                              moveTo 0 (toY y)
- >                              lineTo (toX (15::Int)) (toY y)) [1..9]
- >                        setLineWidth 1
- >                        stroke
-
- >
- >         drawGrid
+>             drawGrid = do
+>                        setSourceRGB 0.2 0.2 0.2
+>                        --draw vertical gridlines
+>                        mapM_ (\x -> do
+>                              moveTo (toX x) 0
+>                              lineTo (toX x) (toY 10)) [1..14]
+>                        setLineWidth 1
+>                        stroke
+>                        --draw horizontal gridlines
+>                        mapM_ (\y -> do
+>                              moveTo 0 (toY y)
+>                              lineTo (toX 15) (toY y)) [1..9]
+>                        setLineWidth 1
+>                        stroke
+>
+>         drawGrid
 
 --------------------------------------------------
 draw sprites
@@ -543,6 +546,61 @@ Draw the board sprites from the saved board
 >         bd2 <- liftIO $ readIORef boardData
 >         mapM_ (uncurry5 drawAt) bd2
 
+
+run any sounds which need to be run
+
+>         snds <- liftIO $ readIORef soundsRef
+>         when (length snds > 0) $ do
+>           --liftIO $ putStrLn $ show cf
+>           --liftIO $ mapM_ putStrLn $ map (\(a,b) -> show a ++ show b) snds
+>           leftSnds <- mapM (\(t,s) -> if t <= cf
+>                                         then do
+>                                           --liftIO$ putStrLn $ "playing " ++ s ++ " at " ++ show t
+>                                           liftIO $ play player s
+>                                           return Nothing
+>                                         else return $ Just (t,s)) snds
+>           liftIO $ writeIORef soundsRef $ catMaybes leftSnds
+
+draw the effects
+
+>         efs <- liftIO $ readIORef effectsRef
+>         when (length efs > 0) $ do
+>           let drawEffectLine x1 y1 x2 y2 = do
+>                                      setSourceRGB 0.7 0.7 0.7
+>                                      moveTo (toXS $ x1 + 0.5) (toYS $ y1 + 0.5)
+>                                      lineTo (toXS $ x2 + 0.5) (toYS $ y2 + 0.5)
+>                                      setLineWidth 10
+>                                      stroke
+
+>           let drawEffectSquare x1 y1 = drawAt x1 y1 "effect_attack" 0 250
+
+>           --liftIO $ putStrLn $ "got " ++ show (length efs) ++ "effects"
+>           --remove expired effects
+>           let efs1 = filter (\t -> (read (lk "start_frame" t)) + 6 >= cf) efs
+>           --liftIO $ putStrLn $ show (length efs1) ++ "effects still good"
+>           --liftIO $ putStrLn $ show cf ++ " current frame"
+>           --mapM_ (\t -> liftIO $ putStrLn (lk "start_frame" t)) efs
+>           forM_ efs1 $ \t -> do
+>             let l f = lk f t
+>             let esf = read $ l "start_frame"
+>             when (esf <= cf) $ do
+>               --liftIO $ putStrLn "draw effect"
+>               let rd f = (read $ l f)::Double
+>               let ri f = (read $ l f)::Int
+>               if l "type" == "beam"
+>                 then do
+>                   drawEffectLine (rd "x1") (rd "y1") (rd "x2") (rd "y2")
+>                 else do
+>                   drawEffectSquare (ri "x1") (ri "y1")
+>           --update the list of effects to remove the expired ones
+>           liftIO $ writeIORef effectsRef efs1
+>           -- if there are no more effects then refresh the sprites from the database
+>           when (length efs1 == 0)$ do
+>             bd1 <- liftIO readBoardSprites
+>             liftIO $ writeIORef boardData bd1
+
+
+
 hook things up the the expose event
 
 >     onExpose canvas
@@ -569,9 +627,65 @@ but that doesn't compile anymore, so just bodged it.
 >           --update the frame positions
 >           f <- getFrames
 >           dbAction conn "update_missing_startframes" [show f]
->           --update the ioref
->           bd1 <- readBoardSprites
->           writeIORef boardData bd1
+
+Effects
+The effects are loaded into the board_effects table.
+
+There are two sorts of visual effects: beam and square, when we have
+both, we want to do the beam before the square effect. Each effect can
+have a sound effect associated with it. Sometimes we have an
+additional sound effect that plays after the square e.g. a ranged
+attack has a beam and a sound, then a square and a sound to indicate
+the creature being attacked, then if the creature dies it ha a further
+sound (possibly another effect?).
+
+Whilst this happens we don't want to update the sprite list.
+
+When the board widget refresh is called, if there are entries in the
+effects table, save these tuples and set their start frames, clear the
+effects table and skip updating the sprite list.
+
+When the board widget refresh is called and the saved effects are not
+empty, also skip refreshing the board sprites.
+
+When the effects have finished playing (usually ~0.5 secs), clear the
+local copy of the effects and refresh the sprites.
+
+This allows the effect to play out before the sprites are changed
+
+>           --check for effects
+>           efc <- selectTuples conn "select * from board_effects" []
+>           if length efc > 0
+>             then do
+>               --mapM_ (\t -> putStrLn $ lk "type" t ++ lk "sound" t) efc
+>               cf <- getFrames
+>               let addStartFrame t = let sf = if lk "type" t == "beam"
+>                                                then cf
+>                                                else cf + 6
+>                                     in M.insert "start_frame" (show sf) t
+>                   removeSounds t = if lk "type" t == "sound"
+>                                      then Nothing
+>                                      else Just t
+>               writeIORef effectsRef $ catMaybes $ map removeSounds $ map addStartFrame efc
+>               let soundEffects = map (\t -> if lk "type" t /= "square"
+>                                               then (cf, lk "sound" t)
+>                                               else (cf + 12, lk "sound" t)) efc
+>               --putStrLn "soundeffects:"
+>               --print soundEffects
+>               writeIORef soundsRef soundEffects
+>               --play sound effects
+>               --forM_ efc (\ef -> play player $ lk "sound" ef)
+>               runSql conn "delete from board_effects" []
+>             else do
+>               efcE <- readIORef effectsRef
+>               if (length efcE > 0)
+>                 then
+>                   return ()
+>                   --putStrLn "continue effects"
+>                 else do
+>                   putStrLn "read db for board"
+>                   bd1 <- readBoardSprites
+>                   writeIORef boardData bd1
 >           redraw
 
 update the board sprites 10 times a second to animate them
@@ -928,7 +1042,7 @@ display to the user
 >           "info" ->
 >             infoWidgetNew conn colours spriteMap >>= castIt
 >           "board" ->
->             boardWidgetNew conn colours spriteMap >>= castIt
+>             boardWidgetNew conn player colours spriteMap >>= castIt
 >           "spell_book" ->
 >             spellBookWidgetNew conn colours spriteMap >>= castIt
 
@@ -976,42 +1090,6 @@ that window and hook pressing F12 up to refresh all the widgets
 >     widgetData <- selectTuplesIO conn "select window_name \n\
 >                              \from windows" []
 >                     (\r -> makeWindow (lk "window_name" r))
-
-== do effects
-
-save the current history id
-
-then after each database update, before updating the board, check the
-new histories to see if a sound effect or visual should be triggered
-
->     lhid' <- selectValue conn "select max(id) from action_history_mr" []
->     lastHistoryIDRef <- newIORef (read lhid' :: Int)
-
->     let checkForEffect = do
->           --putStrLn "check"
->           oldLhid <- readIORef lastHistoryIDRef
->           newHistories <- selectTuples conn "select * from action_history_mr\n\
->                                             \  where id > ?" [show oldLhid]
->           forM_ newHistories $ \h -> do
->             putStrLn $ "checking: " ++ lk "id" h ++ ": " ++ lk "history_name" h
->             let soundEffects = [
->                           ("moved", "walk")
->                          ,("attack", "attack")
->                          ,("game_drawn", "draw")
->                          ,("game_won", "win")
->                          ,("spell_failed", "fail")
->                          ,("spell_succeeded", "success")
->                          ,("shrugged_off", "shrugged_off")
->                          ,("wizard_up", "wizard_up")
->                          ,("new_game", "new_game")
->                          ,("chinned", "kill")
->                          ]
->             case lookup (lk "history_name" h) soundEffects of
->               Just s -> play player s
->               Nothing -> return ()
->           lhid <- selectValue conn "select max(id) from action_history_mr" []
->           writeIORef lastHistoryIDRef (read lhid :: Int)
-
 
 == refresh
 
@@ -1077,14 +1155,15 @@ lookup which contains the widget and refresh functions
 >                          refresh)
 >                         widgetData
 >
->     refresh
+>     timeoutAdd (refresh>>return False) 100
 >
 >     --used for testing when the full refresh is too slow
->     let limitedRefresh = do
->                           let (_,r) = fromJust $ lookup "board" widgetData'
->                           r
->                           let (_,r1) = fromJust $ lookup "action_history" widgetData'
->                           r1
+
+ >     let limitedRefresh = do
+ >                           let (_,r) = fromJust $ lookup "board" widgetData'
+ >                           r
+ >                           let (_,r1) = fromJust $ lookup "action_history" widgetData'
+ >                           r1
 
 
 == Key press handling
@@ -1094,18 +1173,25 @@ lookup which contains the widget and refresh functions
 >           case e of
 >                  Key { eventKeyName = key } -> do
 >                       --putStrLn ("Key pressed: " ++ key)
->                       dbAction conn "key_pressed" [key]
->                       checkForEffect
->                       if key == "F12"
->                         then do
->                           putStrLn "manual refresh"
->                           refresh
->                         else do
+>                       ai1 <- selectValue conn "select count(1)\n\
+>                                              \  from valid_activate_actions\n\
+>                                              \   where action = 'ai_continue'" []
+>                       if (read ai1 /= (0 ::Int)) && key == "space"
+>                         then
+>                           dbAction conn "client_ai_continue" []
+>                         else
+>                           dbAction conn "key_pressed" [key]
+
+ >                       if key == "F12"
+ >                         then do
+ >                           putStrLn "manual refresh"
+ >                           refresh
+ >                         else do
 
 Until the notify stuff is working just do a full refresh after every
 action as a kludge
 
->                           refresh
+>                       refresh
 
 
 Bit hacky, if we just ran the next_phase action, and the current
@@ -1120,9 +1206,10 @@ pause
 >                               tp <- selectValue conn "select turn_phase\n\
 >                                                      \from turn_phase_table" []
 >                               flip timeoutAdd
->                                    (if tp == "choose" then 50 else 1000) $ do
->                                 dbAction conn "ai_continue" []
->                                 checkForEffect
+>                                    (if tp == "choose" then 50
+>                                       else if tp == "cast" then 3000
+>                                               else 2000) $ do
+>                                 dbAction conn "client_ai_continue" []
 >                                 refresh
 >                                 do_ai
 >                                 return False
@@ -1278,3 +1365,4 @@ must be an easier way than this?
 >                      then '0' : h
 >                      else h
 >             div256 i = truncate (fromIntegral i / 256::Double)
+

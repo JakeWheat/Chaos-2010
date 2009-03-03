@@ -2236,6 +2236,7 @@ declare
   vspell_name text;
 begin
   perform check_can_run_action('cast_target_spell', px, py);
+  perform add_history_attempt_target_spell(px,py);
 
   if not check_spell_success() then
     return;
@@ -2993,13 +2994,14 @@ begin
       where wizard_name = ap.allegiance;
   end if;
 
-  perform add_history_attack();
-
   select into r ptype, allegiance,tag
     from pieces_on_top
     where (x,y) = (px,py);
 
-  if not check_random_success('attack', max((att - def) * 10, 10)) then
+  perform add_history_attack(r);
+
+
+  if not check_random_success('attack', max((att - def) * 10 + 50, 10)) then
     --failure
     perform add_history_shrugged_off(r);
     perform do_next_move_subphase(true);
@@ -3035,12 +3037,13 @@ begin
          natural inner join pieces_on_top
          where (x,y) = (px, py));
 
-  perform add_history_attack();
-
   select into r ptype, allegiance,tag
     from pieces_on_top
     where (x,y) = (px, py);
-  if not check_random_success('ranged_attack', max((att - def) * 10, 10)) then
+
+  perform add_history_attack(r);
+
+  if not check_random_success('ranged_attack', max((att - def) * 10 + 50, 10)) then
     --failure
     perform add_history_shrugged_off(r);
     perform do_next_move_subphase(false);
@@ -3436,6 +3439,7 @@ create domain history_name_enum as text
                        ,'recede'
                        ,'disappear'
                        ,'new_game'
+                       ,'attempt_target_spell'
                        ));
 
 
@@ -3448,10 +3452,28 @@ create table action_history_mr (
   spell_name text null,
   turn_number int null,
   turn_phase  turn_phase_enum null,
-  num_wizards int null
+  num_wizards int null,
+  x int null,
+  y int null,
+  tx int null,
+  ty int null
 );
 select add_key('action_history_mr', 'id');
 select set_relvar_type('action_history_mr', 'data');
+
+create or replace function add_history_attempt_target_spell(px int, py int) returns void as $$
+declare
+  w pos;
+begin
+  select into w x,y from pieces
+    where allegiance=get_current_wizard()
+      and ptype = 'wizard';
+  insert into action_history_mr (history_name, allegiance, spell_name, x, y, tx, ty)
+    values ('attempt_target_spell', get_current_wizard(),
+            get_current_wizard_spell(), w.x, w.y, px, py);
+end;
+$$ language plpgsql volatile strict;
+
 
 create function add_history_spell_succeeded() returns void as $$
 begin
@@ -3492,13 +3514,16 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
-create function add_history_attack() returns void as $$
+create or replace function add_history_attack(t piece_key) returns void as $$
 declare
-  k piece_key;
+  sp record;
+  tp pos;
 begin
-  select into k ptype,allegiance,tag from selected_piece;
-  insert into action_history_mr (history_name, ptype, allegiance,tag)
-    values ('attack', k.ptype, k.allegiance, k.tag);
+  select into sp ptype,allegiance,tag,x,y from selected_piece
+    natural inner join pieces;
+  select into tp x,y from pieces where (ptype,allegiance,tag) = t;
+  insert into action_history_mr (history_name, ptype, allegiance,tag,x,y,tx,ty)
+    values ('attack', sp.ptype, sp.allegiance, sp.tag, sp.x,sp.y, tp.x,tp.y);
 end;
 $$ language plpgsql volatile strict;
 
@@ -4232,7 +4257,7 @@ from ai_selected_piece_actions
 natural inner join pieces_mr
 where action in('attack','ranged_attack');
 
-create view closest_enemy as
+create or replace view closest_enemy as
   select a.ptype,a.allegiance,a.tag,
          b.ptype as tptype,
          b.allegiance as tallegiance,
@@ -4240,10 +4265,11 @@ create view closest_enemy as
          ,b.x,b.y
          ,distance(a.x,a.y,b.x,b.y) as distance
   from attacking_pieces a
-    inner join (select ptype,allegiance,tag,x,y
+    cross join (select ptype,allegiance,tag,x,y
                 from attackable_pieces
                 natural inner join pieces_on_top) b
-      using (x,y);
+  where a.allegiance = get_current_wizard()
+    and b.allegiance <> get_current_wizard();
 
 create view closest_enemy_to_selected_piece as
   select x,y from closest_enemy
@@ -4256,7 +4282,7 @@ create view select_best_move as
     where action in('walk', 'fly')
     order by distance(a.x,a.y,e.x,e.y) limit 1;
 
-create function ai_move_selected_piece() returns void as $$
+create or replace function ai_move_selected_piece() returns void as $$
 declare
   r record;
 begin
@@ -4269,7 +4295,8 @@ begin
     elseif r.action = 'ranged_attack' then
       perform action_ranged_attack(r.x, r.y);
     else
-      raise exception 'bad ai attack action: %', r.action;
+      --raise exception 'bad ai attack action: %', r.action;
+      perform action_cancel();
     end if;
   else
     if exists(select 1 from ai_selected_piece_actions
@@ -4280,7 +4307,7 @@ begin
       elseif r.action = 'fly' then
         perform action_fly(r.x, r.y);
       else
-        raise exception 'bad ai motion action: %', r.action;
+        perform action_cancel();
       end if;
     else
       perform action_cancel();

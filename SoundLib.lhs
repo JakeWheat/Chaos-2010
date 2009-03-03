@@ -1,7 +1,8 @@
 
-> module SoundLib (initPlayer, play) where
+> module SoundLib (initPlayer, play, SoundPlayer) where
 
-> import Graphics.UI.SDL.Mixer.Music
+ > import Graphics.UI.SDL.Mixer.Music
+
 > import Graphics.UI.SDL.Mixer.Types
 
 > import Control.Concurrent
@@ -51,7 +52,7 @@
 >   case w of
 >     Just w' -> do
 >                  forkIO $ do
->                    putStrLn $ "playing " ++ soundName
+>                    --putStrLn $ "playing " ++ soundName
 >                    playChannel (-1) w' 0
 
  >                    playMusic w' 2
