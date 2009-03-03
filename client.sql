@@ -619,7 +619,8 @@ create table board_effects (
   y1 int,
   x2 int,
   y2 int,
-  sound text
+  sound text,
+  queuePos int
 );
 
 create table history_sounds (
@@ -646,12 +647,13 @@ select create_var('last_history_effect_id', 'int');
 create or replace function action_check_for_effects() returns void as $$
 begin
   --sound effects
-  insert into board_effects (type,subtype,x1,y1,x2,y2,sound)
+  insert into board_effects (type,subtype,x1,y1,x2,y2,sound,queuePos)
     select 'beam' as type,
            history_name as subtype,
            x,y,
            tx,ty,
-           coalesce(sound_name, '')
+           coalesce(sound_name, ''),
+           0
        from action_history_mr
        natural left outer join history_sounds
          where id > get_last_history_effect_id()
@@ -662,18 +664,20 @@ begin
            history_name as subtype,
            tx,ty,
            0,0,
-           coalesce(sound_name, '')
+           coalesce(sound_name, ''),
+           1
        from action_history_mr
        natural left outer join history_sounds
          where id > get_last_history_effect_id()
          and x is not null and y is not null
-         and tx is not null and ty is not null;
+         and tx is not null and ty is not null
     union
     select 'sound' as type,
            history_name as subtype,
            0,0,
            0,0,
-           sound_name
+           sound_name,
+           0
        from action_history_mr
        natural inner join history_sounds
          where id > get_last_history_effect_id()
@@ -686,10 +690,21 @@ $$ language plpgsql volatile;
 
 create function action_client_ai_continue() returns void as $$
 begin
+  if get_running_effects() then
+    return;
+  end if;
+
   perform action_ai_continue();
   perform action_check_for_effects();
 end;
 $$ language plpgsql volatile;
+
+/*
+don't want the ai to run or the player to be able to trigger new actions when
+effects are being run:
+*/
+
+select create_var('running_effects', 'bool');
 
 /*
 
@@ -1299,6 +1314,11 @@ loop, got rid of that, got it down to about 0.1 sec but this is for an
 unmatched keypress, need to be faster.
 
 */
+
+  if get_running_effects() then
+    return;
+  end if;
+
   select into a action_name from key_control_settings k
     inner join client_valid_activate_actions v
       on k.action_name = v.action
@@ -1500,6 +1520,8 @@ begin
 
   delete from last_history_effect_id_table;
   insert into last_history_effect_id_table values (-1);
+  delete from running_effects_table;
+  insert into running_effects_table values (false);
 
   -- don't reset windows, see below
   --call server new_game
