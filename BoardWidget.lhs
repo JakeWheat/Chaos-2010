@@ -104,7 +104,19 @@ the ai works atm.
 Animation:
 
 The sprites are held in png files, they animate at different speeds
-(the speed is in the sprites table, and is in frames (25 per second)). Todo: different sprites have different animation styles: looped and back and forth. E.g. for a looped style sprite with 4 sprites, the order shown is 1 2 3 4 1 2 3 4, etc., for a back and forth one it is 1 2 3 4 3 2 1 2 3, etc.
+(the speed is in the sprites table, and is in frames (25 per
+second)). Todo: different sprites have different animation styles:
+looped and back and forth. E.g. for a looped style sprite with 4
+sprites, the order shown is 1 2 3 4 1 2 3 4, etc., for a back and
+forth one it is 1 2 3 4 3 2 1 2 3, etc.
+
+Timing:
+
+The timing uses ticks (25 ticks per second). Not really sure why,
+should probably change to milliseconds or something. When the board
+widget is created, it saves the current time, and then everything is
+cued using the number of ticks since this saved time to the current
+time (this is used by the sprite animation and the effects).
 
 > module BoardWidget (boardWidgetNew) where
 
@@ -125,27 +137,7 @@ The sprites are held in png files, they animate at different speeds
 > import SoundLib
 > import ChaosTypes
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-------------------------------------------------------------------
-------------------------------------------------------------------
-------------------------------------------------------------------
-------------------------------------------------------------------
-------------------------------------------------------------------
-------------------------------------------------------------------
-------------------------------------------------------------------
-------------------------------------------------------------------
+================================================================================
 
 = Ctor
 
@@ -163,35 +155,16 @@ The sprites are held in png files, they animate at different speeds
 >     effectsRef <- newIORef efc'
 >     soundsRef <- newIORef ([]::[(Int,String)])
 
-use getFrames to tell us how many frames have passed since the app was
-started, this is used to determine which frame of each sprite to show
+used to calculate how many ticks since the app was started, to time
+the animations and effects:
 
->     startTime' <- getClockTime
+>     startTicks <- getClockTime
 
-hook things up the the expose event, this is called by gtk, and is
-triggered below by the call to drawWindowInvalidateRegion and
-drawWindowProcessUpdates in the redraw function
+hook things up the the expose event, this is how gtk triggers a
+redraw, and doonexpose hooks this event up to the mydraw function
 
->     onExpose canvas
->              (\_ -> lg "boardWidgetNew.onExpose" "" $ do
->                        (w,h) <- widgetGetSize canvas
->                        drawin <- widgetGetDrawWindow canvas
->                        renderWithDrawable drawin
->                          (myDraw (getFrames' startTime') boardSpritesRef soundsRef effectsRef
->                             (fromIntegral w) (fromIntegral h))
->                        --The following line use to read
->                        --return (eventSent x))
->                        --but that doesn't compile anymore, so just bodged it.
->                        return True)
-
-This posts an event to the gtk queue which triggers the onexpose,
-which then triggers the mydraw routine
-
->     let redraw = do
->           win <- widgetGetDrawWindow canvas
->           reg <- drawableGetClipRegion win
->           drawWindowInvalidateRegion win reg True
->           drawWindowProcessUpdates win True
+>     onExpose canvas (doOnExpose canvas startTicks
+>                                 boardSpritesRef soundsRef effectsRef)
 
 update the board sprites 10 times a second to animate them
 
@@ -199,18 +172,29 @@ update the board sprites 10 times a second to animate them
 >       widgetQueueDrawArea canvas 0 0 2000 2000
 >       return True
 
+>     let refresh' = refresh canvas startTicks
+>                            boardSpritesRef effectsRef soundsRef
+>     return (frame, refresh')
+
+
+>     where
+
+================================================================================
+
+= refresh
 
 The refresh function updates the ioref caches from the database and
 then calls mydraw.
 
->     let refresh startTime = lg "boardWidgetNew.refresh" "" $ do
+>       refresh canvas startTicks boardSpritesRef effectsRef soundsRef =
+>           lg "boardWidgetNew.refresh" "" $ do
 
 update the frame positions
 
 When a new piece is created, we set it's starting frame here, could do
 this in the database which would be a bit cleaner.
 
->           f <- getFrames' startTime'
+>           f <- getFrames startTicks
 >           dbAction conn "update_missing_startframes" [show f]
 
 check for effects
@@ -224,7 +208,7 @@ if we have effects, then load up the ioref caches
 >               runSql conn "update running_effects_table\n\
 >                           \set running_effects = true" []
 >               --mapM_ (\t -> putStrLn $ lk "type" t ++ lk "sound" t) efc
->               cf <- getFrames' startTime
+>               cf <- getFrames startTicks
 >               let addStartFrame t = let sf = if lk "type" t == "beam"
 >                                                then cf
 >                                                else cf + 6
@@ -268,32 +252,17 @@ prevent the ai and player from continuing during an effect)
 >                                    \set running_effects = false" []
 >                   bd1 <- readBoardSprites
 >                   writeIORef boardSpritesRef bd1
->           redraw
+>           redraw canvas
 
->     return (frame, refresh startTime')
->     where
->         readBoardSprites =
->           selectTuplesC conn "select * from board_sprites" [] $
->                         \bs -> (read $ lk "x" bs::Int,
->                                 read $ lk "y" bs::Int,
->                                 lk "sprite" bs,
->                                 read $ lk "start_frame" bs::Int,
->                                 read $ lk "animation_speed" bs::Int)
+================================================================================
 
->         getFrames' startTime = do
->           t <- getClockTime
->           let tdiff = diffClockTimes t startTime
->           --25 frames per second
->               ps = ((tdPicosec tdiff * 25::Integer) `div`
->                      ((10::Integer)^(12::Integer)))::Integer
->               f1 = fromIntegral (tdMin tdiff * 25 * 60) +
->                    fromIntegral (tdHour tdiff * 25 * 60 * 60) +
->                    fromIntegral (tdSec tdiff * 25) +  ps
->               b = fromInteger f1
->           return b::IO Int
+= mydraw and drawing routines
+
+This is the code that actually draws the canvas which is then rendered
+to show the player
 
 
->         myDraw getFrames boardSpritesRef soundsRef effectsRef w h = do
+>       myDraw startTicks boardSpritesRef soundsRef effectsRef w h = do
 >           --make the background black
 >           setSourceRGB 0 0 0
 >           paint
@@ -363,7 +332,7 @@ create a helper function to draw a sprite at board position x,y
 identifying the sprite by name, hiding all that tedious map lookup
 stuff
 
->           cf <- liftIO getFrames
+>           cf <- liftIO $ getFrames startTicks
 >           let drawAt x' y' sp sf as = do
 >                 let x = (fromIntegral x')
 >                     y = (fromIntegral y')
@@ -430,6 +399,62 @@ draw the effects
 >             when (length efs1 == 0)$ do
 >               bd1 <- liftIO readBoardSprites
 >               liftIO $ writeIORef boardSpritesRef bd1
+
+================================================================================
+
+= helper functions
+
+read the board sprites relvar into the cache format
+
+>       readBoardSprites =
+>           selectTuplesC conn "select * from board_sprites" [] $
+>                         \bs -> (read $ lk "x" bs::Int,
+>                                 read $ lk "y" bs::Int,
+>                                 lk "sprite" bs,
+>                                 read $ lk "start_frame" bs::Int,
+>                                 read $ lk "animation_speed" bs::Int)
+
+get the number of frames since starting the program, so we can
+work out which frame to show for each sprite, and cue the effects
+
+>       getFrames startTicks = do
+>           t <- getClockTime
+>           let tdiff = diffClockTimes t startTicks
+>           --25 frames per second
+>               ps = ((tdPicosec tdiff * 25::Integer) `div`
+>                      ((10::Integer)^(12::Integer)))::Integer
+>               f1 = fromIntegral (tdMin tdiff * 25 * 60) +
+>                    fromIntegral (tdHour tdiff * 25 * 60 * 60) +
+>                    fromIntegral (tdSec tdiff * 25) +  ps
+>               b = fromInteger f1
+>           return b::IO Int
+
+This posts an event to the gtk queue which triggers the onexpose,
+which then triggers the mydraw routine, which apparently how you do
+this sort of thing in gtk
+
+>       redraw canvas = do
+>           win <- widgetGetDrawWindow canvas
+>           reg <- drawableGetClipRegion win
+>           drawWindowInvalidateRegion win reg True
+>           drawWindowProcessUpdates win True
+
+gtk red tape: on expose routes (re)draw events coming from gtk to the
+my draw function - these redraws can be trigged by the redraw function
+or by gtk in response to windows being moved around or resized
+
+>       doOnExpose canvas startTicks boardSpritesRef soundsRef effectsRef _ =
+>           lg "boardWidgetNew.doOnExpose" "" $ do
+>           (w,h) <- widgetGetSize canvas
+>           drawin <- widgetGetDrawWindow canvas
+>           renderWithDrawable drawin
+>                              (myDraw startTicks
+>                               boardSpritesRef soundsRef effectsRef
+>                              (fromIntegral w) (fromIntegral h))
+>           --The following line use to read
+>           --return (eventSent x))
+>           --but that doesn't compile anymore, so just bodged it.
+>           return True
 
 
 
