@@ -149,7 +149,8 @@ time (this is used by the sprite animation and the effects).
 > type SoundEffect = (String,String)
 > type SquareEffect = (String,Int,Int)
 > type BeamEffect = (String,Int,Int,Int,Int)
-> type EffectsLine = ([BeamEffect]
+> type EffectsLine = (Int
+>                    ,[BeamEffect]
 >                    ,[SquareEffect]
 >                    ,[SoundEffect])
 
@@ -273,9 +274,10 @@ load up the caches
 get the list of unique qps
 each unique qp will correspond to a line in the effects queue
 
->     let qps = sort (map (\t -> read $ lk "queuepos" t) sef) ++
->                    map (\t -> read $ lk "queuepos" t) sqef ++
->                    map (\t -> read $ lk "queuepos" t) bef :: [Int]
+>     let qps = (sort . nub)  ((map (\t -> read $ lk "queuepos" t) sef) ++
+>                            map (\t -> read $ lk "queuepos" t) sqef ++
+>                            map (\t -> read $ lk "queuepos" t) bef) :: [Int]
+>     putStrLn $ "qps: " ++ show qps
 >     --convert sql tuples to haskell tuples
 >     let tToBE t = let l f = lk f t in
 >                   let r = read . l in
@@ -292,7 +294,8 @@ take the three tables from the db and convert to a list of effects
 lines, so each beam,square and sound effect with the same qp will
 appear in the same line and be triggered together
 
->     let newEffects = for qps (\qp -> (map tToBE $ getByQp qp bef
+>     let newEffects = for qps (\qp -> (qp
+>                                      ,map tToBE $ getByQp qp bef
 >                                      ,map tToSqE $ getByQp qp sqef
 >                                      ,map tToSE $ getByQp qp sef
 >                                      ))
@@ -308,9 +311,9 @@ tell the caller whether there are effects in the cache or not
 >   return $ not $ null effs
 
 > showEffectsLine :: EffectsLine -> String
-> showEffectsLine (beamEffects, squareEffects, soundEffects) =
+> showEffectsLine (qp, beamEffects, squareEffects, soundEffects) =
 >   let s = show in
->   "----------\nBeam effects:\n" ++
+>   "----------\n" ++ show qp ++ "\nBeam effects:\n" ++
 >     concatMap (\(subtype,x1,y1,x2,y2)
 >                -> subtype ++ s x1 ++ "," ++ s y1 ++ ","
 >                   ++ s x2 ++ "," ++ s y2 ++ "\n") beamEffects
@@ -422,7 +425,7 @@ display the visual effects
 
 >   (_,vCurrentEffectsQueue) <- liftIO $ readIORef effectsRef
 >   unless (null vCurrentEffectsQueue) $ do
->   let (beamEffects,squareEffects,_):_ = vCurrentEffectsQueue
+>   let (_,beamEffects,squareEffects,_):_ = vCurrentEffectsQueue
 >   mapM_ drawBeamEffect beamEffects
 >   mapM_ drawSquareEffect squareEffects
 
@@ -432,7 +435,7 @@ helpers
 
 play all the sounds from the head of the effects queue
 
->       playNewSounds ((_,_,currentSounds) : _) =
+>       playNewSounds ((_,_,_,currentSounds) : _) =
 >         liftIO $ mapM_ (play player . snd)  currentSounds
 >       playNewSounds [] = return ()
 

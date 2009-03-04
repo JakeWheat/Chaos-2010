@@ -2285,6 +2285,7 @@ create function action_cast_activate_spell() returns void as $$
 begin
   perform check_can_run_action('cast_activate_spell');
 --  perform check_can_cast_spell_now();
+  perform add_history_attempt_activate_spell();
   if not check_spell_success() then
     return;
   end if;
@@ -3463,6 +3464,87 @@ create table action_history_mr (
 select add_key('action_history_mr', 'id');
 select set_relvar_type('action_history_mr', 'data');
 
+--Turns
+
+create function get_current_wizard_pos() returns pos as $$
+  select x,y from pieces
+    where allegiance=get_current_wizard()
+      and ptype = 'wizard';
+$$ language sql stable;
+
+create function add_history_new_turn() returns void as $$
+begin
+  insert into action_history_mr (history_name, turn_number)
+    values ('new_turn', get_turn_number());
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_wizard_up() returns void as $$
+declare
+  w pos;
+begin
+  w := get_current_wizard_pos();
+  insert into action_history_mr (history_name, allegiance, turn_phase, x, y)
+    values ('wizard_up', get_current_wizard(), get_turn_phase(), w.x, w.y);
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_new_game() returns void as $$
+begin
+  insert into action_history_mr (history_name, num_wizards)
+    values ('new_game', (select count(1) from wizards));
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_game_won() returns void as $$
+declare
+  w pos;
+begin
+  w := get_current_wizard_pos();
+  insert into action_history_mr (history_name, allegiance, x, y)
+    values ('game_won', (select allegiance
+                         from pieces
+                         where ptype='wizard'),
+                         w.x, w.y);
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_game_drawn() returns void as $$
+begin
+  insert into action_history_mr (history_name)
+    values ('game_drawn');
+end;
+$$ language plpgsql volatile strict;
+
+--Choosing
+
+create function add_history_choose_spell() returns void as $$
+declare
+  w pos;
+begin
+  w := get_current_wizard_pos();
+  insert into action_history_mr (history_name, allegiance, spell_name,x,y)
+    values ('choose_spell', get_current_wizard(), get_current_wizard_spell(),
+            w.x,w.y);
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_set_imaginary() returns void as $$
+begin
+  insert into action_history_mr (history_name, allegiance)
+    values ('set_imaginary', get_current_wizard());
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_set_real() returns void as $$
+begin
+  insert into action_history_mr (history_name, allegiance)
+    values ('set_real', get_current_wizard());
+end;
+$$ language plpgsql volatile strict;
+
+--Casting
+
 create or replace function add_history_attempt_target_spell(px int, py int) returns void as $$
 declare
   w pos;
@@ -3473,6 +3555,19 @@ begin
   insert into action_history_mr (history_name, allegiance, spell_name, x, y, tx, ty)
     values ('attempt_target_spell', get_current_wizard(),
             get_current_wizard_spell(), w.x, w.y, px, py);
+end;
+$$ language plpgsql volatile strict;
+
+create or replace function add_history_attempt_activate_spell() returns void as $$
+declare
+  w pos;
+begin
+  select into w x,y from pieces
+    where allegiance=get_current_wizard()
+      and ptype = 'wizard';
+  insert into action_history_mr (history_name, allegiance, spell_name, x, y)
+    values ('attempt_target_spell', get_current_wizard(),
+            get_current_wizard_spell(), w.x, w.y);
 end;
 $$ language plpgsql volatile strict;
 
@@ -3491,28 +3586,91 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
-create function add_history_chinned(k piece_key) returns void as $$
+create function add_history_spell_skipped() returns void as $$
 begin
-  insert into action_history_mr (history_name, ptype, allegiance,tag)
-    values ('chinned', k.ptype, k.allegiance, k.tag);
+  insert into action_history_mr (history_name, allegiance, spell_name)
+    values ('spell_skipped', get_current_wizard(), get_current_wizard_spell());
+end;
+$$ language plpgsql volatile strict;
+
+--chinned and shrugged off
+
+create function add_history_chinned(k piece_key) returns void as $$
+declare
+  w pos;
+begin
+  select into w x,y from pieces where (ptype,allegiance,tag) = k;
+  insert into action_history_mr (history_name, ptype, allegiance,tag, x, y)
+    values ('chinned', k.ptype, k.allegiance, k.tag, w.x, w.y);
 
 end;
 $$ language plpgsql volatile strict;
 
 create function add_history_shrugged_off(k piece_key) returns void as $$
+declare
+  w pos;
 begin
-  insert into action_history_mr (history_name, ptype, allegiance,tag)
-    values ('shrugged_off', k.ptype, k.allegiance, k.tag);
+  select into w x,y from pieces where (ptype,allegiance,tag) = k;
+  insert into action_history_mr (history_name, ptype, allegiance,tag, x, y)
+    values ('shrugged_off', k.ptype, k.allegiance, k.tag,w.x, w.y);
 end;
 $$ language plpgsql volatile strict;
 
+--Autonomous
+
+create function add_history_receive_spell(pwizard_name text, pspell_name text) returns void as $$
+declare
+  w pos;
+begin
+  select into w x,y from pieces
+    where allegiance=pwizard_name
+      and ptype = 'wizard';
+  insert into action_history_mr (history_name, allegiance, spell_name, x, y)
+    values ('choose_spell', pwizard_name, pspell_name, w.x, w.y);
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_spread(k piece_key) returns void as $$
+declare
+  w pos;
+begin
+  select into w x,y from pieces where (ptype,allegiance,tag) = k;
+  insert into action_history_mr (history_name, ptype,allegiance,tag, x, y)
+    values ('spread', k.ptype,k.allegiance,k.tag, w.x, w.y);
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_recede(k piece_key) returns void as $$
+declare
+  w pos;
+begin
+  select into w x,y from pieces where (ptype,allegiance,tag) = k;
+  insert into action_history_mr (history_name, ptype,allegiance,tag,x, y)
+    values ('recede', k.ptype,k.allegiance,k.tag, w.x, w.y);
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_disappear(k piece_key) returns void as $$
+declare
+  w pos;
+begin
+  select into w x,y from pieces where (ptype,allegiance,tag) = k;
+  insert into action_history_mr (history_name, ptype,allegiance,tag, x, y)
+    values ('disappear', k.ptype,k.allegiance,k.tag, w.x, w.y);
+end;
+$$ language plpgsql volatile strict;
+
+
+--Move
 create function add_history_moved() returns void as $$
 declare
+  w pos;
   k piece_key;
 begin
+  select into w x,y from pieces where (ptype,allegiance,tag) = k;
   select into k ptype,allegiance,tag from selected_piece;
-  insert into action_history_mr (history_name, ptype, allegiance,tag)
-    values ('moved', k.ptype, k.allegiance, k.tag);
+  insert into action_history_mr (history_name, ptype, allegiance,tag,x, y)
+    values ('moved', k.ptype, k.allegiance, k.tag, w.x,w.y);
 end;
 $$ language plpgsql volatile strict;
 
@@ -3528,102 +3686,6 @@ begin
     values ('attack', sp.ptype, sp.allegiance, sp.tag, sp.x,sp.y, tp.x,tp.y);
 end;
 $$ language plpgsql volatile strict;
-
-create function add_history_set_imaginary() returns void as $$
-begin
-  insert into action_history_mr (history_name, allegiance)
-    values ('set_imaginary', get_current_wizard());
-end;
-$$ language plpgsql volatile strict;
-
-create function add_history_set_real() returns void as $$
-begin
-  insert into action_history_mr (history_name, allegiance)
-    values ('set_real', get_current_wizard());
-end;
-$$ language plpgsql volatile strict;
-
-create function add_history_game_won() returns void as $$
-begin
-  insert into action_history_mr (history_name, allegiance)
-    values ('game_won', (select allegiance
-                         from pieces
-                         where ptype='wizard'));
-end;
-$$ language plpgsql volatile strict;
-
-create function add_history_game_drawn() returns void as $$
-begin
-  insert into action_history_mr (history_name)
-    values ('game_drawn');
-end;
-$$ language plpgsql volatile strict;
-
-create function add_history_spell_skipped() returns void as $$
-begin
-  insert into action_history_mr (history_name, allegiance, spell_name)
-    values ('spell_skipped', get_current_wizard(), get_current_wizard_spell());
-end;
-$$ language plpgsql volatile strict;
-
-create function add_history_new_turn() returns void as $$
-begin
-  insert into action_history_mr (history_name, turn_number)
-    values ('new_turn', get_turn_number());
-end;
-$$ language plpgsql volatile strict;
-
-create function add_history_wizard_up() returns void as $$
-begin
-  insert into action_history_mr (history_name, allegiance, turn_phase)
-    values ('wizard_up', get_current_wizard(), get_turn_phase());
-end;
-$$ language plpgsql volatile strict;
-
-create function add_history_choose_spell() returns void as $$
-begin
-  insert into action_history_mr (history_name, allegiance, spell_name)
-    values ('choose_spell', get_current_wizard(), get_current_wizard_spell());
-end;
-$$ language plpgsql volatile strict;
-
-create function add_history_new_game() returns void as $$
-begin
-  insert into action_history_mr (history_name, num_wizards)
-    values ('new_game', (select count(1) from wizards));
-end;
-$$ language plpgsql volatile strict;
-
-create function add_history_receive_spell(pwizard_name text, pspell_name text) returns void as $$
-begin
-  insert into action_history_mr (history_name, allegiance, spell_name)
-    values ('choose_spell', pwizard_name, pspell_name);
-end;
-$$ language plpgsql volatile strict;
-
-create function add_history_spread(k piece_key) returns void as $$
-begin
-  insert into action_history_mr (history_name, ptype,allegiance,tag)
-    values ('spread', k.ptype,k.allegiance,k.tag);
-end;
-$$ language plpgsql volatile strict;
-
-create function add_history_recede(k piece_key) returns void as $$
-begin
-  insert into action_history_mr (history_name, ptype,allegiance,tag)
-    values ('recede', k.ptype,k.allegiance,k.tag);
-end;
-$$ language plpgsql volatile strict;
-
-create function add_history_disappear(k piece_key) returns void as $$
-begin
-  insert into action_history_mr (history_name, ptype,allegiance,tag)
-    values ('disappear', k.ptype,k.allegiance,k.tag);
-end;
-$$ language plpgsql volatile strict;
-
-
-
 
 
 /*
