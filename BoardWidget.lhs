@@ -41,7 +41,8 @@ reads them out into local iorefs and clears this table.
 
 shared iorefs in this code:
 boardSpritesRef: this contains the cached board_sprites view
-effectsRef: this contains the effects currently playing or queued to be played soon
+effectsRef: this contains the effects currently playing or queued to
+be played soon
 soundsRef: this contains the sounds queued to be played soon
 
 We end up with two main drawing routines:
@@ -142,6 +143,12 @@ time (this is used by the sprite animation and the effects).
 > import SoundLib
 > import ChaosTypes
 
+
+> type BoardSpriteT = (Int, Int, [Char], Int, Int)
+> type BoardSpritesCache = IORef [BoardSpriteT]
+> type EffectsCache = IORef [M.Map [Char] [Char]]
+> type SoundEffectsCache = IORef [(Int, [Char])]
+
 ================================================================================
 
 = Ctor
@@ -149,39 +156,37 @@ time (this is used by the sprite animation and the effects).
 > boardWidgetNew :: Connection -> SoundPlayer -> ColourList ->
 >                   SpriteMap -> IO (Frame, IO())
 > boardWidgetNew conn player _ spriteMap = do
->     --setup the gtk widgets
->     frame <- frameNew
->     canvas <- drawingAreaNew
->     containerAdd frame canvas
->     --setup the cache iorefs
->     bd <- readBoardSprites
->     boardSpritesRef <- newIORef bd
->     efc' <- selectTuples conn "select * from board_effects" []
->     effectsRef <- newIORef efc'
->     soundsRef <- newIORef ([]::[(Int,String)])
+>   --setup the gtk widgets
+>   frame <- frameNew
+>   canvas <- drawingAreaNew
+>   containerAdd frame canvas
+>   --setup the cache iorefs
+>   bd <- readBoardSprites conn
+>   boardSpritesRef <- newIORef bd
+>   efc' <- selectTuples conn "select * from board_effects" []
+>   effectsRef <- newIORef efc'
+>   soundsRef <- newIORef ([]::[(Int,String)])
 
 used to calculate how many ticks since the app was started, to time
 the animations and effects:
 
->     startTicks <- getClockTime
+>   startTicks <- getClockTime
 
 hook things up the the expose event, this is how gtk triggers a
 redraw, and doonexpose hooks this event up to the mydraw function
 
->     onExpose canvas (doOnExpose canvas startTicks
->                                 boardSpritesRef soundsRef effectsRef)
+>   onExpose canvas (doOnExpose conn spriteMap canvas startTicks
+>                               boardSpritesRef effectsRef soundsRef)
 
 update the board sprites 10 times a second to animate them
 
->     flip timeoutAdd 100 $ do
->       widgetQueueDrawArea canvas 0 0 2000 2000
->       return True
+>   flip timeoutAdd 100 $ do
+>     widgetQueueDrawArea canvas 0 0 2000 2000
+>     return True
 
->     let refresh' = refresh canvas startTicks
->                            boardSpritesRef effectsRef soundsRef
->     return (frame, refresh')
-
->     where
+>   let refresh' = refresh conn canvas startTicks
+>                          boardSpritesRef effectsRef soundsRef
+>   return (frame, refresh')
 
 ================================================================================
 
@@ -190,64 +195,76 @@ update the board sprites 10 times a second to animate them
 The refresh function updates the ioref caches from the database and
 then calls mydraw.
 
->       refresh canvas startTicks boardSpritesRef effectsRef soundsRef =
->         lg "boardWidgetNew.refresh" "" $ do
->         ef <- checkForEffects startTicks effectsRef soundsRef
->         unless ef $ do
+> refresh :: Connection
+>            -> DrawingArea
+>            -> ClockTime
+>            -> BoardSpritesCache
+>            -> EffectsCache
+>            -> SoundEffectsCache
+>            -> IO ()
+> refresh conn canvas startTicks boardSpritesRef effectsRef soundsRef =
+>   lg "boardWidgetNew.refresh" "" $ do
+>   ef <- checkForEffects conn startTicks effectsRef soundsRef
+>   unless ef $ do
 
 No effects, so update the board sprites cache
 
 (first - if there are no effects update the flag that is used to
 prevent the ai and player from continuing during an effect)
 
->           re <- selectValueIf conn "select running_effects\n\
->                                    \from running_effects_table;" []
->           when ((isJust re) && (read $ fromJust re)) $
->             runSql conn "update running_effects_table\n\
->                         \set running_effects = false" []
->           bd1 <- readBoardSprites
->           writeIORef boardSpritesRef bd1
+>     re <- selectValueIf conn "select running_effects\n\
+>                              \from running_effects_table;" []
+>     when ((isJust re) && (read $ fromJust re)) $
+>          runSql conn "update running_effects_table\n\
+>                      \set running_effects = false" []
+>     bd1 <- readBoardSprites conn
+>     writeIORef boardSpritesRef bd1
 
 Now draw this stuff on screen
 
->         redraw canvas
+>   redraw canvas
 
 
 This function checks the database for new effects and updates the
 caches if there are some. It returns true if the effects cache is not
 empty
 
->       checkForEffects startTicks effectsRef soundsRef =
->         lg "boardWidgetNew.checkForEffects" "" $ do
->         efc <- selectTuples conn "select * from board_effects" []
->         when (length efc > 0) $ do
->           --set the flag to stop further player and ai actions
->           --whilst the effects are playing
->           runSql conn "update running_effects_table\n\
->                       \set running_effects = true" []
->           --load up the caches
->           --todo: clean this up, convert to stages, add new
->           --effects to existing effects
->           cf <- getFrames startTicks
->           let addStartFrame t = let sf = if lk "type" t == "beam"
->                                            then cf
->                                            else cf + 6
->                                 in M.insert "start_frame" (show sf) t
->               removeSounds t = if lk "type" t == "sound"
->                                  then Nothing
->                                  else Just t
->           writeIORef effectsRef $ catMaybes $
->                      map removeSounds $ map addStartFrame efc
->           let soundEffects = map (\t -> if lk "type" t /= "square"
->                                           then (cf, lk "sound" t)
->                                           else (cf + 12, lk "sound" t)) efc
->           writeIORef soundsRef soundEffects
->           runSql conn "delete from board_effects" []
+> checkForEffects :: Connection
+>                 -> ClockTime
+>                 -> EffectsCache
+>                 -> SoundEffectsCache
+>                 -> IO Bool
+> checkForEffects conn startTicks effectsRef soundsRef =
+>   lg "boardWidgetNew.checkForEffects" "" $ do
+>   efc <- selectTuples conn "select * from board_effects" []
+>   when (length efc > 0) $ do
+>     --set the flag to stop further player and ai actions
+>     --whilst the effects are playing
+>     runSql conn "update running_effects_table\n\
+>                 \set running_effects = true" []
+>     --load up the caches
+>     --todo: clean this up, convert to stages, add new
+>     --effects to existing effects
+>     cf <- getFrames startTicks
+>     let addStartFrame t = let sf = if lk "type" t == "beam"
+>                                      then cf
+>                                      else cf + 6
+>                           in M.insert "start_frame" (show sf) t
+>         removeSounds t = if lk "type" t == "sound"
+>                            then Nothing
+>                            else Just t
+>     writeIORef effectsRef $ catMaybes $
+>                map removeSounds $ map addStartFrame efc
+>     let soundEffects = map (\t -> if lk "type" t /= "square"
+>                                     then (cf, lk "sound" t)
+>                                     else (cf + 12, lk "sound" t)) efc
+>     writeIORef soundsRef soundEffects
+>     runSql conn "delete from board_effects" []
 
 tell the caller whether there are effects in the cache or not
 
->         efcE <- readIORef effectsRef
->         return $ length efcE > 0
+>   efcE <- readIORef effectsRef
+>   return $ length efcE > 0
 
 
 ================================================================================
@@ -257,127 +274,107 @@ tell the caller whether there are effects in the cache or not
 This is the code that actually draws the canvas which is then rendered
 to show the player
 
+> myDraw :: Connection
+>           -> SpriteMap
+>           -> ClockTime
+>           -> BoardSpritesCache
+>           -> EffectsCache
+>           -> SoundEffectsCache
+>           -> Double
+>           -> Double
+>           -> Render ()
+> myDraw conn spriteMap startTicks boardSpritesRef effectsRef soundsRef w h = do
+>   --make the background black
+>   setSourceRGB 0 0 0
+>   paint
 
->       myDraw startTicks boardSpritesRef soundsRef effectsRef w h = do
->           --make the background black
->           setSourceRGB 0 0 0
->           paint
->
-
-setup some helper functions:
-
->           let boardWidth = 15
->               boardHeight = 10
+>   let boardWidth = 15
+>       boardHeight = 10
 
 work out the size of each square in cairo co-ords
 
->               squareWidth = (w / boardWidth) ::Double
->               squareHeight = (h / boardHeight) ::Double
+>       squareWidth = (w / boardWidth) ::Double
+>       squareHeight = (h / boardHeight) ::Double
 
-create toX and toY functions, you pass these the square
-position and it returns the drawing co-ords of the top
-left of that square
-
->               toX a = a * squareWidth
->               toY b = b * squareHeight
-
-
->               drawGrid = do
->                        setSourceRGB 0.2 0.2 0.2
->                        --draw vertical gridlines
->                        mapM_ (\x -> do
->                              moveTo (toX x) 0
->                              lineTo (toX x) (toY 10)) [1..14]
->                        setLineWidth 1
->                        stroke
->                        --draw horizontal gridlines
->                        mapM_ (\y -> do
->                              moveTo 0 (toY y)
->                              lineTo (toX 15) (toY y)) [1..9]
->                        setLineWidth 1
->                        stroke
 >
->           drawGrid
+>   drawGrid squareWidth squareHeight
+>
 
 --------------------------------------------------
 draw sprites
 
 assume sprites are 64x64
 
->           let sw = 64
->               sh = 64
+>   let sw = 64
+>       sh = 64
 >
 
 get our scale factors so that the sprites are drawn at the same size
 as the grid squares
 
->               scaleX = squareWidth / sw
->               scaleY = squareHeight / sh
+>       scaleX = squareWidth / sw
+>       scaleY = squareHeight / sh
 >
 
 use a scale transform on the cairo drawing surface to scale the
 sprites. This seems a bit backwards since we have to generate new toX
 and toY functions which take into account the changed scale factor.
 
->           scale scaleX scaleY
->           let toXS a = a * squareWidth / scaleX
->               toYS b = b * squareHeight / scaleY
+>   scale scaleX scaleY
+>   let toXS a = a * squareWidth / scaleX
+>       toYS b = b * squareHeight / scaleY
 >
 
 create a helper function to draw a sprite at board position x,y
 identifying the sprite by name, hiding all that tedious map lookup
 stuff
 
->           cf <- liftIO $ getFrames startTicks
->           let drawAt x' y' sp sf as = do
->                 let x = (fromIntegral x')
->                     y = (fromIntegral y')
->                     p = safeMLookup "board widget draw" sp spriteMap
->                     (_,_,img) = p
->                     f = ((cf - sf) `div` as) `mod` length img
->                 setSourceSurface (img !! f) (toXS x) (toYS y)
->                 paint
+>   cf <- liftIO $ getFrames startTicks
+>   let drawAt x' y' sp sf as = do
+>         let x = (fromIntegral x')
+>             y = (fromIntegral y')
+>             p = safeMLookup "board widget draw" sp spriteMap
+>             (_,_,img) = p
+>             f = ((cf - sf) `div` as) `mod` length img
+>         setSourceSurface (img !! f) (toXS x) (toYS y)
+>         paint
 
 Draw the board sprites from the saved board
 
->           bd2 <- liftIO $ readIORef boardSpritesRef
->           mapM_ (uncurry5 drawAt) bd2
+>   bd2 <- liftIO $ readIORef boardSpritesRef
+>   mapM_ (uncurry5 drawAt) bd2
 
 
 run any sounds which need to be run
 
->           snds <- liftIO $ readIORef soundsRef
->           when (length snds > 0) $ do
->             --liftIO $ putStrLn $ show cf
->             --liftIO $ mapM_ putStrLn $ map (\(a,b) -> show a ++ show b) snds
->             leftSnds <- mapM (\(t,s) -> if t <= cf
->                                         then do
->                                           --liftIO$ putStrLn $ "playing " ++ s ++ " at " ++ show t
->                                           liftIO $ play player s
->                                           return Nothing
->                                         else return $ Just (t,s)) snds
->             liftIO $ writeIORef soundsRef $ catMaybes leftSnds
+ >           snds <- liftIO $ readIORef soundsRef
+ >           when (length snds > 0) $ do
+ >             leftSnds <- mapM (\(t,s) -> if t <= cf
+ >                                         then do
+ >                                           liftIO $ play player s
+ >                                           return Nothing
+ >                                         else return $ Just (t,s)) snds
+ >             liftIO $ writeIORef soundsRef $ catMaybes leftSnds
 
 draw the effects
 
->           efs <- liftIO $ readIORef effectsRef
->           when (length efs > 0) $ do
->             let drawEffectLine x1 y1 x2 y2 = do
->                                      setSourceRGB 0.7 0.7 0.7
->                                      moveTo (toXS $ x1 + 0.5) (toYS $ y1 + 0.5)
->                                      lineTo (toXS $ x2 + 0.5) (toYS $ y2 + 0.5)
->                                      setLineWidth 10
->                                      stroke
+>   efs <- liftIO $ readIORef effectsRef
+>   when (length efs > 0) $ do
+>     let drawEffectLine x1 y1 x2 y2 = do
+>           setSourceRGB 0.7 0.7 0.7
+>           moveTo (toXS $ x1 + 0.5) (toYS $ y1 + 0.5)
+>           lineTo (toXS $ x2 + 0.5) (toYS $ y2 + 0.5)
+>           setLineWidth 10
+>           stroke
 
->             let drawEffectSquare x1 y1 = drawAt x1 y1 "effect_attack" 0 250
+>     let drawEffectSquare x1 y1 = drawAt x1 y1 "effect_attack" 0 250
 
->             --liftIO $ putStrLn $ "got " ++ show (length efs) ++ "effects"
 >             --remove expired effects
->             let efs1 = filter (\t -> (read (lk "start_frame" t)) + 6 >= cf) efs
+>     let efs1 = filter (\t -> (read (lk "start_frame" t)) + 6 >= cf) efs
 >             --liftIO $ putStrLn $ show (length efs1) ++ "effects still good"
 >             --liftIO $ putStrLn $ show cf ++ " current frame"
 >             --mapM_ (\t -> liftIO $ putStrLn (lk "start_frame" t)) efs
->             forM_ efs1 $ \t -> do
+>     forM_ efs1 $ \t -> do
 >               let l f = lk f t
 >               let esf = read $ l "start_frame"
 >               when (esf <= cf) $ do
@@ -389,12 +386,36 @@ draw the effects
 >                     drawEffectLine (rd "x1") (rd "y1") (rd "x2") (rd "y2")
 >                   else do
 >                     drawEffectSquare (ri "x1") (ri "y1")
->             --update the list of effects to remove the expired ones
->             liftIO $ writeIORef effectsRef efs1
->             -- if there are no more effects then refresh the sprites from the database
->             when (length efs1 == 0)$ do
->               bd1 <- liftIO readBoardSprites
->               liftIO $ writeIORef boardSpritesRef bd1
+>     --update the list of effects to remove the expired ones
+>     liftIO $ writeIORef effectsRef efs1
+>     -- if there are no more effects then refresh the sprites from the database
+>     when (length efs1 == 0)$ do
+>       bd1 <- liftIO $ readBoardSprites conn
+>       liftIO $ writeIORef boardSpritesRef bd1
+
+== drawing helpers
+
+> drawGrid :: Double -> Double -> Render ()
+
+> drawGrid squareWidth squareHeight = do
+>   let toX a = a * squareWidth
+>       toY b = b * squareHeight
+>   setSourceRGB 0.2 0.2 0.2
+>   --draw vertical gridlines
+
+ >         mapM_ (\x -> do
+ >                      moveTo (toX x) 0
+ >                      lineTo (toX x) (toY 10)) [1..14]
+ >                      setLineWidth 1
+ >                      stroke
+ >         --draw horizontal gridlines
+ >         mapM_ (\y -> do
+ >                      moveTo 0 (toY y)
+ >                      lineTo (toX 15) (toY y)) [1..9]
+ >                      setLineWidth 1
+ >                      stroke
+ >
+
 
 ================================================================================
 
@@ -402,7 +423,9 @@ draw the effects
 
 read the board sprites relvar into the cache format
 
->       readBoardSprites =
+
+> readBoardSprites :: Connection -> IO [BoardSpriteT]
+> readBoardSprites conn =
 >           selectTuplesC conn "select * from board_sprites" [] $
 >                         \bs -> (read $ lk "x" bs::Int,
 >                                 read $ lk "y" bs::Int,
@@ -413,44 +436,55 @@ read the board sprites relvar into the cache format
 get the number of frames since starting the program, so we can
 work out which frame to show for each sprite, and cue the effects
 
->       getFrames startTicks = do
->           t <- getClockTime
->           let tdiff = diffClockTimes t startTicks
->           --25 frames per second
->               ps = ((tdPicosec tdiff * 25::Integer) `div`
->                      ((10::Integer)^(12::Integer)))::Integer
->               f1 = fromIntegral (tdMin tdiff * 25 * 60) +
->                    fromIntegral (tdHour tdiff * 25 * 60 * 60) +
->                    fromIntegral (tdSec tdiff * 25) +  ps
->               b = fromInteger f1
->           return b::IO Int
+> getFrames :: ClockTime -> IO Int
+> getFrames startTicks = do
+>   t <- getClockTime
+>   let tdiff = diffClockTimes t startTicks
+>       ps = ((tdPicosec tdiff * 25::Integer) `div`
+>             ((10::Integer)^(12::Integer)))::Integer
+>       f1 = fromIntegral (tdMin tdiff * 25 * 60) +
+>              fromIntegral (tdHour tdiff * 25 * 60 * 60) +
+>              fromIntegral (tdSec tdiff * 25) +  ps
+>       b = fromInteger f1
+>   return b::IO Int
 
 This posts an event to the gtk queue which triggers the onexpose,
 which then triggers the mydraw routine, which apparently how you do
 this sort of thing in gtk
 
->       redraw canvas = do
->           win <- widgetGetDrawWindow canvas
->           reg <- drawableGetClipRegion win
->           drawWindowInvalidateRegion win reg True
->           drawWindowProcessUpdates win True
+> redraw :: DrawingArea -> IO ()
+> redraw canvas = do
+>   win <- widgetGetDrawWindow canvas
+>   reg <- drawableGetClipRegion win
+>   drawWindowInvalidateRegion win reg True
+>   drawWindowProcessUpdates win True
 
 gtk red tape: on expose routes (re)draw events coming from gtk to the
 my draw function - these redraws can be trigged by the redraw function
 or by gtk in response to windows being moved around or resized
 
->       doOnExpose canvas startTicks boardSpritesRef soundsRef effectsRef _ =
->           lg "boardWidgetNew.doOnExpose" "" $ do
->           (w,h) <- widgetGetSize canvas
->           drawin <- widgetGetDrawWindow canvas
->           renderWithDrawable drawin
->                              (myDraw startTicks
->                               boardSpritesRef soundsRef effectsRef
->                              (fromIntegral w) (fromIntegral h))
->           --The following line use to read
->           --return (eventSent x))
->           --but that doesn't compile anymore, so just bodged it.
->           return True
+> doOnExpose :: Connection
+>            -> SpriteMap
+>            -> DrawingArea
+>            -> ClockTime
+>            -> BoardSpritesCache
+>            -> EffectsCache
+>            -> SoundEffectsCache
+>            -> t
+>            -> IO Bool
+> doOnExpose conn spriteMap canvas startTicks
+>            boardSpritesRef soundsRef effectsRef _ =
+>   lg "boardWidgetNew.doOnExpose" "" $ do
+>   (w,h) <- widgetGetSize canvas
+>   drawin <- widgetGetDrawWindow canvas
+>   renderWithDrawable drawin
+>                      (myDraw conn spriteMap startTicks
+>                       boardSpritesRef soundsRef effectsRef
+>                       (fromIntegral w) (fromIntegral h))
+>   --The following line use to read
+>   --return (eventSent x))
+>   --but that doesn't compile anymore, so just bodged it.
+>   return True
 
 
 
