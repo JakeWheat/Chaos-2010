@@ -106,7 +106,7 @@ update pg_settings
   where name='log_statement';
 
 > lg :: String -> String -> IO c -> IO c
-> lg l m = Logging.pLog ("chaos.ChaosDB." ++ l) m
+> lg l = Logging.pLog ("chaos.ChaosDB." ++ l)
 
 == notify listeners
 
@@ -354,13 +354,13 @@ call actions functions
 
 > quickQuery' :: (IConnection conn) =>
 >                   conn -> String -> [SqlValue] -> IO [[SqlValue]]
-> quickQuery' conn q a = lg "quickQuery'" q $ H.quickQuery' conn q a
+> quickQuery' conn q = lg "quickQuery'" q . H.quickQuery' conn q
 
  > commit :: (IConnection conn) => conn -> IO ()
  > commit conn = timeName "commit" $ H.commit conn
 
 > execute :: Statement -> [SqlValue] -> IO Integer
-> execute st a = lg "execute" "" $ H.execute st a
+> execute st = lg "execute" "" . H.execute st
 
  > prepare :: (IConnection conn) => conn -> String -> IO Statement
  > prepare conn q = if profileEm
@@ -371,4 +371,4 @@ call actions functions
  > getColumnNames st = timeName "getColumnNames" $ H.getColumnNames st
 
 > fetchAllRows' :: Statement -> IO [[SqlValue]]
-> fetchAllRows' st = lg "fetchAllRows'" "" $ H.fetchAllRows st
+> fetchAllRows' = lg "fetchAllRows'" "" . H.fetchAllRows

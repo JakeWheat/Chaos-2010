@@ -36,12 +36,12 @@
 >                           --putStrLn $ "log to " ++ logName ++ " start " ++ s
 >                           t <- getClockTime
 >                           debugM logName $
->                                  (clockTimeToString t) ++ " start " ++ s
+>                                  clockTimeToString t ++ " start " ++ s
 >                           return ())
 >                          (\_ -> do
 >                           --putStrLn $ "log to " ++ logName ++ " end"
 >                           t <- getClockTime
 >                           debugM logName $
->                                  (clockTimeToString t) ++ " end"
+>                                  clockTimeToString t ++ " end"
 >                           return ())
 >                          (\_ -> f)

@@ -542,40 +542,33 @@ select x,y,'highlight_' || action as sprite
 /*
 == animation
 
-we save a starting frame against each piece. Not really sure what the
+we save a starting tick against each piece. Not really sure what the
 best way to do this, some options are:
 
-* have a trigger on the pieces table
-
-* have an update function which is run every time the ui refreshes the
-  piece data from the database, this inserts any missing starting frames
-  in to a separate table at that time.
-
-The advantage to this one is only the haskell code needs to understand
-frame numbers
+these are updated in the action_key_pressed and client_ai_continue fns
 
 */
-create table piece_starting_frames (
+create table piece_starting_ticks (
   ptype text,
   allegiance text,
   tag int,
-  start_frame int
+  start_tick int
 );
-select add_key('piece_starting_frames',
+select add_key('piece_starting_ticks',
                array['ptype', 'allegiance', 'tag']);
-select add_foreign_key('piece_starting_frames',
+select add_foreign_key('piece_starting_ticks',
                        array['ptype', 'allegiance', 'tag'], 'pieces');
-select set_relvar_type('piece_starting_frames', 'data');
+select set_relvar_type('piece_starting_ticks', 'data');
 
 
-create function update_missing_startframes()
+create function update_missing_startticks()
   returns void as $$
 begin
-  insert into piece_starting_frames (ptype,allegiance,tag,start_frame)
+  insert into piece_starting_ticks (ptype,allegiance,tag,start_tick)
     select ptype,allegiance,tag, random()*2500 from pieces
       where (ptype,allegiance,tag) not in
         (select ptype,allegiance,tag
-        from piece_starting_frames);
+        from piece_starting_ticks);
 end;
 $$ language plpgsql volatile;
 
@@ -589,10 +582,10 @@ together to give the full list of sprites
 */
 create view board_sprites as
   select x,y,ptype,allegiance,tag,
-    sprite,colour,sp,start_frame, animation_speed
+    sprite,colour,sp,start_tick, animation_speed
     from piece_sprite
   natural inner join pieces_on_top
-  natural inner join piece_starting_frames
+  natural inner join piece_starting_ticks
   natural inner join sprites
 union
 select x,y, '', '', -1,'cursor', 'white', 6,0, animation_speed
@@ -694,7 +687,7 @@ begin
   end if;
 
   perform action_ai_continue();
-  perform update_missing_startframes();
+  perform update_missing_startticks();
   perform check_for_effects();
 end;
 $$ language plpgsql volatile;
@@ -1339,7 +1332,7 @@ unmatched keypress, need to be faster.
       null;
     end if;
   end if;
-  perform update_missing_startframes();
+  perform update_missing_startticks();
   perform check_for_effects();
 end;
 $$ language plpgsql volatile;

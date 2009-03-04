@@ -214,7 +214,7 @@ prevent the ai and player from continuing during an effect)
 
 >     re <- selectValueIf conn "select running_effects\n\
 >                              \from running_effects_table;" []
->     when ((isJust re) && (read $ fromJust re)) $
+>     when (isJust re && read (fromJust re)) $
 >          runSql conn "update running_effects_table\n\
 >                      \set running_effects = false" []
 >     bd1 <- readBoardSprites conn
@@ -245,16 +245,16 @@ empty
 >     --load up the caches
 >     --todo: clean this up, convert to stages, add new
 >     --effects to existing effects
->     cf <- getFrames startTicks
->     let addStartFrame t = let sf = if lk "type" t == "beam"
+>     cf <- getTicks startTicks
+>     let addStartTick t = let sf = if lk "type" t == "beam"
 >                                      then cf
 >                                      else cf + 6
->                           in M.insert "start_frame" (show sf) t
+>                           in M.insert "start_tick" (show sf) t
 >         removeSounds t = if lk "type" t == "sound"
 >                            then Nothing
 >                            else Just t
 >     writeIORef effectsRef $ catMaybes $
->                map removeSounds $ map addStartFrame efc
+>                map (removeSounds . addStartTick) efc
 >     let soundEffects = map (\t -> if lk "type" t /= "square"
 >                                     then (cf, lk "sound" t)
 >                                     else (cf + 12, lk "sound" t)) efc
@@ -316,7 +316,7 @@ and toY functions which take into account the changed scale factor.
 >   let toXS a = a * squareWidth / scaleX
 >       toYS b = b * squareHeight / scaleY
 
->   cf <- liftIO $ getFrames startTicks
+>   cf <- liftIO $ getTicks startTicks
 
 >   drawSprites cf spriteMap toXS toYS boardSpritesRef
 >   liftIO $ playSounds player cf soundsRef
@@ -362,7 +362,7 @@ Draw the board sprites from the saved board
 >             -> Render ()
 > drawEffects conn spriteMap cf boardSpritesRef effectsRef toXS toYS = do
 >   efs <- liftIO $ readIORef effectsRef
->   when (length efs > 0) $ do
+>   unless (null efs) $ do
 >     let drawEffectLine x1 y1 x2 y2 = do
 >           setSourceRGB 0.7 0.7 0.7
 >           moveTo (toXS $ x1 + 0.5) (toYS $ y1 + 0.5)
@@ -373,26 +373,26 @@ Draw the board sprites from the saved board
 >     let drawEffectSquare x1 y1 = drawAt spriteMap toXS toYS cf x1 y1 "effect_attack" 0 250
 
 >             --remove expired effects
->     let efs1 = filter (\t -> (read (lk "start_frame" t)) + 6 >= cf) efs
+>     let efs1 = filter (\t -> read (lk "start_tick" t) + 6 >= cf) efs
 >             --liftIO $ putStrLn $ show (length efs1) ++ "effects still good"
->             --liftIO $ putStrLn $ show cf ++ " current frame"
->             --mapM_ (\t -> liftIO $ putStrLn (lk "start_frame" t)) efs
+>             --liftIO $ putStrLn $ show cf ++ " current ticks"
+>             --mapM_ (\t -> liftIO $ putStrLn (lk "start_tick" t)) efs
 >     forM_ efs1 $ \t -> do
 >               let l f = lk f t
->               let esf = read $ l "start_frame"
+>               let esf = read $ l "start_tick"
 >               when (esf <= cf) $ do
 >                 --liftIO $ putStrLn "draw effect"
 >                 let rd f = (read $ l f)::Double
 >                 let ri f = (read $ l f)::Int
 >                 if l "type" == "beam"
->                   then do
+>                   then
 >                     drawEffectLine (rd "x1") (rd "y1") (rd "x2") (rd "y2")
->                   else do
+>                   else
 >                     drawEffectSquare (ri "x1") (ri "y1")
 >     --update the list of effects to remove the expired ones
 >     liftIO $ writeIORef effectsRef efs1
 >     -- if there are no more effects then refresh the sprites from the database
->     when (length efs1 == 0)$ do
+>     when (null efs1) $ do
 >       bd1 <- liftIO $ readBoardSprites conn
 >       liftIO $ writeIORef boardSpritesRef bd1
 
@@ -407,8 +407,8 @@ Draw the board sprites from the saved board
 >        -> Int
 >        -> Int
 >        -> Render ()
-> drawAt spriteMap toXS toYS cf x y --current frame, grid x, grid y
->        spriteName sf as = do -- sprite start frame, animation speed
+> drawAt spriteMap toXS toYS cf x y --current ticks, grid x, grid y
+>        spriteName sf as = do -- sprite start tick, animation speed
 >   let p = safeMLookup "board widget draw" spriteName spriteMap
 >       (_,_,img) = p
 >       f = ((cf - sf) `div` as) `mod` length img
@@ -450,14 +450,14 @@ read the board sprites relvar into the cache format
 >                         \bs -> (read $ lk "x" bs::Int,
 >                                 read $ lk "y" bs::Int,
 >                                 lk "sprite" bs,
->                                 read $ lk "start_frame" bs::Int,
+>                                 read $ lk "start_tick" bs::Int,
 >                                 read $ lk "animation_speed" bs::Int)
 
-get the number of frames since starting the program, so we can
+get the number of ticks since starting the program, so we can
 work out which frame to show for each sprite, and cue the effects
 
-> getFrames :: ClockTime -> IO Int
-> getFrames startTicks = do
+> getTicks :: ClockTime -> IO Int
+> getTicks startTicks = do
 >   t <- getClockTime
 >   let tdiff = diffClockTimes t startTicks
 >       ps = ((tdPicosec tdiff * 25::Integer) `div`
@@ -511,4 +511,4 @@ or by gtk in response to windows being moved around or resized
 
 
 > lg :: String -> String -> IO c -> IO c
-> lg l m = Logging.pLog ("chaos.BoardWidget." ++ l) m
+> lg l = Logging.pLog ("chaos.BoardWidget." ++ l)

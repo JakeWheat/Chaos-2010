@@ -163,7 +163,7 @@ todo: if cannot connect to database give info to this effect
 >              mainGUI)
 
 > lg :: String -> String -> IO c -> IO c
-> lg l m = Logging.pLog ("chaos.chaos." ++ l) m
+> lg l = Logging.pLog ("chaos.chaos." ++ l)
 
 
 ================================================================================
@@ -673,7 +673,7 @@ text box instead of redrawing them all
                        "recede"
                        "disappear"
 
->       writeText is = mapM_ writeItem is
+>       writeText = mapM_ writeItem
 >       writeItem i = case i of
 >                     Text t -> putStr t
 >                     TaggedText t _ -> putStr t
@@ -931,8 +931,6 @@ text views and a cairo surface for drawing on the board
 > loadSprites conn = do
 >   maybeSpriteFiles <- findAllFiles "sprites"
 >   spriteNames <- selectSingleColumn conn "select sprite from sprites" []
->   --for now, we just find the first matching first frame for a sprite
->   --since we aren't doing any animation
 >   let spriteFilenames = for spriteNames
 >         (\sp ->
 >           let spritefiles = (filter

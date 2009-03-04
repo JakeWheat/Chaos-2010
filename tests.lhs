@@ -87,7 +87,7 @@ creating new game
 *_hack
 
 data relvars to skip testing
-piece starting frames
+piece starting ticks
 board size
 new game widget state
 spell books show all
@@ -1075,40 +1075,40 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Buddha" [PUndead]])]))
 
 > testCastShield :: Connection -> Test.Framework.Test
-> testCastShield = tctor "testCastShield" $ \conn -> do
+> testCastShield = tctor "testCastShield" $ \conn ->
 >   doUpgradeTest conn "magic_shield" $
->                 \t -> addStat "physical_defense" 2 t
+>                 addStat "physical_defense" 2
 
 > testCastArmour :: Connection -> Test.Framework.Test
-> testCastArmour = tctor "testCastArmour" $ \conn -> do
+> testCastArmour = tctor "testCastArmour" $ \conn ->
 >   doUpgradeTest conn "magic_armour" $
->                 \t -> addStat "physical_defense" 4 t
+>                 addStat "physical_defense" 4
 
 > testCastKnife :: Connection -> Test.Framework.Test
-> testCastKnife = tctor "testCastKnife" $ \conn -> do
+> testCastKnife = tctor "testCastKnife" $ \conn ->
 >   doUpgradeTest conn "magic_knife" $
->                 \t -> addStat "attack_strength" 2 t
+>                 addStat "attack_strength" 2
 
 > testCastSword :: Connection -> Test.Framework.Test
-> testCastSword = tctor "testCastSword" $ \conn -> do
+> testCastSword = tctor "testCastSword" $ \conn ->
 >   doUpgradeTest conn "magic_sword" $
->                 \t -> addStat "attack_strength" 4 t
+>                 addStat "attack_strength" 4
 
 > testCastBow :: Connection -> Test.Framework.Test
-> testCastBow = tctor "testCastBow" $ \conn -> do
+> testCastBow = tctor "testCastBow" $ \conn ->
 >   doUpgradeTest conn "magic_bow" $
 >                 setStat "ranged_weapon_type" "projectile" .
 >                 setStat "range" "6" .
 >                 setStat "ranged_attack_strength" "6"
 
 > testCastWings :: Connection -> Test.Framework.Test
-> testCastWings = tctor "testCastWings" $ \conn -> do
+> testCastWings = tctor "testCastWings" $ \conn ->
 >   doUpgradeTest conn "magic_wings" $
 >                 setStat "speed" "6" .
 >                 setStat "flying" "True"
 
 > testCastShadowForm :: Connection -> Test.Framework.Test
-> testCastShadowForm = tctor "testCastShadowForm" $ \conn -> do
+> testCastShadowForm = tctor "testCastShadowForm" $ \conn ->
 >   doUpgradeTest conn "shadow_form" $
 >                 addStat "physical_defense" 2 .
 >                 addStat "agility" 2 .
@@ -1120,7 +1120,7 @@ cast it and check the resulting board
 >       adds s = show $ (read s ::Int) + n
 
 > setStat :: String -> String -> SqlRow -> SqlRow
-> setStat att v tup = M.insert att v tup
+> setStat = M.insert
 
 > doUpgradeTest :: Connection -> String -> (SqlRow -> SqlRow)
 >               -> IO ()
@@ -2578,7 +2578,7 @@ castles disappearing
 > selectInt :: Connection -> String -> [String] -> IO Int
 > selectInt conn q a = do
 >     x <- selectValue conn q a
->     return $ (read x ::Int)
+>     return (read x ::Int)
 
 > testGetSpell :: Connection -> Test.Framework.Test
 > testGetSpell = tctor "testGetSpell" $ \conn -> do
