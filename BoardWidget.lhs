@@ -103,12 +103,17 @@ the ai works atm.
 
 Animation:
 
-The sprites are held in png files, they animate at different speeds
-(the speed is in the sprites table, and is in frames (25 per
-second)). Todo: different sprites have different animation styles:
-looped and back and forth. E.g. for a looped style sprite with 4
-sprites, the order shown is 1 2 3 4 1 2 3 4, etc., for a back and
-forth one it is 1 2 3 4 3 2 1 2 3, etc.
+The sprites are held in png files. One animated sprite might have
+several pngs corresponding to the different animation frames of that
+sprite. The frames of a sprite are only used for animation and not for
+state, e.g. a dead monster sprite is a different sprite to the
+monster, and not just one of the frames for that monster.
+
+The sprites animate at different speeds (the speed is in the sprites
+table, and is in ticks (25 per second)). Todo: different sprites have
+different animation styles: looped and back and forth. E.g. for a
+looped style sprite with 4 frames, the order shown is 1 2 3 4 1 2 3 4,
+etc., for a back and forth one it is 1 2 3 4 3 2 1 2 3, etc.
 
 Timing:
 
@@ -176,7 +181,6 @@ update the board sprites 10 times a second to animate them
 >                            boardSpritesRef effectsRef soundsRef
 >     return (frame, refresh')
 
-
 >     where
 
 ================================================================================
@@ -187,72 +191,64 @@ The refresh function updates the ioref caches from the database and
 then calls mydraw.
 
 >       refresh canvas startTicks boardSpritesRef effectsRef soundsRef =
->           lg "boardWidgetNew.refresh" "" $ do
-
-update the frame positions
-
-When a new piece is created, we set it's starting frame here, could do
-this in the database which would be a bit cleaner.
-
->           f <- getFrames startTicks
->           dbAction conn "update_missing_startframes" [show f]
-
-check for effects
-
->           efc <- selectTuples conn "select * from board_effects" []
->           if length efc > 0
-
-if we have effects, then load up the ioref caches
-
->             then do
->               runSql conn "update running_effects_table\n\
->                           \set running_effects = true" []
->               --mapM_ (\t -> putStrLn $ lk "type" t ++ lk "sound" t) efc
->               cf <- getFrames startTicks
->               let addStartFrame t = let sf = if lk "type" t == "beam"
->                                                then cf
->                                                else cf + 6
->                                     in M.insert "start_frame" (show sf) t
->                   removeSounds t = if lk "type" t == "sound"
->                                      then Nothing
->                                      else Just t
->               writeIORef effectsRef $ catMaybes $ map removeSounds $ map addStartFrame efc
->               let soundEffects = map (\t -> if lk "type" t /= "square"
->                                               then (cf, lk "sound" t)
->                                               else (cf + 12, lk "sound" t)) efc
->               --putStrLn "soundeffects:"
->               --print soundEffects
->               writeIORef soundsRef soundEffects
->               --play sound effects
->               --forM_ efc (\ef -> play player $ lk "sound" ef)
->               runSql conn "delete from board_effects" []
->             else do
-
-no effects in the database, but if we still have effects in the cache
-we don't want to refresh the board sprites. The code should prevent
-refresh from being called when effects are being run, but add this
-just to make sure.
-
->               efcE <- readIORef effectsRef
->               if (length efcE > 0)
->                 then
->                   return ()
->                   --putStrLn "continue effects"
->                 else do
->                   --putStrLn "read db for board"
+>         lg "boardWidgetNew.refresh" "" $ do
+>         ef <- checkForEffects startTicks effectsRef soundsRef
+>         unless ef $ do
 
 No effects, so update the board sprites cache
 
 (first - if there are no effects update the flag that is used to
 prevent the ai and player from continuing during an effect)
 
->                   re <- selectValueIf conn "select running_effects from running_effects_table;" []
->                   when ((isJust re) && (read $ fromJust re)) $
->                        runSql conn "update running_effects_table\n\
->                                    \set running_effects = false" []
->                   bd1 <- readBoardSprites
->                   writeIORef boardSpritesRef bd1
->           redraw canvas
+>           re <- selectValueIf conn "select running_effects\n\
+>                                    \from running_effects_table;" []
+>           when ((isJust re) && (read $ fromJust re)) $
+>             runSql conn "update running_effects_table\n\
+>                         \set running_effects = false" []
+>           bd1 <- readBoardSprites
+>           writeIORef boardSpritesRef bd1
+
+Now draw this stuff on screen
+
+>         redraw canvas
+
+
+This function checks the database for new effects and updates the
+caches if there are some. It returns true if the effects cache is not
+empty
+
+>       checkForEffects startTicks effectsRef soundsRef =
+>         lg "boardWidgetNew.checkForEffects" "" $ do
+>         efc <- selectTuples conn "select * from board_effects" []
+>         when (length efc > 0) $ do
+>           --set the flag to stop further player and ai actions
+>           --whilst the effects are playing
+>           runSql conn "update running_effects_table\n\
+>                       \set running_effects = true" []
+>           --load up the caches
+>           --todo: clean this up, convert to stages, add new
+>           --effects to existing effects
+>           cf <- getFrames startTicks
+>           let addStartFrame t = let sf = if lk "type" t == "beam"
+>                                            then cf
+>                                            else cf + 6
+>                                 in M.insert "start_frame" (show sf) t
+>               removeSounds t = if lk "type" t == "sound"
+>                                  then Nothing
+>                                  else Just t
+>           writeIORef effectsRef $ catMaybes $
+>                      map removeSounds $ map addStartFrame efc
+>           let soundEffects = map (\t -> if lk "type" t /= "square"
+>                                           then (cf, lk "sound" t)
+>                                           else (cf + 12, lk "sound" t)) efc
+>           writeIORef soundsRef soundEffects
+>           runSql conn "delete from board_effects" []
+
+tell the caller whether there are effects in the cache or not
+
+>         efcE <- readIORef effectsRef
+>         return $ length efcE > 0
+
 
 ================================================================================
 

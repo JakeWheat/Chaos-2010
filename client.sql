@@ -568,11 +568,11 @@ select add_foreign_key('piece_starting_frames',
 select set_relvar_type('piece_starting_frames', 'data');
 
 
-create function action_update_missing_startframes(fp int)
+create function update_missing_startframes()
   returns void as $$
 begin
   insert into piece_starting_frames (ptype,allegiance,tag,start_frame)
-    select ptype,allegiance,tag, fp + random()*25 from pieces
+    select ptype,allegiance,tag, random()*2500 from pieces
       where (ptype,allegiance,tag) not in
         (select ptype,allegiance,tag
         from piece_starting_frames);
@@ -580,7 +580,6 @@ end;
 $$ language plpgsql volatile;
 
 /*
-
 
 == board sprites
 
@@ -644,7 +643,7 @@ attempt_target_spell	walk
 
 select create_var('last_history_effect_id', 'int');
 
-create or replace function action_check_for_effects() returns void as $$
+create or replace function check_for_effects() returns void as $$
 begin
   --sound effects
   insert into board_effects (type,subtype,x1,y1,x2,y2,sound,queuePos)
@@ -695,7 +694,8 @@ begin
   end if;
 
   perform action_ai_continue();
-  perform action_check_for_effects();
+  perform update_missing_startframes();
+  perform check_for_effects();
 end;
 $$ language plpgsql volatile;
 
@@ -1339,7 +1339,8 @@ unmatched keypress, need to be faster.
       null;
     end if;
   end if;
-  perform action_check_for_effects();
+  perform update_missing_startframes();
+  perform check_for_effects();
 end;
 $$ language plpgsql volatile;
 
