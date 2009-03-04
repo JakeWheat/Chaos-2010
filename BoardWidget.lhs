@@ -175,7 +175,7 @@ the animations and effects:
 hook things up the the expose event, this is how gtk triggers a
 redraw, and doonexpose hooks this event up to the mydraw function
 
->   onExpose canvas (doOnExpose conn spriteMap canvas startTicks
+>   onExpose canvas (doOnExpose conn spriteMap player canvas startTicks
 >                               boardSpritesRef effectsRef soundsRef)
 
 update the board sprites 10 times a second to animate them
@@ -276,6 +276,7 @@ to show the player
 
 > myDraw :: Connection
 >           -> SpriteMap
+>           -> SoundPlayer
 >           -> ClockTime
 >           -> BoardSpritesCache
 >           -> EffectsCache
@@ -283,35 +284,26 @@ to show the player
 >           -> Double
 >           -> Double
 >           -> Render ()
-> myDraw conn spriteMap startTicks boardSpritesRef effectsRef soundsRef w h = do
+> myDraw conn spriteMap player startTicks boardSpritesRef effectsRef soundsRef w h = do
 >   --make the background black
 >   setSourceRGB 0 0 0
 >   paint
 
->   let boardWidth = 15
->       boardHeight = 10
-
 work out the size of each square in cairo co-ords
 
+>   let boardWidth = 15
+>       boardHeight = 10
 >       squareWidth = (w / boardWidth) ::Double
 >       squareHeight = (h / boardHeight) ::Double
-
 >
 >   drawGrid squareWidth squareHeight
->
-
---------------------------------------------------
-draw sprites
 
 assume sprites are 64x64
-
->   let sw = 64
->       sh = 64
->
-
 get our scale factors so that the sprites are drawn at the same size
 as the grid squares
 
+>   let sw = 64
+>       sh = 64
 >       scaleX = squareWidth / sw
 >       scaleY = squareHeight / sh
 >
@@ -323,41 +315,52 @@ and toY functions which take into account the changed scale factor.
 >   scale scaleX scaleY
 >   let toXS a = a * squareWidth / scaleX
 >       toYS b = b * squareHeight / scaleY
->
+
+>   cf <- liftIO $ getFrames startTicks
+
+>   drawSprites cf spriteMap toXS toYS boardSpritesRef
+>   liftIO $ playSounds player cf soundsRef
+>   drawEffects conn spriteMap cf boardSpritesRef effectsRef toXS toYS
+
+== drawing helpers
+
+> playSounds :: SoundPlayer -> Int -> SoundEffectsCache -> IO ()
+> playSounds player cf soundsRef = do
+>   snds <- readIORef soundsRef
+>   when (length snds > 0) $ do
+>     leftSnds <- mapM (\(t,s) -> if t <= cf
+>                                   then do
+>                                        play player s
+>                                        return Nothing
+>                                   else return $ Just (t,s)) snds
+>     writeIORef soundsRef $ catMaybes leftSnds
+
+> drawSprites :: Int
+>             -> SpriteMap
+>             -> (Double -> Double)
+>             -> (Double -> Double)
+>             -> BoardSpritesCache
+>             -> Render ()
+> drawSprites cf spriteMap toXS toYS boardSpritesRef = do
 
 create a helper function to draw a sprite at board position x,y
 identifying the sprite by name, hiding all that tedious map lookup
 stuff
 
->   cf <- liftIO $ getFrames startTicks
->   let drawAt x' y' sp sf as = do
->         let x = (fromIntegral x')
->             y = (fromIntegral y')
->             p = safeMLookup "board widget draw" sp spriteMap
->             (_,_,img) = p
->             f = ((cf - sf) `div` as) `mod` length img
->         setSourceSurface (img !! f) (toXS x) (toYS y)
->         paint
-
 Draw the board sprites from the saved board
 
 >   bd2 <- liftIO $ readIORef boardSpritesRef
->   mapM_ (uncurry5 drawAt) bd2
+>   mapM_ (uncurry5 (drawAt spriteMap toXS toYS cf)) bd2
 
-
-run any sounds which need to be run
-
- >           snds <- liftIO $ readIORef soundsRef
- >           when (length snds > 0) $ do
- >             leftSnds <- mapM (\(t,s) -> if t <= cf
- >                                         then do
- >                                           liftIO $ play player s
- >                                           return Nothing
- >                                         else return $ Just (t,s)) snds
- >             liftIO $ writeIORef soundsRef $ catMaybes leftSnds
-
-draw the effects
-
+> drawEffects :: Connection
+>             -> SpriteMap
+>             -> Int
+>             -> BoardSpritesCache
+>             -> EffectsCache
+>             -> (Double -> Double)
+>             -> (Double -> Double)
+>             -> Render ()
+> drawEffects conn spriteMap cf boardSpritesRef effectsRef toXS toYS = do
 >   efs <- liftIO $ readIORef effectsRef
 >   when (length efs > 0) $ do
 >     let drawEffectLine x1 y1 x2 y2 = do
@@ -367,7 +370,7 @@ draw the effects
 >           setLineWidth 10
 >           stroke
 
->     let drawEffectSquare x1 y1 = drawAt x1 y1 "effect_attack" 0 250
+>     let drawEffectSquare x1 y1 = drawAt spriteMap toXS toYS cf x1 y1 "effect_attack" 0 250
 
 >             --remove expired effects
 >     let efs1 = filter (\t -> (read (lk "start_frame" t)) + 6 >= cf) efs
@@ -393,28 +396,45 @@ draw the effects
 >       bd1 <- liftIO $ readBoardSprites conn
 >       liftIO $ writeIORef boardSpritesRef bd1
 
-== drawing helpers
+
+> drawAt :: SpriteMap
+>        -> (Double -> Double)
+>        -> (Double -> Double)
+>        -> Int
+>        -> Int
+>        -> Int
+>        -> String
+>        -> Int
+>        -> Int
+>        -> Render ()
+> drawAt spriteMap toXS toYS cf x y --current frame, grid x, grid y
+>        spriteName sf as = do -- sprite start frame, animation speed
+>   let p = safeMLookup "board widget draw" spriteName spriteMap
+>       (_,_,img) = p
+>       f = ((cf - sf) `div` as) `mod` length img
+>   setSourceSurface (img !! f) (toXS $ fromIntegral x) (toYS $ fromIntegral y)
+>   paint
+
+
 
 > drawGrid :: Double -> Double -> Render ()
-
 > drawGrid squareWidth squareHeight = do
 >   let toX a = a * squareWidth
 >       toY b = b * squareHeight
 >   setSourceRGB 0.2 0.2 0.2
 >   --draw vertical gridlines
-
- >         mapM_ (\x -> do
- >                      moveTo (toX x) 0
- >                      lineTo (toX x) (toY 10)) [1..14]
- >                      setLineWidth 1
- >                      stroke
- >         --draw horizontal gridlines
- >         mapM_ (\y -> do
- >                      moveTo 0 (toY y)
- >                      lineTo (toX 15) (toY y)) [1..9]
- >                      setLineWidth 1
- >                      stroke
- >
+>   mapM_ (\x -> do
+>                moveTo (toX x) 0
+>                lineTo (toX x) (toY 10)) [1..14]
+>   setLineWidth 1
+>   stroke
+>   --draw horizontal gridlines
+>   mapM_ (\y -> do
+>                      moveTo 0 (toY y)
+>                      lineTo (toX 15) (toY y)) [1..9]
+>   setLineWidth 1
+>   stroke
+>
 
 
 ================================================================================
@@ -465,6 +485,7 @@ or by gtk in response to windows being moved around or resized
 
 > doOnExpose :: Connection
 >            -> SpriteMap
+>            -> SoundPlayer
 >            -> DrawingArea
 >            -> ClockTime
 >            -> BoardSpritesCache
@@ -472,13 +493,13 @@ or by gtk in response to windows being moved around or resized
 >            -> SoundEffectsCache
 >            -> t
 >            -> IO Bool
-> doOnExpose conn spriteMap canvas startTicks
+> doOnExpose conn spriteMap player canvas startTicks
 >            boardSpritesRef soundsRef effectsRef _ =
 >   lg "boardWidgetNew.doOnExpose" "" $ do
 >   (w,h) <- widgetGetSize canvas
 >   drawin <- widgetGetDrawWindow canvas
 >   renderWithDrawable drawin
->                      (myDraw conn spriteMap startTicks
+>                      (myDraw conn spriteMap player startTicks
 >                       boardSpritesRef soundsRef effectsRef
 >                       (fromIntegral w) (fromIntegral h))
 >   --The following line use to read
