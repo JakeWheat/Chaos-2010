@@ -3352,7 +3352,7 @@ begin
 end;
 $$ language plpgsql volatile;
 
-create function kill_wizard(pwizard_name text) returns void as $$
+create or replace function kill_wizard(pwizard_name text) returns void as $$
 begin
 --if current wizard then next_wizard
   if get_current_wizard() = pwizard_name then
@@ -3364,8 +3364,10 @@ begin
       delete from current_wizard_table;
     end if;
   end if;
+ --this should all be handled with cascades...?
+  delete from wizard_spell_choices_mr where wizard_name = pwizard_name;
 --wipe spell book
-  delete from spell_books where wizard_name  = pwizard_name;
+  delete from spell_books where wizard_name = pwizard_name;
 --kill army
   perform disintegrate_wizards_army(pwizard_name);
 --set expired to true

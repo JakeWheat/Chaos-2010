@@ -130,7 +130,6 @@ time (this is used by the sprite animation and the effects).
 > import Graphics.Rendering.Cairo
 >
 > import Data.List
-> --import qualified Data.Map as M
 > import qualified Data.Char as DC
 > import Control.Monad
 > import Data.Maybe
@@ -147,13 +146,14 @@ time (this is used by the sprite animation and the effects).
 > type BoardSpriteT = (Int, Int, [Char], Int, Int)
 > type BoardSpritesCache = IORef [BoardSpriteT]
 
-> type SoundEffect = String
+> type SoundEffect = (String,String)
 > type SquareEffect = (String,Int,Int)
 > type BeamEffect = (String,Int,Int,Int,Int)
+> type EffectsLine = ([BeamEffect]
+>                    ,[SquareEffect]
+>                    ,[SoundEffect])
 
-> type EffectsCacheType = (Int,[([BeamEffect],
->                             [SquareEffect],
->                             [SoundEffect])])
+> type EffectsCacheType = (Int,[EffectsLine])
 
 > type EffectsCache = IORef EffectsCacheType
 
@@ -173,6 +173,13 @@ time (this is used by the sprite animation and the effects).
 >   bd <- readBoardSprites conn
 >   boardSpritesRef <- newIORef bd
 >   effectsRef <- newIORef ((0,[])::EffectsCacheType)
+
+clear the effects tables so we don't have a load of effects waiting to
+run when the app is started
+
+>   runSql conn "delete from board_sound_effects" []
+>   runSql conn "delete from board_square_effects" []
+>   runSql conn "delete from board_beam_effects" []
 
 used to calculate how many ticks since the app was started, to time
 the animations and effects:
@@ -240,7 +247,6 @@ TODO overview of the effects queue and how it works
 >                 -> IO Bool
 > checkForEffects conn effectsRef =
 >   lg "boardWidgetNew.checkForEffects" "" $ do
->
 >   sef <- selectTuples conn "select queuepos,subtype,sound_name\n\
 >                            \from board_sound_effects" []
 >   sqef <- selectTuples conn "select queuepos,subtype,x1,y1\n\
@@ -268,18 +274,17 @@ get the list of unique qps
 each unique qp will correspond to a line in the effects queue
 
 >     let qps = sort (map (\t -> read $ lk "queuepos" t) sef) ++
->                    (map (\t -> read $ lk "queuepos" t) sqef) ++
->                    (map (\t -> read $ lk "queuepos" t) bef) :: [Int]
-
+>                    map (\t -> read $ lk "queuepos" t) sqef ++
+>                    map (\t -> read $ lk "queuepos" t) bef :: [Int]
 >     --convert sql tuples to haskell tuples
 >     let tToBE t = let l f = lk f t in
->                   let r f = read $ l f in
+>                   let r = read . l in
 >                   (l "subtype", r "x1", r "y1", r "x2", r "y2")
 >     let tToSqE t = let l f = lk f t in
->                    let r f = read $ l f in
+>                    let r = read . l in
 >                   (l "subtype", r "x1", r "y1")
 >     let tToSE t = let l f = lk f t in
->                   (l "sound_name")
+>                   (l "subtype", l "sound_name")
 >     -- filter a list selecting the tuples which match queuePos
 >     let getByQp qp = filter (\t -> read (lk "queuepos" t) == qp)
 
@@ -292,9 +297,8 @@ appear in the same line and be triggered together
 >                                      ,map tToSE $ getByQp qp sef
 >                                      ))
 >     (pos,currentEffects) <- readIORef effectsRef
->     --putStrLn $ "new effects:" ++ show newEffects
->     writeIORef effectsRef $ (pos, currentEffects ++ newEffects)
-
+>     putStrLn $ "new effects:" ++ concatMap showEffectsLine newEffects
+>     writeIORef effectsRef (pos, currentEffects ++ newEffects)
 >     return()
 
 tell the caller whether there are effects in the cache or not
@@ -303,6 +307,19 @@ tell the caller whether there are effects in the cache or not
 >   --putStrLn $ "effects queue has " ++ (show $ length effs)
 >   return $ not $ null effs
 
+> showEffectsLine :: EffectsLine -> String
+> showEffectsLine (beamEffects, squareEffects, soundEffects) =
+>   let s = show in
+>   "----------\nBeam effects:\n" ++
+>     concatMap (\(subtype,x1,y1,x2,y2)
+>                -> subtype ++ s x1 ++ "," ++ s y1 ++ ","
+>                   ++ s x2 ++ "," ++ s y2 ++ "\n") beamEffects
+>   ++ "Square effects:\n" ++
+>      concatMap (\(subtype,x1,y1)
+>                 -> subtype ++ s x1 ++ "," ++ s y1 ++ "\n") squareEffects
+>   ++ "sound effects:\n" ++
+>      concatMap (\(subtype,soundName)
+>                 -> subtype ++ ": " ++ soundName ++ "\n") soundEffects
 
 ================================================================================
 
@@ -350,9 +367,7 @@ and toY functions which take into account the changed scale factor.
 >   scale scaleX scaleY
 >   let toXS a = a * squareWidth / scaleX
 >       toYS b = b * squareHeight / scaleY
-
 >   cf <- liftIO $ getTicks startTicks
-
 >   drawSprites cf spriteMap toXS toYS boardSpritesRef
 >   runEffects spriteMap cf player boardSpritesRef effectsRef toXS toYS
 
@@ -384,13 +399,11 @@ play any new sounds, draw any current visual effects
 > runEffects spriteMap cf player _ effectsRef toXS toYS = do
 >   (pos',currentEffectsQueue) <- liftIO $ readIORef effectsRef
 >   unless (null currentEffectsQueue) $ do
->   --liftIO $ putStrLn $ "run effects, size is " ++ (show $ length currentEffectsQueue)
 
-check if the pos hasn't been set, if not, set it and play the
-first set of sounds
+check if the pos hasn't been set, if not, set it and play the first
+set of sounds
 
 >   when (pos' == 0) $ do
->     --liftIO $ putStrLn "init play effects"
 >     playNewSounds currentEffectsQueue
 >     liftIO $ writeIORef effectsRef (cf, currentEffectsQueue)
 
@@ -399,10 +412,8 @@ first set of sounds
 see if the head of the currenteffectsqueue has expired (they last for
 12 ticks)
 
->   --liftIO $ putStrLn $ "check effects " ++ show pos ++ " - " ++ show cf
 >   when (cf > pos + 12) $ do
 >     --clear the current row of effects and play the sounds for the next one
->     --liftIO $ putStrLn "new wave of effects"
 >     let newCurrentEffectsQueue = tail currentEffectsQueue
 >     liftIO $ writeIORef effectsRef (cf, newCurrentEffectsQueue)
 >     playNewSounds newCurrentEffectsQueue
@@ -411,7 +422,6 @@ display the visual effects
 
 >   (_,vCurrentEffectsQueue) <- liftIO $ readIORef effectsRef
 >   unless (null vCurrentEffectsQueue) $ do
->   --liftIO $ putStrLn "gonna draw some stuff"
 >   let (beamEffects,squareEffects,_):_ = vCurrentEffectsQueue
 >   mapM_ drawBeamEffect beamEffects
 >   mapM_ drawSquareEffect squareEffects
@@ -423,22 +433,18 @@ helpers
 play all the sounds from the head of the effects queue
 
 >       playNewSounds ((_,_,currentSounds) : _) =
->         liftIO $ mapM_ (\l -> do
->                               putStrLn $ "play " ++ l
->                               play player l) currentSounds
+>         liftIO $ mapM_ (play player . snd)  currentSounds
 >       playNewSounds [] = return ()
 
 >       drawBeamEffect (_,x1,y1,x2,y2) = do
->         --liftIO $ putStrLn $ "draw beam " ++ show x1 ++ show y1 ++ show x2 ++ show y2
 >         let fi = fromIntegral
 >         setSourceRGB 0.7 0.7 0.7
->         moveTo (toXS $ (fi x1) + 0.5) (toYS $ (fi y1) + 0.5)
->         lineTo (toXS $ (fi x2) + 0.5) (toYS $ (fi y2) + 0.5)
+>         moveTo (toXS $ fi x1 + 0.5) (toYS $ fi y1 + 0.5)
+>         lineTo (toXS $ fi x2 + 0.5) (toYS $ fi y2 + 0.5)
 >         setLineWidth 10
 >         stroke
 
->       drawSquareEffect(_,x1,y1) = do
->         --liftIO $ putStrLn $ "draw square " ++ show x1 ++ show y1
+>       drawSquareEffect(_,x1,y1) =
 >         drawAt spriteMap toXS toYS cf x1 y1 "effect_attack" 0 250
 
 

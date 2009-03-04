@@ -2715,9 +2715,8 @@ are no wizards left.
 >   goSquare conn 1 0
 >   rigActionSuccess conn "attack" True
 >   goSquare conn 0 0
->   --now the dragon shoots it's own wizard to force the draw
->   rigActionSuccess conn "ranged_attack" True
->   goSquare conn 3 0
+>   --now magically kill the remaining to force the draw
+>   runSql conn "select kill_top_piece_at(?,?);" ["3","0"]
 >   assertRelvarValue "game drawn history entry"
 >                     conn "select count(1) from action_history_mr\n\
 >                          \where history_name='game_drawn';" []

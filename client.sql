@@ -610,6 +610,8 @@ create table board_square_effects (
   y1 int,
   queuePos int
 );
+select add_key('board_square_effects', 'id');
+select set_relvar_type('board_square_effects', 'data');
 
 create table board_beam_effects (
   id serial,
@@ -620,6 +622,8 @@ create table board_beam_effects (
   y2 int,
   queuePos int
 );
+select add_key('board_beam_effects', 'id');
+select set_relvar_type('board_beam_effects', 'data');
 
 create table board_sound_effects (
   id serial,
@@ -627,12 +631,16 @@ create table board_sound_effects (
   sound_name text,
   queuePos int
 );
+select add_key('board_sound_effects', 'id');
+select set_relvar_type('board_sound_effects', 'data');
 
 
 create table history_sounds (
   history_name text,
   sound_name text
 );
+select add_key('history_sounds', array['history_name', 'sound_name']);
+select set_relvar_type('history_sounds', 'readonly');
 
 copy history_sounds (history_name,sound_name) from stdin;
 moved	walk
@@ -649,6 +657,7 @@ attempt_target_spell	walk
 \.
 
 select create_var('last_history_effect_id', 'int');
+select set_relvar_type('last_history_effect_id_table', 'data');
 
 create or replace function check_for_effects() returns void as $$
 begin
@@ -692,6 +701,8 @@ effects are being run:
 */
 
 select create_var('running_effects', 'bool');
+select set_relvar_type('running_effects_table', 'data');
+
 
 /*
 
@@ -1510,6 +1521,9 @@ begin
   insert into last_history_effect_id_table values (-1);
   delete from running_effects_table;
   insert into running_effects_table values (false);
+  delete from board_square_effects;
+  delete from board_beam_effects;
+  delete from board_sound_effects;
 
   -- don't reset windows, see below
   --call server new_game
