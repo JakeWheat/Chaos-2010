@@ -603,17 +603,31 @@ order by sp;
 two sorts of effects: beam and square
 
 */
-create table board_effects (
+create table board_square_effects (
   id serial,
-  type text,
+  subtype text,
+  x1 int,
+  y1 int,
+  queuePos int
+);
+
+create table board_beam_effects (
+  id serial,
   subtype text,
   x1 int,
   y1 int,
   x2 int,
   y2 int,
-  sound text,
   queuePos int
 );
+
+create table board_sound_effects (
+  id serial,
+  subtype text,
+  sound_name text,
+  queuePos int
+);
+
 
 create table history_sounds (
   history_name text,
@@ -638,43 +652,23 @@ select create_var('last_history_effect_id', 'int');
 
 create or replace function check_for_effects() returns void as $$
 begin
-  --sound effects
-  insert into board_effects (type,subtype,x1,y1,x2,y2,sound,queuePos)
-    select 'beam' as type,
-           history_name as subtype,
-           x,y,
-           tx,ty,
-           coalesce(sound_name, ''),
-           0
-       from action_history_mr
-       natural left outer join history_sounds
-         where id > get_last_history_effect_id()
+  insert into board_square_effects (subtype, x1, y1, queuePos)
+    select history_name,case when tx is null then x else tx end,
+                        case when ty is null then y else ty end,id
+    from action_history_mr
+    where id > get_last_history_effect_id()
+         and x is not null and y is not null;
+  insert into board_beam_effects (subtype,x1,y1,x2,y2,queuePos)
+    select history_name,x,y,tx,ty,id
+    from action_history_mr
+    where id > get_last_history_effect_id()
          and x is not null and y is not null
-         and tx is not null and ty is not null
-    union
-    select 'square' as type,
-           history_name as subtype,
-           tx,ty,
-           0,0,
-           coalesce(sound_name, ''),
-           1
-       from action_history_mr
-       natural left outer join history_sounds
-         where id > get_last_history_effect_id()
-         and x is not null and y is not null
-         and tx is not null and ty is not null
-    union
-    select 'sound' as type,
-           history_name as subtype,
-           0,0,
-           0,0,
-           sound_name,
-           0
-       from action_history_mr
-       natural inner join history_sounds
-         where id > get_last_history_effect_id()
-         and x is null and y is null
-         and tx is null and ty is null;
+         and tx is not null and ty is not null;
+  insert into board_sound_effects (subtype, sound_name,queuePos)
+    select history_name,sound_name,id
+    from action_history_mr
+    natural inner join history_sounds
+    where id > get_last_history_effect_id();
   update last_history_effect_id_table set
     last_history_effect_id = (select max(id) from action_history_mr);
 end;

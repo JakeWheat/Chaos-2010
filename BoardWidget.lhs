@@ -130,7 +130,7 @@ time (this is used by the sprite animation and the effects).
 > import Graphics.Rendering.Cairo
 >
 > import Data.List
-> import qualified Data.Map as M
+> --import qualified Data.Map as M
 > import qualified Data.Char as DC
 > import Control.Monad
 > import Data.Maybe
@@ -146,8 +146,17 @@ time (this is used by the sprite animation and the effects).
 
 > type BoardSpriteT = (Int, Int, [Char], Int, Int)
 > type BoardSpritesCache = IORef [BoardSpriteT]
-> type EffectsCache = IORef [M.Map [Char] [Char]]
-> type SoundEffectsCache = IORef [(Int, [Char])]
+
+> type SoundEffect = String
+> type SquareEffect = (String,Int,Int)
+> type BeamEffect = (String,Int,Int,Int,Int)
+
+> type EffectsCacheType = (Int,[([BeamEffect],
+>                             [SquareEffect],
+>                             [SoundEffect])])
+
+> type EffectsCache = IORef EffectsCacheType
+
 
 ================================================================================
 
@@ -163,9 +172,7 @@ time (this is used by the sprite animation and the effects).
 >   --setup the cache iorefs
 >   bd <- readBoardSprites conn
 >   boardSpritesRef <- newIORef bd
->   efc' <- selectTuples conn "select * from board_effects" []
->   effectsRef <- newIORef efc'
->   soundsRef <- newIORef ([]::[(Int,String)])
+>   effectsRef <- newIORef ((0,[])::EffectsCacheType)
 
 used to calculate how many ticks since the app was started, to time
 the animations and effects:
@@ -175,8 +182,8 @@ the animations and effects:
 hook things up the the expose event, this is how gtk triggers a
 redraw, and doonexpose hooks this event up to the mydraw function
 
->   onExpose canvas (doOnExpose conn spriteMap player canvas startTicks
->                               boardSpritesRef effectsRef soundsRef)
+>   onExpose canvas (doOnExpose spriteMap player canvas startTicks
+>                               boardSpritesRef effectsRef)
 
 update the board sprites 10 times a second to animate them
 
@@ -184,8 +191,7 @@ update the board sprites 10 times a second to animate them
 >     widgetQueueDrawArea canvas 0 0 2000 2000
 >     return True
 
->   let refresh' = refresh conn canvas startTicks
->                          boardSpritesRef effectsRef soundsRef
+>   let refresh' = refresh conn canvas boardSpritesRef effectsRef
 >   return (frame, refresh')
 
 ================================================================================
@@ -197,14 +203,12 @@ then calls mydraw.
 
 > refresh :: Connection
 >            -> DrawingArea
->            -> ClockTime
 >            -> BoardSpritesCache
 >            -> EffectsCache
->            -> SoundEffectsCache
 >            -> IO ()
-> refresh conn canvas startTicks boardSpritesRef effectsRef soundsRef =
+> refresh conn canvas boardSpritesRef effectsRef =
 >   lg "boardWidgetNew.refresh" "" $ do
->   ef <- checkForEffects conn startTicks effectsRef soundsRef
+>   ef <- checkForEffects conn effectsRef
 >   unless ef $ do
 
 No effects, so update the board sprites cache
@@ -227,44 +231,77 @@ Now draw this stuff on screen
 
 This function checks the database for new effects and updates the
 caches if there are some. It returns true if the effects cache is not
-empty
+empty.
+
+TODO overview of the effects queue and how it works
 
 > checkForEffects :: Connection
->                 -> ClockTime
 >                 -> EffectsCache
->                 -> SoundEffectsCache
 >                 -> IO Bool
-> checkForEffects conn startTicks effectsRef soundsRef =
+> checkForEffects conn effectsRef =
 >   lg "boardWidgetNew.checkForEffects" "" $ do
->   efc <- selectTuples conn "select * from board_effects" []
->   when (length efc > 0) $ do
+>
+>   sef <- selectTuples conn "select queuepos,subtype,sound_name\n\
+>                            \from board_sound_effects" []
+>   sqef <- selectTuples conn "select queuepos,subtype,x1,y1\n\
+>                             \from board_square_effects" []
+>   bef <- selectTuples conn "select queuepos,subtype,x1,y1,x2,y2\n\
+>                            \from board_beam_effects" []
+>
+
+>   unless (null sef && null sqef && null bef) $ do
+>     --putStrLn "found new effects"
 >     --set the flag to stop further player and ai actions
 >     --whilst the effects are playing
 >     runSql conn "update running_effects_table\n\
 >                 \set running_effects = true" []
->     --load up the caches
->     --todo: clean this up, convert to stages, add new
->     --effects to existing effects
->     cf <- getTicks startTicks
->     let addStartTick t = let sf = if lk "type" t == "beam"
->                                      then cf
->                                      else cf + 6
->                           in M.insert "start_tick" (show sf) t
->         removeSounds t = if lk "type" t == "sound"
->                            then Nothing
->                            else Just t
->     writeIORef effectsRef $ catMaybes $
->                map (removeSounds . addStartTick) efc
->     let soundEffects = map (\t -> if lk "type" t /= "square"
->                                     then (cf, lk "sound" t)
->                                     else (cf + 12, lk "sound" t)) efc
->     writeIORef soundsRef soundEffects
->     runSql conn "delete from board_effects" []
+
+clean up the effects which are now being put into the cache
+
+>     runSql conn "delete from board_sound_effects" []
+>     runSql conn "delete from board_square_effects" []
+>     runSql conn "delete from board_beam_effects" []
+
+
+load up the caches
+get the list of unique qps
+each unique qp will correspond to a line in the effects queue
+
+>     let qps = sort (map (\t -> read $ lk "queuepos" t) sef) ++
+>                    (map (\t -> read $ lk "queuepos" t) sqef) ++
+>                    (map (\t -> read $ lk "queuepos" t) bef) :: [Int]
+
+>     --convert sql tuples to haskell tuples
+>     let tToBE t = let l f = lk f t in
+>                   let r f = read $ l f in
+>                   (l "subtype", r "x1", r "y1", r "x2", r "y2")
+>     let tToSqE t = let l f = lk f t in
+>                    let r f = read $ l f in
+>                   (l "subtype", r "x1", r "y1")
+>     let tToSE t = let l f = lk f t in
+>                   (l "sound_name")
+>     -- filter a list selecting the tuples which match queuePos
+>     let getByQp qp = filter (\t -> read (lk "queuepos" t) == qp)
+
+take the three tables from the db and convert to a list of effects
+lines, so each beam,square and sound effect with the same qp will
+appear in the same line and be triggered together
+
+>     let newEffects = for qps (\qp -> (map tToBE $ getByQp qp bef
+>                                      ,map tToSqE $ getByQp qp sqef
+>                                      ,map tToSE $ getByQp qp sef
+>                                      ))
+>     (pos,currentEffects) <- readIORef effectsRef
+>     --putStrLn $ "new effects:" ++ show newEffects
+>     writeIORef effectsRef $ (pos, currentEffects ++ newEffects)
+
+>     return()
 
 tell the caller whether there are effects in the cache or not
 
->   efcE <- readIORef effectsRef
->   return $ length efcE > 0
+>   (_,effs) <- readIORef effectsRef
+>   --putStrLn $ "effects queue has " ++ (show $ length effs)
+>   return $ not $ null effs
 
 
 ================================================================================
@@ -274,17 +311,15 @@ tell the caller whether there are effects in the cache or not
 This is the code that actually draws the canvas which is then rendered
 to show the player
 
-> myDraw :: Connection
->           -> SpriteMap
->           -> SoundPlayer
->           -> ClockTime
->           -> BoardSpritesCache
->           -> EffectsCache
->           -> SoundEffectsCache
->           -> Double
->           -> Double
->           -> Render ()
-> myDraw conn spriteMap player startTicks boardSpritesRef effectsRef soundsRef w h = do
+> myDraw :: SpriteMap
+>        -> SoundPlayer
+>        -> ClockTime
+>        -> BoardSpritesCache
+>        -> EffectsCache
+>        -> Double
+>        -> Double
+>        -> Render ()
+> myDraw spriteMap player startTicks boardSpritesRef effectsRef w h = do
 >   --make the background black
 >   setSourceRGB 0 0 0
 >   paint
@@ -319,21 +354,11 @@ and toY functions which take into account the changed scale factor.
 >   cf <- liftIO $ getTicks startTicks
 
 >   drawSprites cf spriteMap toXS toYS boardSpritesRef
->   liftIO $ playSounds player cf soundsRef
->   drawEffects conn spriteMap cf boardSpritesRef effectsRef toXS toYS
+>   runEffects spriteMap cf player boardSpritesRef effectsRef toXS toYS
 
 == drawing helpers
 
-> playSounds :: SoundPlayer -> Int -> SoundEffectsCache -> IO ()
-> playSounds player cf soundsRef = do
->   snds <- readIORef soundsRef
->   when (length snds > 0) $ do
->     leftSnds <- mapM (\(t,s) -> if t <= cf
->                                   then do
->                                        play player s
->                                        return Nothing
->                                   else return $ Just (t,s)) snds
->     writeIORef soundsRef $ catMaybes leftSnds
+Draw the board sprites from the saved board
 
 > drawSprites :: Int
 >             -> SpriteMap
@@ -342,60 +367,83 @@ and toY functions which take into account the changed scale factor.
 >             -> BoardSpritesCache
 >             -> Render ()
 > drawSprites cf spriteMap toXS toYS boardSpritesRef = do
-
-create a helper function to draw a sprite at board position x,y
-identifying the sprite by name, hiding all that tedious map lookup
-stuff
-
-Draw the board sprites from the saved board
-
 >   bd2 <- liftIO $ readIORef boardSpritesRef
 >   mapM_ (uncurry5 (drawAt spriteMap toXS toYS cf)) bd2
 
-> drawEffects :: Connection
->             -> SpriteMap
->             -> Int
->             -> BoardSpritesCache
->             -> EffectsCache
->             -> (Double -> Double)
->             -> (Double -> Double)
->             -> Render ()
-> drawEffects conn spriteMap cf boardSpritesRef effectsRef toXS toYS = do
->   efs <- liftIO $ readIORef effectsRef
->   unless (null efs) $ do
->     let drawEffectLine x1 y1 x2 y2 = do
->           setSourceRGB 0.7 0.7 0.7
->           moveTo (toXS $ x1 + 0.5) (toYS $ y1 + 0.5)
->           lineTo (toXS $ x2 + 0.5) (toYS $ y2 + 0.5)
->           setLineWidth 10
->           stroke
+process the effects queue, remove any effects which have finished,
+play any new sounds, draw any current visual effects
 
->     let drawEffectSquare x1 y1 = drawAt spriteMap toXS toYS cf x1 y1 "effect_attack" 0 250
+> runEffects :: SpriteMap
+>            -> Int
+>            -> SoundPlayer
+>            -> BoardSpritesCache
+>            -> EffectsCache
+>            -> (Double -> Double)
+>            -> (Double -> Double)
+>            -> Render ()
+> runEffects spriteMap cf player _ effectsRef toXS toYS = do
+>   (pos',currentEffectsQueue) <- liftIO $ readIORef effectsRef
+>   unless (null currentEffectsQueue) $ do
+>   --liftIO $ putStrLn $ "run effects, size is " ++ (show $ length currentEffectsQueue)
 
->             --remove expired effects
->     let efs1 = filter (\t -> read (lk "start_tick" t) + 6 >= cf) efs
->             --liftIO $ putStrLn $ show (length efs1) ++ "effects still good"
->             --liftIO $ putStrLn $ show cf ++ " current ticks"
->             --mapM_ (\t -> liftIO $ putStrLn (lk "start_tick" t)) efs
->     forM_ efs1 $ \t -> do
->               let l f = lk f t
->               let esf = read $ l "start_tick"
->               when (esf <= cf) $ do
->                 --liftIO $ putStrLn "draw effect"
->                 let rd f = (read $ l f)::Double
->                 let ri f = (read $ l f)::Int
->                 if l "type" == "beam"
->                   then
->                     drawEffectLine (rd "x1") (rd "y1") (rd "x2") (rd "y2")
->                   else
->                     drawEffectSquare (ri "x1") (ri "y1")
->     --update the list of effects to remove the expired ones
->     liftIO $ writeIORef effectsRef efs1
->     -- if there are no more effects then refresh the sprites from the database
->     when (null efs1) $ do
->       bd1 <- liftIO $ readBoardSprites conn
->       liftIO $ writeIORef boardSpritesRef bd1
+check if the pos hasn't been set, if not, set it and play the
+first set of sounds
 
+>   when (pos' == 0) $ do
+>     --liftIO $ putStrLn "init play effects"
+>     playNewSounds currentEffectsQueue
+>     liftIO $ writeIORef effectsRef (cf, currentEffectsQueue)
+
+>   (pos,_) <- liftIO $ readIORef effectsRef
+
+see if the head of the currenteffectsqueue has expired (they last for
+12 ticks)
+
+>   --liftIO $ putStrLn $ "check effects " ++ show pos ++ " - " ++ show cf
+>   when (cf > pos + 12) $ do
+>     --clear the current row of effects and play the sounds for the next one
+>     --liftIO $ putStrLn "new wave of effects"
+>     let newCurrentEffectsQueue = tail currentEffectsQueue
+>     liftIO $ writeIORef effectsRef (cf, newCurrentEffectsQueue)
+>     playNewSounds newCurrentEffectsQueue
+
+display the visual effects
+
+>   (_,vCurrentEffectsQueue) <- liftIO $ readIORef effectsRef
+>   unless (null vCurrentEffectsQueue) $ do
+>   --liftIO $ putStrLn "gonna draw some stuff"
+>   let (beamEffects,squareEffects,_):_ = vCurrentEffectsQueue
+>   mapM_ drawBeamEffect beamEffects
+>   mapM_ drawSquareEffect squareEffects
+
+helpers
+
+>     where
+
+play all the sounds from the head of the effects queue
+
+>       playNewSounds ((_,_,currentSounds) : _) =
+>         liftIO $ mapM_ (\l -> do
+>                               putStrLn $ "play " ++ l
+>                               play player l) currentSounds
+>       playNewSounds [] = return ()
+
+>       drawBeamEffect (_,x1,y1,x2,y2) = do
+>         --liftIO $ putStrLn $ "draw beam " ++ show x1 ++ show y1 ++ show x2 ++ show y2
+>         let fi = fromIntegral
+>         setSourceRGB 0.7 0.7 0.7
+>         moveTo (toXS $ (fi x1) + 0.5) (toYS $ (fi y1) + 0.5)
+>         lineTo (toXS $ (fi x2) + 0.5) (toYS $ (fi y2) + 0.5)
+>         setLineWidth 10
+>         stroke
+
+>       drawSquareEffect(_,x1,y1) = do
+>         --liftIO $ putStrLn $ "draw square " ++ show x1 ++ show y1
+>         drawAt spriteMap toXS toYS cf x1 y1 "effect_attack" 0 250
+
+
+helper function to draw a sprite at board position x,y identifying the
+sprite by name, hiding all that tedious map lookup stuff
 
 > drawAt :: SpriteMap
 >        -> (Double -> Double)
@@ -483,24 +531,22 @@ gtk red tape: on expose routes (re)draw events coming from gtk to the
 my draw function - these redraws can be trigged by the redraw function
 or by gtk in response to windows being moved around or resized
 
-> doOnExpose :: Connection
->            -> SpriteMap
+> doOnExpose :: SpriteMap
 >            -> SoundPlayer
 >            -> DrawingArea
 >            -> ClockTime
 >            -> BoardSpritesCache
 >            -> EffectsCache
->            -> SoundEffectsCache
 >            -> t
 >            -> IO Bool
-> doOnExpose conn spriteMap player canvas startTicks
->            boardSpritesRef soundsRef effectsRef _ =
+> doOnExpose spriteMap player canvas startTicks
+>            boardSpritesRef effectsRef _ =
 >   lg "boardWidgetNew.doOnExpose" "" $ do
 >   (w,h) <- widgetGetSize canvas
 >   drawin <- widgetGetDrawWindow canvas
 >   renderWithDrawable drawin
->                      (myDraw conn spriteMap player startTicks
->                       boardSpritesRef soundsRef effectsRef
+>                      (myDraw spriteMap player startTicks
+>                       boardSpritesRef effectsRef
 >                       (fromIntegral w) (fromIntegral h))
 >   --The following line use to read
 >   --return (eventSent x))
