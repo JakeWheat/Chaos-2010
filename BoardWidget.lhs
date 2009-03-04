@@ -2,6 +2,110 @@
 
 Copyright 2009 Jake Wheat
 
+= Board Widget
+
+The board widget uses cairo to draw a board based around a grid
+(15x10) with sprites in the squares. Each sprite is animated (at
+different speeds), and basic effects are also provided to give cues
+whn actions occur. Sound effects accompany these visual
+effects. (These effects were going to be left till later but it's
+impossible to follow what is going on in a game without them).
+
+The way the board widget works is shaped by the following constraints:
+
+* we need to update the cairo canvas several times a second to animate
+  the sprites
+
+* reading a fresh copy of the board_sprites relvar is quite slow, so
+  we prefer to avoid this unless it has changed, so the animation
+  update code uses a cached copy of the boardsprites in an ioref
+
+* because of the way the server code works, the client only sees an
+  action has occured after the action has completed (from the action
+  history). E.g if the action is a successful attack, the client sees
+  the database before the attack is started, and then only sees the
+  full results of the attack: the attacked piece has gone, and the
+  attacking piece has been moved. But we want to overlay the attack
+  effects on the previous board layout: with the attacked piece still
+  there and the attacking piece in its starting position.
+
+The main variables used are:
+
+board_sprites relvar: this view contains the sprites for the pieces on
+top, the board highlight sprites and the cursor sprite.
+
+board_effects relvar: this table contains the effects that were
+derived from the history entries created by the last action. It's used
+as a queue, so when the board widget refresh sees enties in here, it
+reads them out into local iorefs and clears this table.
+
+shared iorefs in this code:
+boardSpritesRef: this contains the cached board_sprites view
+effectsRef: this contains the effects currently playing or queued to be played soon
+soundsRef: this contains the sounds queued to be played soon
+
+We end up with two main drawing routines:
+
+myDraw: this draws the locally saved copy of the board sprites, and
+just animates them, so it works pretty quickly. It also handles
+showing any effects briefly and triggering sound effects.
+
+refresh: this reads the database, if there are effects waiting to be
+played then it loads them up and skips loading a new copy of the board
+sprites from the database, otherwise it updates the local copy of the
+board sprites. In either case, it then calls the myDraw routine to
+update the screen
+
+If there are currently no effects then:
+
+* timeout: to update the animations, a timeout is called every 100ms,
+  this just calls myDraw
+
+* refresh: this is currently called after every database action. This
+  is a little inefficient but ensures that the board is kept up to
+  date, so when the board sprites change, the board is updated pretty
+  soon afterwoods.
+
+When there are effects, the following sequence happens:
+
+The sql code inserts rows into the effects table based on any new
+history entries after an action is run. This updates the boardSpritesRef
+
+The ui calls refresh in the usual way which calls the board widget
+refresh function.
+
+The refresh function checks the effects table, and getting some
+results back, doesn't update the board sprites, so the displayed
+sprites don't change from before the action was run. It updates the
+effectsRef and soundsRef
+
+The mydraw function is then called, it starts drawing the effects over
+the existing board sprites, and triggering the sound effects. It just
+updates the canvas once like usual.
+
+The timeout continues to call mydraw which draws the effects and sound
+effects until they are no longer fresh (each effect is typically ~ 0.5
+secs long). As each sound is played it is removed from the queue, and
+after an effect has been on for the required time it is removed from
+the effectsRef. All this time, the client blocks ai and user initiated
+actions, and the boardSpritesRef is not updated.
+
+When mydraw removes the last effect, it restores the flag allowing the
+ai and player to continue, and calls refresh to refresh the
+boardSpritesRef and draw the new set of pieces.
+
+It's slightly hacky, and might work better by the server giving the ui
+control over the progression, e.g. so that action_attack initiates the
+attack, adds the attack attempted history item then returns to the ui
+which can play that effect then call an action_continue to get the
+attacked piece dying and the pieces moving, this is similar to the way
+the ai works atm.
+
+Animation:
+
+The sprites are held in png files, they animate at different speeds
+(the speed is in the sprites table, and is in frames (25 per second)). Todo: different sprites have different animation styles: looped and back and forth. E.g. for a looped style sprite with 4 sprites, the order shown is 1 2 3 4 1 2 3 4, etc., for a back and forth one it is 1 2 3 4 3 2 1 2 3, etc.
+
 > module BoardWidget (boardWidgetNew) where
 
 > import Graphics.UI.Gtk
@@ -21,54 +125,40 @@ Copyright 2009 Jake Wheat
 > import SoundLib
 > import ChaosTypes
 
-================================================================================
 
-= Board Widget
 
-Use cairo, draw sprites which are held in png files. There are sprites
-with multiple frames for each piece, and also sprites to represent
-cursors and square highlights.
 
-The sprites are loaded in the loadSprites function and made available
-as cairo surfaces.
 
-Each sprite has a set of animation frames.  The two animation styles
-are:
 
-* forward: start with first frame then second, third, etc. till end
-  then loop to first frame again,
 
-* forward_backward: as forward but instead of looping to first go to
-  second last, third last, etc. until second frame then start loop
-  again at first frame. This means that first and last frames are only
-  played once in each loop. This isn't done yet
 
-Each sprite starts animating on the first frame when it is created:
-e.g. two different goblins won't necessarily be at the same frame,
-makes it look a bit better.
 
-The frames for a sprite change at different speeds according to the
-sprite.
 
-TODO: visual and sound effects
+
+
+
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+------------------------------------------------------------------
+------------------------------------------------------------------
+------------------------------------------------------------------
+------------------------------------------------------------------
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+= Ctor
 
 > boardWidgetNew :: Connection -> SoundPlayer -> ColourList ->
 >                   SpriteMap -> IO (Frame, IO())
 > boardWidgetNew conn player _ spriteMap = do
+>     --setup the gtk widgets
 >     frame <- frameNew
 >     canvas <- drawingAreaNew
 >     containerAdd frame canvas
-
-Not really sure about the following code, robbed it from a mixture of
-places, just wanted to get something working for now.
-
-The widget needs to be redrawn quite a lot from expose and resize and
-events like that, but we only need to access the database when the
-board has changed. So - read it in the ctor and then in the refresh
-method, and only read this cached data when handling an expose event
-
+>     --setup the cache iorefs
 >     bd <- readBoardSprites
->     boardData <- newIORef bd
+>     boardSpritesRef <- newIORef bd
 >     efc' <- selectTuples conn "select * from board_effects" []
 >     effectsRef <- newIORef efc'
 >     soundsRef <- newIORef ([]::[(Int,String)])
@@ -78,61 +168,58 @@ started, this is used to determine which frame of each sprite to show
 
 >     startTime' <- getClockTime
 
-hook things up the the expose event
+hook things up the the expose event, this is called by gtk, and is
+triggered below by the call to drawWindowInvalidateRegion and
+drawWindowProcessUpdates in the redraw function
 
 >     onExpose canvas
 >              (\_ -> lg "boardWidgetNew.onExpose" "" $ do
 >                        (w,h) <- widgetGetSize canvas
 >                        drawin <- widgetGetDrawWindow canvas
 >                        renderWithDrawable drawin
->                          (myDraw (getFrames' startTime') boardData soundsRef effectsRef
+>                          (myDraw (getFrames' startTime') boardSpritesRef soundsRef effectsRef
 >                             (fromIntegral w) (fromIntegral h))
-
-The following line use to read
-                         return (eventSent x))
-but that doesn't compile anymore, so just bodged it.
-
+>                        --The following line use to read
+>                        --return (eventSent x))
+>                        --but that doesn't compile anymore, so just bodged it.
 >                        return True)
->
+
+This posts an event to the gtk queue which triggers the onexpose,
+which then triggers the mydraw routine
+
 >     let redraw = do
 >           win <- widgetGetDrawWindow canvas
 >           reg <- drawableGetClipRegion win
 >           drawWindowInvalidateRegion win reg True
 >           drawWindowProcessUpdates win True
 
+update the board sprites 10 times a second to animate them
+
+>     flip timeoutAdd 100 $ do
+>       widgetQueueDrawArea canvas 0 0 2000 2000
+>       return True
+
+
+The refresh function updates the ioref caches from the database and
+then calls mydraw.
+
 >     let refresh startTime = lg "boardWidgetNew.refresh" "" $ do
->           --update the frame positions
+
+update the frame positions
+
+When a new piece is created, we set it's starting frame here, could do
+this in the database which would be a bit cleaner.
+
 >           f <- getFrames' startTime'
 >           dbAction conn "update_missing_startframes" [show f]
 
-Effects
-The effects are loaded into the board_effects table.
+check for effects
 
-There are two sorts of visual effects: beam and square, when we have
-both, we want to do the beam before the square effect. Each effect can
-have a sound effect associated with it. Sometimes we have an
-additional sound effect that plays after the square e.g. a ranged
-attack has a beam and a sound, then a square and a sound to indicate
-the creature being attacked, then if the creature dies it ha a further
-sound (possibly another effect?).
-
-Whilst this happens we don't want to update the sprite list.
-
-When the board widget refresh is called, if there are entries in the
-effects table, save these tuples and set their start frames, clear the
-effects table and skip updating the sprite list.
-
-When the board widget refresh is called and the saved effects are not
-empty, also skip refreshing the board sprites.
-
-When the effects have finished playing (usually ~0.5 secs), clear the
-local copy of the effects and refresh the sprites.
-
-This allows the effect to play out before the sprites are changed
-
->           --check for effects
 >           efc <- selectTuples conn "select * from board_effects" []
 >           if length efc > 0
+
+if we have effects, then load up the ioref caches
+
 >             then do
 >               runSql conn "update running_effects_table\n\
 >                           \set running_effects = true" []
@@ -156,6 +243,12 @@ This allows the effect to play out before the sprites are changed
 >               --forM_ efc (\ef -> play player $ lk "sound" ef)
 >               runSql conn "delete from board_effects" []
 >             else do
+
+no effects in the database, but if we still have effects in the cache
+we don't want to refresh the board sprites. The code should prevent
+refresh from being called when effects are being run, but add this
+just to make sure.
+
 >               efcE <- readIORef effectsRef
 >               if (length efcE > 0)
 >                 then
@@ -163,19 +256,19 @@ This allows the effect to play out before the sprites are changed
 >                   --putStrLn "continue effects"
 >                 else do
 >                   --putStrLn "read db for board"
+
+No effects, so update the board sprites cache
+
+(first - if there are no effects update the flag that is used to
+prevent the ai and player from continuing during an effect)
+
 >                   re <- selectValueIf conn "select running_effects from running_effects_table;" []
 >                   when ((isJust re) && (read $ fromJust re)) $
 >                        runSql conn "update running_effects_table\n\
 >                                    \set running_effects = false" []
 >                   bd1 <- readBoardSprites
->                   writeIORef boardData bd1
+>                   writeIORef boardSpritesRef bd1
 >           redraw
-
-update the board sprites 10 times a second to animate them
-
->     flip timeoutAdd 100 $ do
->       widgetQueueDrawArea canvas 0 0 2000 2000
->       return True
 
 >     return (frame, refresh startTime')
 >     where
@@ -200,7 +293,7 @@ update the board sprites 10 times a second to animate them
 >           return b::IO Int
 
 
->         myDraw getFrames boardData soundsRef effectsRef w h = do
+>         myDraw getFrames boardSpritesRef soundsRef effectsRef w h = do
 >           --make the background black
 >           setSourceRGB 0 0 0
 >           paint
@@ -282,7 +375,7 @@ stuff
 
 Draw the board sprites from the saved board
 
->           bd2 <- liftIO $ readIORef boardData
+>           bd2 <- liftIO $ readIORef boardSpritesRef
 >           mapM_ (uncurry5 drawAt) bd2
 
 
@@ -336,7 +429,7 @@ draw the effects
 >             -- if there are no more effects then refresh the sprites from the database
 >             when (length efs1 == 0)$ do
 >               bd1 <- liftIO readBoardSprites
->               liftIO $ writeIORef boardData bd1
+>               liftIO $ writeIORef boardSpritesRef bd1
 
 
 
