@@ -190,7 +190,8 @@ the animations and effects:
 hook things up the the expose event, this is how gtk triggers a
 redraw, and doonexpose hooks this event up to the mydraw function
 
->   onExpose canvas (doOnExpose spriteMap player canvas startTicks
+>   let refresh' = refresh conn canvas boardSpritesRef effectsRef
+>   onExpose canvas (doOnExpose refresh' spriteMap player canvas startTicks
 >                               boardSpritesRef effectsRef)
 
 update the board sprites 10 times a second to animate them
@@ -199,7 +200,6 @@ update the board sprites 10 times a second to animate them
 >     widgetQueueDrawArea canvas 0 0 2000 2000
 >     return True
 
->   let refresh' = refresh conn canvas boardSpritesRef effectsRef
 >   return (frame, refresh')
 
 ================================================================================
@@ -269,7 +269,6 @@ clean up the effects which are now being put into the cache
 >     runSql conn "delete from board_square_effects" []
 >     runSql conn "delete from board_beam_effects" []
 
-
 load up the caches
 get the list of unique qps
 each unique qp will correspond to a line in the effects queue
@@ -277,7 +276,6 @@ each unique qp will correspond to a line in the effects queue
 >     let qps = (sort . nub)  ((map (\t -> read $ lk "queuepos" t) sef) ++
 >                            map (\t -> read $ lk "queuepos" t) sqef ++
 >                            map (\t -> read $ lk "queuepos" t) bef) :: [Int]
->     putStrLn $ "qps: " ++ show qps
 >     --convert sql tuples to haskell tuples
 >     let tToBE t = let l f = lk f t in
 >                   let r = read . l in
@@ -300,8 +298,10 @@ appear in the same line and be triggered together
 >                                      ,map tToSE $ getByQp qp sef
 >                                      ))
 >     (pos,currentEffects) <- readIORef effectsRef
->     putStrLn $ "new effects:" ++ concatMap showEffectsLine newEffects
->     writeIORef effectsRef (pos, currentEffects ++ newEffects)
+>     --putStrLn $ "new effects:\n" ++ concatMap showEffectsLine newEffects
+>     --putStrLn $ "1set pos to " ++ show pos
+>     writeIORef effectsRef (if null currentEffects then 0 else pos,
+>                            currentEffects ++ newEffects)
 >     return()
 
 tell the caller whether there are effects in the cache or not
@@ -313,16 +313,25 @@ tell the caller whether there are effects in the cache or not
 > showEffectsLine :: EffectsLine -> String
 > showEffectsLine (qp, beamEffects, squareEffects, soundEffects) =
 >   let s = show in
->   "----------\n" ++ show qp ++ "\nBeam effects:\n" ++
+>   "----------\n" ++ show qp ++
+>   if not $ null beamEffects
+>     then "\nBeam effects:\n" ++
 >     concatMap (\(subtype,x1,y1,x2,y2)
 >                -> subtype ++ s x1 ++ "," ++ s y1 ++ ","
->                   ++ s x2 ++ "," ++ s y2 ++ "\n") beamEffects
->   ++ "Square effects:\n" ++
->      concatMap (\(subtype,x1,y1)
+>                 ++ s x2 ++ "," ++ s y2 ++ "\n") beamEffects
+>     else ""
+>   ++
+>   if not $ null squareEffects
+>     then "Square effects:\n" ++
+>     concatMap (\(subtype,x1,y1)
 >                 -> subtype ++ s x1 ++ "," ++ s y1 ++ "\n") squareEffects
->   ++ "sound effects:\n" ++
+>     else ""
+>   ++
+>   if not $ null soundEffects
+>     then "sound effects:\n" ++
 >      concatMap (\(subtype,soundName)
 >                 -> subtype ++ ": " ++ soundName ++ "\n") soundEffects
+>     else ""
 
 ================================================================================
 
@@ -331,7 +340,8 @@ tell the caller whether there are effects in the cache or not
 This is the code that actually draws the canvas which is then rendered
 to show the player
 
-> myDraw :: SpriteMap
+> myDraw :: IO()
+>        -> SpriteMap
 >        -> SoundPlayer
 >        -> ClockTime
 >        -> BoardSpritesCache
@@ -339,7 +349,8 @@ to show the player
 >        -> Double
 >        -> Double
 >        -> Render ()
-> myDraw spriteMap player startTicks boardSpritesRef effectsRef w h = do
+> myDraw refresh' spriteMap player startTicks
+>        boardSpritesRef effectsRef w h = do
 >   --make the background black
 >   setSourceRGB 0 0 0
 >   paint
@@ -372,7 +383,7 @@ and toY functions which take into account the changed scale factor.
 >       toYS b = b * squareHeight / scaleY
 >   cf <- liftIO $ getTicks startTicks
 >   drawSprites cf spriteMap toXS toYS boardSpritesRef
->   runEffects spriteMap cf player boardSpritesRef effectsRef toXS toYS
+>   runEffects refresh' spriteMap cf player boardSpritesRef effectsRef toXS toYS
 
 == drawing helpers
 
@@ -391,7 +402,8 @@ Draw the board sprites from the saved board
 process the effects queue, remove any effects which have finished,
 play any new sounds, draw any current visual effects
 
-> runEffects :: SpriteMap
+> runEffects :: IO()
+>            -> SpriteMap
 >            -> Int
 >            -> SoundPlayer
 >            -> BoardSpritesCache
@@ -399,35 +411,45 @@ play any new sounds, draw any current visual effects
 >            -> (Double -> Double)
 >            -> (Double -> Double)
 >            -> Render ()
-> runEffects spriteMap cf player _ effectsRef toXS toYS = do
+> runEffects refresh' spriteMap cf player _ effectsRef toXS toYS = do
 >   (pos',currentEffectsQueue) <- liftIO $ readIORef effectsRef
 >   unless (null currentEffectsQueue) $ do
 
 check if the pos hasn't been set, if not, set it and play the first
 set of sounds
 
->   when (pos' == 0) $ do
->     playNewSounds currentEffectsQueue
->     liftIO $ writeIORef effectsRef (cf, currentEffectsQueue)
+>     when (pos' == 0) $ do
+>       --liftIO $ putStrLn "init effects"
+>       playNewSounds currentEffectsQueue
+>       --liftIO $ putStrLn $ "2set pos to " ++ show cf
+>       liftIO $ writeIORef effectsRef (cf, currentEffectsQueue)
 
->   (pos,_) <- liftIO $ readIORef effectsRef
+>     (pos,_) <- liftIO $ readIORef effectsRef
 
 see if the head of the currenteffectsqueue has expired (they last for
 12 ticks)
 
->   when (cf > pos + 12) $ do
->     --clear the current row of effects and play the sounds for the next one
->     let newCurrentEffectsQueue = tail currentEffectsQueue
->     liftIO $ writeIORef effectsRef (cf, newCurrentEffectsQueue)
->     playNewSounds newCurrentEffectsQueue
+>     when (cf > pos + 12) $ do
+>       --clear the current row of effects and play the sounds for the next one
+>       --liftIO $ putStrLn $ "next effects: " ++ show cf ++ " > " ++ show pos ++" + 24"
+>       let newCurrentEffectsQueue = tail currentEffectsQueue
+>       --liftIO $ putStrLn $ "3set pos to " ++ show cf
+>       liftIO $ writeIORef effectsRef (cf, newCurrentEffectsQueue)
+>       playNewSounds newCurrentEffectsQueue
 
 display the visual effects
 
->   (_,vCurrentEffectsQueue) <- liftIO $ readIORef effectsRef
->   unless (null vCurrentEffectsQueue) $ do
->   let (_,beamEffects,squareEffects,_):_ = vCurrentEffectsQueue
->   mapM_ drawBeamEffect beamEffects
->   mapM_ drawSquareEffect squareEffects
+>     (_,vCurrentEffectsQueue) <- liftIO $ readIORef effectsRef
+>     unless (null vCurrentEffectsQueue) (do
+>       let (qp,beamEffects,squareEffects,_):_ = vCurrentEffectsQueue
+>       --liftIO $ putStrLn $ "drawing effects for " ++ show qp
+>       mapM_ drawBeamEffect beamEffects
+>       mapM_ drawSquareEffect squareEffects)
+
+refresh the board sprites if no more effects
+
+>     (_,remainingEffects) <- liftIO $ readIORef effectsRef
+>     when (null remainingEffects) $ liftIO refresh'
 
 helpers
 
@@ -440,6 +462,12 @@ play all the sounds from the head of the effects queue
 >       playNewSounds [] = return ()
 
 >       drawBeamEffect (_,x1,y1,x2,y2) = do
+
+-- >         liftIO $ putStrLn $ "beam: " ++ show x1 ++ " "
+-- >                      ++ show y1 ++ " "
+-- >                             ++ show x2 ++ " "
+-- >                                    ++ show y2 ++ " "
+
 >         let fi = fromIntegral
 >         setSourceRGB 0.7 0.7 0.7
 >         moveTo (toXS $ fi x1 + 0.5) (toYS $ fi y1 + 0.5)
@@ -540,7 +568,8 @@ gtk red tape: on expose routes (re)draw events coming from gtk to the
 my draw function - these redraws can be trigged by the redraw function
 or by gtk in response to windows being moved around or resized
 
-> doOnExpose :: SpriteMap
+> doOnExpose :: IO()
+>            -> SpriteMap
 >            -> SoundPlayer
 >            -> DrawingArea
 >            -> ClockTime
@@ -548,13 +577,13 @@ or by gtk in response to windows being moved around or resized
 >            -> EffectsCache
 >            -> t
 >            -> IO Bool
-> doOnExpose spriteMap player canvas startTicks
+> doOnExpose refresh' spriteMap player canvas startTicks
 >            boardSpritesRef effectsRef _ =
 >   lg "boardWidgetNew.doOnExpose" "" $ do
 >   (w,h) <- widgetGetSize canvas
 >   drawin <- widgetGetDrawWindow canvas
 >   renderWithDrawable drawin
->                      (myDraw spriteMap player startTicks
+>                      (myDraw refresh' spriteMap player startTicks
 >                       boardSpritesRef effectsRef
 >                       (fromIntegral w) (fromIntegral h))
 >   --The following line use to read
@@ -567,3 +596,35 @@ or by gtk in response to windows being moved around or resized
 
 > lg :: String -> String -> IO c -> IO c
 > lg l = Logging.pLog ("chaos.BoardWidget." ++ l)
+
+
+---------------
+
+= new effects designs
+
+spread, recede: grow piece from a point or shrink it
+disappear: shower of sparks, fade out, fall apart animation
+receive spell: shower of sparks
+select: intensify highlight briefly, whilst selected keep highlighted in some way
+unselect: just change highlight back to normal
+walk, fly: move piece smoothly across board
+attack: move piece half over target square, flash attacked creature in red
+killed: morph to corpse or fade out/ shower of sparks
+ranged attack: projectile is short line like in original, flash attacked creature in red
+  fire: some sort of flame animation
+new turn: announce "turn 3"
+after win, move remaining creatures around randomly
+dark power: multicoloured beam with multicoloured sparks, fade out, shower of sparks
+lightning: draw a lighning bolt somehow, attacked flash red,etc.
+magic bolt: ball which changes colour rapidly
+chaos,law: darkness or brightness radiates out from wizard, larger/brighter for large versions
+disbelieve: beam plus sparks
+raise dead: beam plus reverse of dying anim without red
+subversion: beam, flash allegiance highlights back an forth, if successful brighten allegiance highlight briefly
+turmoil: everything rotates and bounces around with swirly stuff overlaid
+monster: beam then grow from point, fade in, with sparks?
+cast blob & fire: same as spread
+wall, castle,trees: slide in from bottom: tree,wall draw bottom line and go up, others, draw top line at bottom then scroll up, draw next line
+upgrades: sparks then morph?
+
+resisted: list types: attack, lightning, etc.

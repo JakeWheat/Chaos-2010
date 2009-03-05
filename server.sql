@@ -2939,21 +2939,27 @@ $$ language plpgsql volatile;
 === movement
 */
 create function action_walk(px int, py int) returns void as $$
+declare
+  p pos;
 begin
   perform check_can_run_action('walk', px, py);
+  select into p x,y from pieces natural inner join selected_piece;
   perform selected_piece_move_to(px, py);
+  perform add_history_moved(p.x,p.y);
   if get_remaining_walk() = 0 then
-    perform add_history_moved();
     perform do_next_move_subphase(false);
   end if;
 end;
 $$ language plpgsql volatile;
 
 create function action_fly(px int, py int) returns void as $$
+declare
+  p pos;
 begin
   perform check_can_run_action('fly', px, py);
+  select into p x,y from pieces natural inner join selected_piece;
   perform selected_piece_move_to(px, py);
-  perform add_history_moved();
+  perform add_history_moved(p.x,p.y);
   perform do_next_move_subphase(false);
 end;
 $$ language plpgsql volatile;
@@ -3662,15 +3668,15 @@ $$ language plpgsql volatile strict;
 
 
 --Move
-create function add_history_moved() returns void as $$
+create function add_history_moved(sx int, sy int) returns void as $$
 declare
   w pos;
   k piece_key;
 begin
   select into w x,y from pieces where (ptype,allegiance,tag) = k;
   select into k ptype,allegiance,tag from selected_piece;
-  insert into action_history_mr (history_name, ptype, allegiance,tag,x, y)
-    values ('moved', k.ptype, k.allegiance, k.tag, w.x,w.y);
+  insert into action_history_mr (history_name, ptype, allegiance,tag,x, y, tx, ty)
+    values ('moved', k.ptype, k.allegiance, k.tag, w.x,w.y, sx, sy);
 end;
 $$ language plpgsql volatile strict;
 
