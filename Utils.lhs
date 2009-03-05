@@ -19,6 +19,7 @@ didn't find them.
 >               for,
 >               uncurry3,
 >               uncurry5,
+>               uncurry7,
 >               toLower,
 >               whenA,
 >               whenA1,
@@ -121,6 +122,12 @@ tracking down problems
 >             -> (t, t1, t2, t3, t4)
 >             -> t5
 > uncurry5 a (b,c,d,e,f) = a b c d e f
+
+
+> uncurry7 :: (t -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7)
+>             -> (t, t1, t2, t3, t4, t5, t6)
+>             -> t7
+> uncurry7 a (b,c,d,e,f,g,h) = a b c d e f g h
 
 > toLower :: String -> String
 > toLower = map DC.toLower

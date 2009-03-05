@@ -267,7 +267,6 @@ decree	250
 raise_dead	250
 cursor	250
 highlight_cast_target_spell	250
-highlight_cast_activate_spell	250
 highlight_select_piece_at_position	250
 highlight_walk	250
 highlight_fly	250
@@ -513,16 +512,18 @@ piece ptype-allegiance-tag is at x,y, allegiance colour is 'colour',
 sprite is 'sprite', sprite priority is sp.
 
 */
-create view piece_sprite as
+create or replace view piece_sprite as
   select x,y,ptype,
     case when ptype='wizard' then w.sprite
          when allegiance='dead' then 'dead_' || ptype
          else ptype
     end as sprite,
-    colour,tag,allegiance
+    ac.colour,tag,allegiance
   from pieces p
   left outer join wizard_sprites w
-    on (allegiance = wizard_name and ptype='wizard');
+    on (allegiance = wizard_name and ptype='wizard')
+  inner join allegiance_colours ac
+    using (allegiance);
 
 /*
 == highlights
@@ -580,7 +581,7 @@ put the piece sprites, the highlight and the cursor
 together to give the full list of sprites
 
 */
-create view board_sprites as
+create or replace view board_sprites as
   select x,y,ptype,allegiance,tag,
     sprite,colour,sp,start_tick, animation_speed
     from piece_sprite
@@ -591,6 +592,8 @@ union
 select x,y, '', '', -1,'cursor', 'white', 6,0, animation_speed
   from cursor_position
   inner join sprites on sprite='cursor'
+  where (select not computer_controlled from wizards
+         inner join current_wizard_table on wizard_name = current_wizard)
 union
 select x,y, '', '', -1, sprite, 'white', 5,0, animation_speed
   from board_highlights
@@ -656,6 +659,23 @@ chinned	kill
 attempt_target_spell	walk
 \.
 
+create table history_no_visuals (
+  history_name text
+);
+select add_key('history_no_visuals', 'history_name');
+select set_relvar_type('history_no_visuals', 'readonly');
+
+copy history_no_visuals (history_name) from stdin;
+wizard_up
+new_turn
+new_game
+game_won
+game_drawn
+choose_spell
+set_imaginary
+set_real
+\.
+
 select create_var('last_history_effect_id', 'int');
 select set_relvar_type('last_history_effect_id_table', 'data');
 
@@ -666,13 +686,15 @@ begin
                         case when ty is null then y else ty end,id
     from action_history_mr
     where id > get_last_history_effect_id()
-         and x is not null and y is not null;
+         and x is not null and y is not null
+         and history_name not in (select history_name from history_no_visuals);
   insert into board_beam_effects (subtype,x1,y1,x2,y2,queuePos)
     select history_name,x,y,tx,ty,id
     from action_history_mr
     where id > get_last_history_effect_id()
          and x is not null and y is not null
-         and tx is not null and ty is not null;
+         and tx is not null and ty is not null
+         and history_name not in (select history_name from history_no_visuals);
   insert into board_sound_effects (subtype, sound_name,queuePos)
     select history_name,sound_name,id
     from action_history_mr

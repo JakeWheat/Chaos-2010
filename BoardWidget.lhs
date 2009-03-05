@@ -142,9 +142,18 @@ time (this is used by the sprite animation and the effects).
 > import SoundLib
 > import ChaosTypes
 
+x y spritename allegiance colour starttick animationspeed
 
-> type BoardSpriteT = (Int, Int, [Char], Int, Int)
-> type BoardSpritesCache = IORef [BoardSpriteT]
+> data BoardSprite = BoardSprite {
+>        bsx :: Int
+>       ,bsy :: Int
+>       ,bsSprite :: String 
+>       ,bsAllegiance :: String
+>       ,bsColour :: String
+>       ,bsStartTick :: Int
+>       ,bsASpeed :: Int}
+
+> type BoardSpritesCache = IORef (String, [BoardSprite])
 
 > type SoundEffect = (String,String)
 > type SquareEffect = (String,Int,Int)
@@ -165,7 +174,7 @@ time (this is used by the sprite animation and the effects).
 
 > boardWidgetNew :: Connection -> SoundPlayer -> ColourList ->
 >                   SpriteMap -> IO (Frame, IO())
-> boardWidgetNew conn player _ spriteMap = do
+> boardWidgetNew conn player colours spriteMap = do
 >   --setup the gtk widgets
 >   frame <- frameNew
 >   canvas <- drawingAreaNew
@@ -191,7 +200,8 @@ hook things up the the expose event, this is how gtk triggers a
 redraw, and doonexpose hooks this event up to the mydraw function
 
 >   let refresh' = refresh conn canvas boardSpritesRef effectsRef
->   onExpose canvas (doOnExpose refresh' spriteMap player canvas startTicks
+>   onExpose canvas (doOnExpose refresh' spriteMap colours player
+>                               canvas startTicks
 >                               boardSpritesRef effectsRef)
 
 update the board sprites 10 times a second to animate them
@@ -342,6 +352,7 @@ to show the player
 
 > myDraw :: IO()
 >        -> SpriteMap
+>        -> ColourList
 >        -> SoundPlayer
 >        -> ClockTime
 >        -> BoardSpritesCache
@@ -349,7 +360,7 @@ to show the player
 >        -> Double
 >        -> Double
 >        -> Render ()
-> myDraw refresh' spriteMap player startTicks
+> myDraw refresh' spriteMap colours player startTicks
 >        boardSpritesRef effectsRef w h = do
 >   --make the background black
 >   setSourceRGB 0 0 0
@@ -382,7 +393,7 @@ and toY functions which take into account the changed scale factor.
 >   let toXS a = a * squareWidth / scaleX
 >       toYS b = b * squareHeight / scaleY
 >   cf <- liftIO $ getTicks startTicks
->   drawSprites cf spriteMap toXS toYS boardSpritesRef
+>   drawSprites cf colours spriteMap toXS toYS boardSpritesRef
 >   runEffects refresh' spriteMap cf player boardSpritesRef effectsRef toXS toYS
 
 == drawing helpers
@@ -390,14 +401,17 @@ and toY functions which take into account the changed scale factor.
 Draw the board sprites from the saved board
 
 > drawSprites :: Int
+>             -> ColourList
 >             -> SpriteMap
 >             -> (Double -> Double)
 >             -> (Double -> Double)
 >             -> BoardSpritesCache
 >             -> Render ()
-> drawSprites cf spriteMap toXS toYS boardSpritesRef = do
->   bd2 <- liftIO $ readIORef boardSpritesRef
->   mapM_ (uncurry5 (drawAt spriteMap toXS toYS cf)) bd2
+> drawSprites cf colours spriteMap toXS toYS boardSpritesRef = do
+>   (currentWiz, bd2) <- liftIO $ readIORef boardSpritesRef
+>   mapM_ (drawAllegiance colours currentWiz toXS toYS) $
+>         filter (\bs -> not $ (bsAllegiance bs) `elem` ["", "dead"]) bd2
+>   mapM_ (drawAt spriteMap toXS toYS cf) bd2
 
 process the effects queue, remove any effects which have finished,
 play any new sounds, draw any current visual effects
@@ -429,7 +443,7 @@ set of sounds
 see if the head of the currenteffectsqueue has expired (they last for
 12 ticks)
 
->     when (cf > pos + 12) $ do
+>     when (cf > pos + 6) $ do
 >       --clear the current row of effects and play the sounds for the next one
 >       --liftIO $ putStrLn $ "next effects: " ++ show cf ++ " > " ++ show pos ++" + 24"
 >       let newCurrentEffectsQueue = tail currentEffectsQueue
@@ -441,7 +455,7 @@ display the visual effects
 
 >     (_,vCurrentEffectsQueue) <- liftIO $ readIORef effectsRef
 >     unless (null vCurrentEffectsQueue) (do
->       let (qp,beamEffects,squareEffects,_):_ = vCurrentEffectsQueue
+>       let (_,beamEffects,squareEffects,_):_ = vCurrentEffectsQueue
 >       --liftIO $ putStrLn $ "drawing effects for " ++ show qp
 >       mapM_ drawBeamEffect beamEffects
 >       mapM_ drawSquareEffect squareEffects)
@@ -476,7 +490,8 @@ play all the sounds from the head of the effects queue
 >         stroke
 
 >       drawSquareEffect(_,x1,y1) =
->         drawAt spriteMap toXS toYS cf x1 y1 "effect_attack" 0 250
+>         drawAt spriteMap toXS toYS cf
+>           (BoardSprite x1 y1 "effect_attack" "" "" 0 250)
 
 
 helper function to draw a sprite at board position x,y identifying the
@@ -486,20 +501,33 @@ sprite by name, hiding all that tedious map lookup stuff
 >        -> (Double -> Double)
 >        -> (Double -> Double)
 >        -> Int
->        -> Int
->        -> Int
->        -> String
->        -> Int
->        -> Int
+>        -> BoardSprite
 >        -> Render ()
-> drawAt spriteMap toXS toYS cf x y --current ticks, grid x, grid y
->        spriteName sf as = do -- sprite start tick, animation speed
->   let p = safeMLookup "board widget draw" spriteName spriteMap
+> drawAt spriteMap toXS toYS cf bs = do -- sprite start tick, animation speed
+>   let p = safeMLookup "board widget draw" (bsSprite bs) spriteMap
 >       (_,_,img) = p
->       f = ((cf - sf) `div` as) `mod` length img
->   setSourceSurface (img !! f) (toXS $ fromIntegral x) (toYS $ fromIntegral y)
+>       f = (cf - (bsStartTick bs)) `div` (bsASpeed bs) `mod` length img
+>   setSourceSurface (img !! f)
+>            (toXS $ fromIntegral (bsx bs))
+>            (toYS $ fromIntegral (bsy bs))
 >   paint
 
+> drawAllegiance :: ColourList
+>                -> String
+>                -> (Double -> Double)
+>                -> (Double -> Double)
+>                -> BoardSprite
+>                -> Render ()
+> drawAllegiance colours currentWizard toXS toYS bs = do
+>   let fi = fromIntegral
+>   let (Color r g b) = safeLookup "get piece allegiance colour"
+>                         (bsColour bs) colours
+>   setSourceRGB (fi r) (fi g) (fi b)
+>   arc (toXS $ 0.5 + (fromIntegral $ bsx bs))
+>       (toYS $ 0.5 + (fromIntegral $ bsy bs))
+>       (toXS 0.5) 0 (2 * pi)
+>   setLineWidth $ if currentWizard == bsAllegiance bs then 4 else 2
+>   stroke
 
 
 > drawGrid :: Double -> Double -> Render ()
@@ -529,14 +557,18 @@ sprite by name, hiding all that tedious map lookup stuff
 read the board sprites relvar into the cache format
 
 
-> readBoardSprites :: Connection -> IO [BoardSpriteT]
-> readBoardSprites conn =
->           selectTuplesC conn "select * from board_sprites" [] $
->                         \bs -> (read $ lk "x" bs::Int,
->                                 read $ lk "y" bs::Int,
->                                 lk "sprite" bs,
->                                 read $ lk "start_tick" bs::Int,
->                                 read $ lk "animation_speed" bs::Int)
+> readBoardSprites :: Connection -> IO (String,[BoardSprite])
+> readBoardSprites conn = do
+>    cw <- selectValueIf conn "select current_wizard from current_wizard_table" []
+>    s <- selectTuplesC conn "select * from board_sprites" [] $
+>                         \bs -> (BoardSprite (read $ lk "x" bs)
+>                                             (read $ lk "y" bs)
+>                                             (lk "sprite" bs)
+>                                             (lk "allegiance" bs)
+>                                             (lk "colour" bs)
+>                                             (read $ lk "start_tick" bs)
+>                                             (read $ lk "animation_speed" bs))
+>    return (fromMaybe "" cw, s)
 
 get the number of ticks since starting the program, so we can
 work out which frame to show for each sprite, and cue the effects
@@ -570,6 +602,7 @@ or by gtk in response to windows being moved around or resized
 
 > doOnExpose :: IO()
 >            -> SpriteMap
+>            -> ColourList
 >            -> SoundPlayer
 >            -> DrawingArea
 >            -> ClockTime
@@ -577,13 +610,14 @@ or by gtk in response to windows being moved around or resized
 >            -> EffectsCache
 >            -> t
 >            -> IO Bool
-> doOnExpose refresh' spriteMap player canvas startTicks
+> doOnExpose refresh' spriteMap colours player canvas startTicks
 >            boardSpritesRef effectsRef _ =
 >   lg "boardWidgetNew.doOnExpose" "" $ do
 >   (w,h) <- widgetGetSize canvas
 >   drawin <- widgetGetDrawWindow canvas
 >   renderWithDrawable drawin
->                      (myDraw refresh' spriteMap player startTicks
+>                      (myDraw refresh' spriteMap colours
+>                       player startTicks
 >                       boardSpritesRef effectsRef
 >                       (fromIntegral w) (fromIntegral h))
 >   --The following line use to read
