@@ -4159,7 +4159,7 @@ create view current_wizard_target_spells as
   select spell_name,range from spell_books
     inner join current_wizard_table
       on current_wizard = wizard_name
-   natural inner join spell_ranges;
+    natural inner join spell_ranges;
 
 create view current_wizard_square as
   select x,y from pieces
@@ -4306,10 +4306,9 @@ select a.x,a.y,action
   left outer join pieces_on_top p
     using (x,y)
   where action in('walk', 'fly')
-  or (action in('attack', 'ranged_attack')
-     and (allegiance is null
-          or
-          allegiance not in (get_current_wizard(), 'dead')));
+  or ((action in('attack', 'ranged_attack')
+     and allegiance not in (get_current_wizard(), 'dead')));
+
 
 /*
 rules:
@@ -4320,31 +4319,22 @@ choose targets: wizards if can, then hardest creature
 
 create view prefered_targets as
 select x,y,action,
-  case when 'ptype' = 'wizard' then -500
+  case when ptype = 'wizard' then -500
                 else 20 - physical_defense
   end as preference
-from ai_selected_piece_actions
+from valid_target_actions
 natural inner join pieces_mr
 where action in('attack','ranged_attack');
 
-create or replace view closest_enemy as
-  select a.ptype,a.allegiance,a.tag,
-         b.ptype as tptype,
-         b.allegiance as tallegiance,
-         b.tag as btag
-         ,b.x,b.y
-         ,distance(a.x,a.y,b.x,b.y) as distance
-  from attacking_pieces a
-    cross join (select ptype,allegiance,tag,x,y
-                from attackable_pieces
-                natural inner join pieces_on_top) b
-  where a.allegiance = get_current_wizard()
-    and b.allegiance <> get_current_wizard();
-
-create view closest_enemy_to_selected_piece as
-  select x,y from closest_enemy
-    natural inner join selected_piece
-    order by distance limit 1;
+create or replace view closest_enemy_to_selected_piece as
+  select b.x,b.y
+  from (select allegiance,x,y from selected_piece
+        natural inner join pieces) s
+  inner join (select ptype,allegiance,tag,x,y
+              from attackable_pieces
+              natural inner join pieces_on_top) b
+    on b.allegiance <> s.allegiance
+  order by distance(s.x,s.y,b.x,b.y) limit 1;
 
 create view select_best_move as
   select a.action,a.x,a.y from ai_selected_piece_actions a
