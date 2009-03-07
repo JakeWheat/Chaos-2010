@@ -1,32 +1,30 @@
-= milestone pre alpha 4
-
-basic ai
-autonomous spreading
-check volatile,stable,immutable on all sql, create or replace
-
-= milestone prealpha 5+
-
-line of sight
-finish move phase todo tests
-
-================================================================================
 
 = milestone alpha 0.1
 
-do test to run all ai wizards, record games and check for errors or ui crashes
-speed things up
 fix piecekey tags
-test every single spell
-use subfolders for files
-intended to be feature complete for 0.2 wrt playing, but not
-installation
-listen/notify if feasible
-basic installation help
-mouse controls?
+line of sight
+turmoil
+make ai todo list
+cursor movement optmisation - avoid redoing board_sprites
+replace game start sound
+variable ai continue speeds dependant on last action
+diagonal moves
+fix history window bug - not showing history when starting new game
+sound effects: spread, recede, receive, disappear, select, unselect
+get a windows exe together
+pause, change speed when ai is going
+ai choose spells instantly
+stop wizards from attacking magic_wood
+cannot be engaged to gooey blob
 
 ================================================================================
 
 = milestone beta 0.2
+
+speed things up
+listen/notify if feasible
+basic installation help
+mouse controls?
 
 credits/thanks
 background reading

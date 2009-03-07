@@ -1313,7 +1313,7 @@ not exists (select 1 from pieces_to_move))$$,
 array['pieces_to_move', 'turn_phase_table']);
 
 create domain move_phase as text
-  check (value in ('motion', 'attack', 'ranged-attack'));
+  check (value in ('motion', 'attack', 'ranged_attack'));
 
 create table selected_piece (
   ptype text,
@@ -2825,7 +2825,7 @@ declare
   nextp text;
   p pos;
 begin
-  nextp:= piece_next_subphase('start', false, pk);
+  nextp:= piece_next_subphase('start', false, 'none', pk);
   if nextp = 'end' then
     --nothing to do
     delete from pieces_to_move
@@ -2896,13 +2896,13 @@ $$ language plpgsql volatile;
 create function action_cancel() returns void as $$
 begin
   perform check_can_run_action('cancel');
-  perform do_next_move_subphase(true);
+  perform do_next_move_subphase(true,'none');
 end;
 $$ language plpgsql volatile;
 /*
 ==== internals
 */
-create function do_next_move_subphase(skip_attack boolean)
+create function do_next_move_subphase(skip_attack boolean, phase_done text)
     returns void as $$
 declare
   r record;
@@ -2914,7 +2914,7 @@ begin
   select into r * from selected_piece
     natural inner join pieces;
   nextp := piece_next_subphase((select move_phase from selected_piece),
-             skip_attack, (r.ptype, r.allegiance, r.tag)::piece_key);
+             skip_attack, phase_done, (r.ptype, r.allegiance, r.tag)::piece_key);
   if r.move_phase = 'motion' then
     update remaining_walk_hack_table
       set remaining_walk_hack = true;
@@ -2944,7 +2944,7 @@ begin
   perform selected_piece_move_to(px, py);
   perform add_history_walked(p.x,p.y);
   if get_remaining_walk() = 0 then
-    perform do_next_move_subphase(false);
+    perform do_next_move_subphase(false, 'motion');
   end if;
 end;
 $$ language plpgsql volatile;
@@ -2957,7 +2957,7 @@ begin
   select into p x,y from pieces natural inner join selected_piece;
   perform selected_piece_move_to(px, py);
   perform add_history_fly(p.x,p.y);
-  perform do_next_move_subphase(false);
+  perform do_next_move_subphase(false, 'motion');
 end;
 $$ language plpgsql volatile;
 
@@ -3008,7 +3008,7 @@ begin
   if not check_random_success('attack', max((att - def) * 10 + 50, 10)) then
     --failure
     perform add_history_shrugged_off(r);
-    perform do_next_move_subphase(true);
+    perform do_next_move_subphase(true, 'attack');
     return;
   end if;
 
@@ -3022,7 +3022,7 @@ begin
                 where (x,y) = (px,py)) then
     perform selected_piece_move_to(px, py);
   end if;
-  perform do_next_move_subphase(true);
+  perform do_next_move_subphase(true, 'attack');
 end;
 $$ language plpgsql volatile;
 
@@ -3052,13 +3052,13 @@ begin
   if not check_random_success('ranged_attack', max((att - def) * 10 + 50, 10)) then
     --failure
     perform add_history_shrugged_off(r);
-    perform do_next_move_subphase(false);
+    perform do_next_move_subphase(false, 'ranged_attack');
     return;
   end if;
 
   perform add_history_chinned(r);
   perform kill_piece(r);
-  perform do_next_move_subphase(false);
+  perform do_next_move_subphase(false, 'ranged_attack');
 end;
 $$ language plpgsql volatile;
 
@@ -3074,19 +3074,21 @@ the piece attacked when it was in the motion subphase
 */
 
 create function piece_next_subphase(
-  current_subphase text, skip_attack boolean,pk piece_key)
+  current_subphase text, skip_attack boolean, just_done text, pk piece_key)
   returns text as $$
 declare
   r record;
 begin
   select into r x,y from pieces
     where (ptype,allegiance,tag)::piece_key=pk;
-  if current_subphase = 'start' and
-      exists(select 1 from creature_pieces
-             where (ptype,allegiance,tag)::piece_key = pk) then
+  if current_subphase = 'start'
+     and just_done='none'
+     and exists(select 1 from creature_pieces
+                where (ptype,allegiance,tag)::piece_key = pk) then
     return 'motion';
-  elseif current_subphase not in ('attack','ranged-attack')
+  elseif current_subphase not in ('attack','ranged_attack')
          and not skip_attack
+         and just_done not in ('attack', 'ranged_attack')
          and exists(select 1 from attacking_pieces
                 where (ptype,allegiance,tag)::piece_key=pk)
          and exists(select 1 from attackable_pieces ap
@@ -3099,10 +3101,11 @@ begin
            where allegiance <> pk.allegiance
              and range = 1) then
     return 'attack';
-  elseif current_subphase not in ('ranged-attack')
+  elseif current_subphase not in ('ranged_attack')
+    and just_done not in ('ranged_attack')
     and exists(select 1 from ranged_weapon_pieces
                 where (ptype,allegiance,tag)::piece_key = pk) then
-    return 'ranged-attack';
+    return 'ranged_attack';
   else
     return 'end';
   end if;
@@ -4503,7 +4506,10 @@ declare
   r record;
 begin
   if exists(select 1 from ai_selected_piece_actions
-            where action in ('attack','ranged_attack')) then
+            where action = 'attack'
+            or (action = 'ranged_attack'
+                and (select move_phase='ranged_attack'
+                from selected_piece))) then
     select into r x,y,action from prefered_targets
       order by preference limit 1;
     if r.action = 'attack' then

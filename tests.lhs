@@ -198,6 +198,8 @@ Run all the tests.
 >                         ,testWalkCancelRangedDone conn
 >                         ,testCancelRangedDone conn
 >                         ,testWalkNoAvailAttackRangedDone conn
+>                         ,testWalkStraightRangedDone conn
+>                         ,testStraightRangedDone conn
 >                         ,testAttackDone conn
 >                         ,testNoAvailAttackDone conn
 >                         ]
@@ -1779,7 +1781,7 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "attack" True
 >     goSquare conn 3 0
->     checkMoveSubphase conn "ranged-attack"
+>     checkMoveSubphase conn "ranged_attack"
 >     checkBoard conn ("\n\
 >                   \1  H   2      3\n\
 >                   \   R           \n\
@@ -1843,7 +1845,7 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "attack" True
 >     goSquare conn 3 0
->     checkMoveSubphase conn "ranged-attack"
+>     checkMoveSubphase conn "ranged_attack"
 >     checkBoard conn ("\n\
 >                   \1  H   2      3\n\
 >                   \   R           \n\
@@ -1903,7 +1905,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     sendKeyPress conn "End"
->     checkMoveSubphase conn "ranged-attack"
+>     checkMoveSubphase conn "ranged_attack"
 >     checkBoard conn ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
@@ -1952,7 +1954,7 @@ variations, so we don't need to test them elsewhere.
 >     checkSelectedPiece conn "Buddha" "elf"
 >     checkMoveSubphase conn "motion"
 >     sendKeyPress conn "End"
->     checkMoveSubphase conn "ranged-attack"
+>     checkMoveSubphase conn "ranged_attack"
 >     checkBoard conn ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
@@ -2011,7 +2013,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     checkMoveSubphase conn "ranged-attack"
+>     checkMoveSubphase conn "ranged_attack"
 >     checkBoard conn ("\n\
 >                   \1 G R  2      3\n\
 >                   \    R          \n\
@@ -2037,6 +2039,112 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
+
+> testWalkStraightRangedDone :: Connection -> Test.Framework.Test
+> testWalkStraightRangedDone =
+>   tctor "testWalkStraightRangedDone" $ \conn -> do
+>     let pl = (wizardPiecesList ++
+>               [('G', [PieceDescription "elf" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>     startNewGameReadyToMove conn ("\n\
+>                   \1G  R  2      3\n\
+>                   \  R R          \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "elf"
+>     checkMoveSubphase conn "motion"
+>     goSquare conn 2 0
+>     checkBoard conn ("\n\
+>                   \1 G R  2      3\n\
+>                   \  R R          \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     checkMoveSubphase conn "attack"
+>     checkBoard conn ("\n\
+>                   \1 G R  2      3\n\
+>                   \  R R          \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     rigActionSuccess conn "ranged_attack" False
+>     goSquare conn 4 1
+>     checkPieceDoneSelection conn "elf" "Buddha"
+>     checkBoard conn ("\n\
+>                   \1 G R  2      3\n\
+>                   \  R R          \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+
+> testStraightRangedDone :: Connection -> Test.Framework.Test
+> testStraightRangedDone =
+>   tctor "testStraightRangedDone" $ \conn -> do
+>     let pl = (wizardPiecesList ++
+>               [('G', [PieceDescription "elf" "Buddha" []]),
+>                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>     startNewGameReadyToMove conn ("\n\
+>                   \1G  R  2      3\n\
+>                   \  R R          \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     goSquare conn 1 0
+>     checkSelectedPiece conn "Buddha" "elf"
+>     checkMoveSubphase conn "motion"
+>     rigActionSuccess conn "ranged_attack" False
+>     goSquare conn 4 0
+>     checkBoard conn ("\n\
+>                   \1G  R  2      3\n\
+>                   \  R R          \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>     checkPieceDoneSelection conn "elf" "Buddha"
+>     checkBoard conn ("\n\
+>                   \1G  R  2      3\n\
+>                   \  R R          \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+
 
 
 * piece has attack only
