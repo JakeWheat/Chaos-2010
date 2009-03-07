@@ -1555,7 +1555,9 @@ create view selectable_pieces_with_priorities as
       when ptype='wizard' then 0
       else 1
     end as sp
-    from moving_pieces;
+    from moving_pieces
+    where (x,y) not in(select x,y from pieces
+                     where ptype = 'gooey_blob');
 
 /*
 
@@ -1580,7 +1582,7 @@ create view board_ranges as
                 cross join generate_series(0, 14) as tx
                 cross join generate_series(0, 9) as ty
   where distance(x,y,tx,ty) - 0.5 <= range --round to closest int
-  --slightly hacky, we never need the current square to be included so
+  --slightly hacky, we never need the centre square to be included so
   --exclude it here even though it's not quite mathematically correct
   and (x,y) != (tx,ty);
 
@@ -2819,15 +2821,11 @@ turn.
 === selection and subphase
 */
 
-create function action_select_piece(pk piece_key) returns void as $$
+create function select_piece(pk piece_key) returns void as $$
 declare
   nextp text;
   p pos;
 begin
-  --this check isn't perfect
-  select into p x,y from pieces
-    where (ptype,allegiance,tag)::piece_key=pk;
-  perform check_can_run_action('select_piece_at_position', p.x, p.y);
   nextp:= piece_next_subphase('start', false, pk);
   if nextp = 'end' then
     --nothing to do
@@ -2869,7 +2867,7 @@ begin
   perform check_can_run_action('select_piece_at_position', vx,vy);
   select into r ptype,allegiance, tag from selectable_pieces
          where (x,y) = (vx,vy);
-  perform action_select_piece(r);
+  perform select_piece(r);
 end;
 $$ language plpgsql volatile;
 
@@ -3186,8 +3184,7 @@ select ptype,allegiance,tag from pieces
     and (x,y) in (select x,y from pieces
                   where ptype='magic_tree');
 
-
-create function do_autonomous_phase() returns void as $$
+create or replace function do_autonomous_phase() returns void as $$
 declare
   r piece_key;
   r1 piece_key;
@@ -3215,9 +3212,127 @@ begin
           order by random() limit 1));
     end if;
   end loop;
+  perform do_spreading();
+end;
+$$ language plpgsql volatile;
 
-  --spread
+/*
+can't find this function in the postgresql docs...?
+*/
 
+create or replace function array_contains(ar anyarray, e anyelement) returns boolean as $$
+declare
+  i int;
+begin
+  if ar = '{}' then
+    return false;
+  end if;
+  for i in (array_lower(ar,1))..(array_upper(ar,1)) loop
+    if ar[i] = e then
+      return true;
+    end if;
+  end loop;
+  return false;
+end;
+$$ language plpgsql immutable;
+
+
+/*
+rules:
+each piece has 10% chance of disappearing
+each piece has 20% chance of spawning a new piece
+each piece has 20% chance of spawning two new pieces
+
+can't spread to object squares
+can't spread to same allegiance squares
+blob spreading over wizard kills wizard
+blob spreading on monster leaves monster trapped until blob is killed/recedes
+fire spreading onto anything kills & disintegrates it
+
+need hack to prevent blobs trying to spread which are owned by wizards
+killed previously during this spreading.  I think we need to keep
+track of these manually since the database won't let us read a
+partially updated wizards or pieces table during the transaction
+
+
+insert into spell_books (wizard_name,spell_name)
+  select wizard_name, 'gooey_blob' from wizards
+  union
+  select wizard_name, 'magic_fire' from wizards;
+
+*/
+
+create or replace view spreadable_squares as
+  select x,y from generate_series(0, 14) as x
+    cross join generate_series(0, 9) as y
+  except
+  select x,y from pieces natural inner join object_piece_types;
+
+create or replace function do_spreading() returns void as $$
+declare
+  r piece_key;
+  r1 piece_key;
+  p pos;
+  sp record;
+  i int;
+  c int;
+  tg int;
+  killed_wizards text[] = '{}';
+begin
+  for sp in select ptype,allegiance,tag,x,y from pieces
+           where ptype in ('gooey_blob', 'magic_fire') loop
+    --raise notice 'check % e %', sp.allegiance, killed_wizards;
+    if array_contains(killed_wizards, sp.allegiance) then
+      --raise notice 'skip piece %', sp.allegiance;
+      continue;
+    end if;
+    c := (random() * 100)::Int;
+    if c < 10 then
+      --recede
+      perform add_history_recede(r);
+      perform disintegrate((sp.ptype,sp.allegiance,sp.tag));
+    elseif c < 50 then
+      for i in 1..(case when c < 30 then 1 else 2 end) loop
+        select into p tx,ty from (
+          select tx, ty from board_ranges b
+          inner join spreadable_squares s
+            on (s.x,s.y) = (b.tx,b.ty)
+          where range = 1
+            and (b.x,b.y) = (sp.x,sp.y)
+          except
+          select x as tx,y as ty
+            from pieces
+            where allegiance=sp.allegiance) as a
+              order by random() limit 1;
+        if p.x is null then continue; end if;
+        if exists(select 1 from pieces
+               where (x,y) = (p.x,p.y)
+                 and ptype = 'wizard') then
+          select into r1 ptype,allegiance,tag from pieces
+               where (x,y) = (p.x,p.y)
+                 and ptype = 'wizard';
+          if r1.allegiance = sp.allegiance then
+            raise exception 'spread tried to get friendly piece';
+          end if;
+          killed_wizards := array_append(killed_wizards, r1.allegiance);
+          --raise notice 'killed_wizards %', killed_wizards;
+          perform add_chinned_history(p.x,p.y);
+          perform kill_piece(r1);
+        end if;
+        --magic fire removes all pieces
+        for r1 in select ptype,allegiance,tag from pieces
+            where (x,y) = (p.x,p.y) loop
+          if r1.allegiance = sp.allegiance then
+            raise exception 'spread tried to get friendly piece';
+          end if;
+          perform disintegrate(r1);
+        end loop;
+        --raise notice 'spreading %', sp.allegiance;
+        tg := create_object(sp.ptype, sp.allegiance, p.x,p.y);
+        perform add_history_spread((sp.ptype,sp.allegiance,tg));
+      end loop;
+    end if;
+  end loop;
 end;
 $$ language plpgsql volatile;
 
@@ -3259,14 +3374,14 @@ insert into spell_indexes_no_dis_turm (spell_name)
   select spell_name from spells_mr
     where spell_name not in ('disbelieve', 'turmoil');
 
-create function create_object(vptype text, vallegiance text, x int, y int)
-  returns void as $$
+create or replace function create_object(vptype text, vallegiance text, x int, y int)
+  returns int as $$
 begin
   --assert ptype is an object ptype
   if not exists(select 1 from object_piece_types where ptype = vptype) then
     raise exception 'called create object on % which is not an object', vptype;
   end if;
-  perform create_piece_internal(vptype, vallegiance, x, y, false);
+  return create_piece_internal(vptype, vallegiance, x, y, false);
 end
 $$ language plpgsql volatile;
 
@@ -4052,13 +4167,12 @@ select set_module_for_preceding_objects('new_game');
 ================================================================================
 
 = ai
-AI stuff put here.
 
-Basic plan is to choose spells by weighting them according to spell
-book contents, board layout, and world alignment, then picking one at random.
-When moving army, pick the pieces in random order and choose an aggressive
-move for each one independently. This is pretty simple and should offer
-a small challenge.
+For each stage we compile a list of possible actions using the valid_action views. These are then filtered to remove actions we don't want to run. At some places, the possible action list is reduced by keeping only the actions which are deemed vital (e.g. the wizard needs to run away, or a monster has a chance to attact a wizard). The remaining actions are possibly weighted and one is chosen at random.
+
+Choose spells by weighting them according to casting chance, some spells are never cast, and some will be further weighted by the board layout.
+
+When moving army, the general plan is to move the monsters closest to an enemy first.
 
 choose spell
 cast spell

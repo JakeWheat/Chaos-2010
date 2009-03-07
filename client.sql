@@ -583,19 +583,23 @@ together to give the full list of sprites
 */
 create or replace view board_sprites as
   select x,y,ptype,allegiance,tag,
-    sprite,colour,sp,start_tick, animation_speed
+    sprite,colour,sp,start_tick, animation_speed,
+    case when not move_phase is null then true
+      else false
+    end as selected
     from piece_sprite
   natural inner join pieces_on_top
   natural inner join piece_starting_ticks
   natural inner join sprites
+  natural left outer join selected_piece
 union
-select x,y, '', '', -1,'cursor', 'white', 6,0, animation_speed
+select x,y, '', '', -1,'cursor', 'white', 6,0, animation_speed, false
   from cursor_position
   inner join sprites on sprite='cursor'
   where (select not computer_controlled from wizards
          inner join current_wizard_table on wizard_name = current_wizard)
 union
-select x,y, '', '', -1, sprite, 'white', 5,0, animation_speed
+select x,y, '', '', -1, sprite, 'white', 5,0, animation_speed,false
   from board_highlights
   natural inner join sprites
 order by sp;

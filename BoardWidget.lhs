@@ -145,13 +145,14 @@ time (this is used by the sprite animation and the effects).
 x y spritename allegiance colour starttick animationspeed
 
 > data BoardSprite = BoardSprite {
->        bsx :: Int
->       ,bsy :: Int
->       ,bsSprite :: String 
->       ,bsAllegiance :: String
->       ,bsColour :: String
->       ,bsStartTick :: Int
->       ,bsASpeed :: Int}
+>      bsx :: Int
+>     ,bsy :: Int
+>     ,bsSprite :: String
+>     ,bsAllegiance :: String
+>     ,bsColour :: String
+>     ,bsStartTick :: Int
+>     ,bsASpeed :: Int
+>     ,bsSelected :: Bool}
 
 > type BoardSpritesCache = IORef (String, [BoardSprite])
 
@@ -491,7 +492,7 @@ play all the sounds from the head of the effects queue
 
 >       drawSquareEffect(_,x1,y1) =
 >         drawAt spriteMap toXS toYS cf
->           (BoardSprite x1 y1 "effect_attack" "" "" 0 250)
+>           (BoardSprite x1 y1 "effect_attack" "" "" 0 250 False)
 
 
 helper function to draw a sprite at board position x,y identifying the
@@ -526,7 +527,10 @@ sprite by name, hiding all that tedious map lookup stuff
 >   arc (toXS $ 0.5 + (fromIntegral $ bsx bs))
 >       (toYS $ 0.5 + (fromIntegral $ bsy bs))
 >       (toXS 0.5) 0 (2 * pi)
->   setLineWidth $ if currentWizard == bsAllegiance bs then 4 else 2
+>   setLineWidth (case True of
+>                 _ | bsSelected bs -> 8
+>                   | bsAllegiance bs == currentWizard -> 4
+>                   | otherwise -> 2)
 >   stroke
 
 
@@ -567,7 +571,8 @@ read the board sprites relvar into the cache format
 >                                             (lk "allegiance" bs)
 >                                             (lk "colour" bs)
 >                                             (read $ lk "start_tick" bs)
->                                             (read $ lk "animation_speed" bs))
+>                                             (read $ lk "animation_speed" bs)
+>                                             (read $ lk "selected" bs))
 >    return (fromMaybe "" cw, s)
 
 get the number of ticks since starting the program, so we can

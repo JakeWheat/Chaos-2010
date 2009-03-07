@@ -211,6 +211,7 @@ Run all the tests.
 >                          ,testEnter conn
 >                          ,testExit conn
 >                          ,testAttackShadowForm conn
+>                          ,testBlobSelection conn
 >                        ]
 >           ]
 >        ,testGroup "game complete" [
@@ -2455,6 +2456,34 @@ moved if free'd that turn
  - so check if in selected list, try to select, check failure, then
   kill blob and select and move
 
+> testBlobSelection :: Connection -> Test.Framework.Test
+> testBlobSelection = tctor "testBlobSelection" $ \conn -> do
+>   let pl = wizardPiecesList ++
+>            [('O', [PieceDescription "goblin" "Buddha" [],
+>                    PieceDescription "gooey_blob" "Kong Fuzi" []])]
+>   startNewGameReadyToMove conn ("\n\
+>                   \1O     2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8", pl)
+
+ >   goSquare conn 1 0
+ >   checkNoSelectedPiece conn
+ >   goSquare conn 0 0
+ >   rigActionSuccess conn "attack" True
+ >   goSquare conn 1 0
+ >   checkNoSelectedPiece conn
+ >   goSquare conn 1 0
+ >   checkSelectedPiece conn "Buddha" "goblin"
+
+
+
 shadow form attack and moving, shadow form and magic wings at same time
 
 check attack when has mount moves wizard
@@ -2483,29 +2512,6 @@ check attack,nter,mount from mount
 fire, blob spreading
 
 test single square spread success, fail
-
-spreading algorithm
-run through each square on the board which is next to a blob or is a blob
-if not a blob, then the chance of spreading is 20% x adjacent blobs + 10% x diagonal blobs limited to 80%.
-if a blob, then the chance of disappearing is 20% if one adjacent, 40% if 4 or more, 10% otherwise.
-
-TODO: limit the total population of a blob/fire colony? - the chance of disappearing goes up when there are more blobs and the chance of spreading goes down?
-
--- > testBlobSpread :: Connection -> Test.Framework.Test
--- > testBlobSpread = tctor "testBlobSpread" $ \conn -> do
-
--- setup the game, get to cast phase with the first wizard having
--- chosen goblin
-
--- >   startNewGame conn
--- >   addSpell conn "goblin"
--- >   sendKeyPress conn $ keyChooseSpell "goblin"
--- >   --get the next wizard to select disbelieve so we can check the
--- >   --auto next phase works
--- >   sendKeyPress conn "space"
--- >   sendKeyPress conn $ keyChooseSpell "disbelieve"
--- >   skipToPhase conn "cast"
-
 
 test single square disappear
 

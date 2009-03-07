@@ -603,7 +603,7 @@ text box instead of redrawing them all
 >   let refresh = lg "actionHistoryWidgetNew.refresh" "" $ do
 >         is <- items lastHistoryIDBox
 >         r <- D.run conn [is]
->         writeText r
+>         --writeText r
 >         render tv r
 >         textViewScrollToBottom tv
 >
