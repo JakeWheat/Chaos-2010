@@ -36,8 +36,6 @@ didn't find them.
 > import System.IO
 > import Control.Exception
 > import Data.Maybe
-> --import qualified Data.ByteString.Lazy as B
-> --import qualified Data.ByteString as Bs
 > import qualified Data.Map as M
 
 > applyMany :: [(a -> b)] -> a -> [b]

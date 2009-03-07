@@ -152,7 +152,7 @@ all that main needs to do is call this and call the two gtk init actions
 todo: if cannot connect to database give info to this effect
  if database doesn't appear to be a chaos db or is empty, message
 
->          unsafeInitGUIForThreadedRTS --initGUI
+>          lg "initGui" "" unsafeInitGUIForThreadedRTS
 >          timeoutAddFull (yield >> return True)
 >                         priorityDefaultIdle 100
 >          withConn ("host=localhost dbname=" ++ Conf.dbName conf ++
@@ -690,8 +690,7 @@ closed.
 TODO: save size, position, scroll positions, minimised/maximised, etc.
 
 > windowManagerNew :: Connection -> IO TextView
-> windowManagerNew conn =
->   handleSqlError $ do
+> windowManagerNew conn = lg "windowManagerNew" "" $ handleSqlError $ do
 
 == basic setup
 
@@ -928,7 +927,7 @@ creates a pixbuf and mini pixbuf for use in the
 text views and a cairo surface for drawing on the board
 
 > loadSprites :: Connection -> IO SpriteMap
-> loadSprites conn = do
+> loadSprites conn = lg "loadSprites" "" $ do
 >   maybeSpriteFiles <- findAllFiles "sprites"
 >   spriteNames <- selectSingleColumn conn "select sprite from sprites" []
 >   let spriteFilenames = for spriteNames
@@ -939,15 +938,14 @@ text views and a cairo surface for drawing on the board
 >           in if null spritefiles
 >                then error $ "no sprite files for: " ++ sp
 >                else sort spritefiles)
->   spritePixbufs <- mapM (\l -> mapM pixbufNewFromFile l) spriteFilenames
-
+>   spritePixbufs <- lg "loadfromfiles" "" $ mapM (\l -> mapM pixbufNewFromFile l) spriteFilenames
 >   let eachPb fn = mapM (\l -> mapM fn l) spritePixbufs
 >   --create the mini pixbufs
->   miniSpritePixbufs <- eachPb (\p -> pixbufScaleSimple p 16 16 InterpHyper)
+>   miniSpritePixbufs <- lg "createMinisprites" "" $ eachPb (\p -> pixbufScaleSimple p 16 16 InterpHyper)
 >   --create the normal sized pixbufs
->   mediumSpritePixbufs <- eachPb (\p -> pixbufScaleSimple p 32 32 InterpHyper)
+>   mediumSpritePixbufs <- lg "createNormalsprites" "" $ eachPb (\p -> pixbufScaleSimple p 32 32 InterpHyper)
 >   --create the cairo surfaces
->   spriteSurfaces <- forM spriteFilenames
+>   spriteSurfaces <- lg "createSurfaces" "" $ forM spriteFilenames
 >     (\l -> mapM imageSurfaceCreateFromPNG l)
 >   return $ M.fromList $
 >            zip spriteNames $

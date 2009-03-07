@@ -13,8 +13,8 @@ textbuffer contents using pure/ non-imperative code.
 > import Graphics.UI.Gtk
 > import Control.Monad
 > import Data.Maybe
+
 > import Utils
-> --import GtkUtils
 > import qualified Logging
 
 == text view utils

@@ -16,17 +16,17 @@ conversion.
 >                   ) where
 
 > import System.Directory
-> import Utils
 > import Data.List
 > import Control.Monad
 > import Data.Char
 > import Test.QuickCheck
 > import Text.RegexPR
-> import qualified Conf as Conf
 > import Text.Regex.Posix
-> import ChaosDB
 > import System.FilePath
 
+> import qualified Conf as Conf
+> import ChaosDB
+> import Utils
 
 
 function to check all the sprite files are present and all the

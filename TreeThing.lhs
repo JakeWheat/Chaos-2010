@@ -17,20 +17,18 @@ Easier just to run it and see.
 todo: get this tree into speedbar
 
 > import Prelude hiding (catch)
-> import GtkUtils
-> import ChaosDB
 > import Graphics.UI.Gtk  hiding (fill,
 >                                 disconnect)
 > import Data.Tree
 > import Data.List
-> --import Data.Maybe
 > import Text.Regex.Posix
-> import Conf
 > import System.Directory
 > import Control.Monad
-> --import Control.Exception
+
+> import GtkUtils
+> import ChaosDB
+> import Conf
 > import Utils
-> --import qualified Data.Map as M
 
 > getSourceFiles :: IO [FilePath]
 > getSourceFiles = do

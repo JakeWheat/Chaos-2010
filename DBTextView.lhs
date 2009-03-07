@@ -11,12 +11,12 @@ for examples of how it's used
 
 > module DBTextView where
 
-> import qualified MyTextView as T
 > import Control.Monad
-> import ChaosDB
 > import Data.Maybe
 > import qualified Data.Map as M
 
+> import ChaosDB
+> import qualified MyTextView as T
 > import qualified Logging
 
 These are the elements that you create that eventually end up in the

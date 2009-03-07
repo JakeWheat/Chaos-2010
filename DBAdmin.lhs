@@ -11,11 +11,12 @@ setup - used to setup the database for an end user install
 
 > module DBAdmin (reset, switchOverTempDb, setup) where
 
-> import Conf
-> import Utils
 > import Control.Monad
 > import System.Cmd
 > import System.Exit
+
+> import Conf
+> import Utils
 
 the way the database reset works is to load the scripts into a
 database called chaos1, then if this succeeds, delete database chaos

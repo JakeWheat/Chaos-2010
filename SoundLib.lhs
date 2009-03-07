@@ -1,14 +1,9 @@
 
 > module SoundLib (initPlayer, play, SoundPlayer) where
 
- > import Graphics.UI.SDL.Mixer.Music
-
 > import Graphics.UI.SDL.Mixer.Types
-
 > import Control.Concurrent
-
 > import System.FilePath
-
 > import Graphics.UI.SDL.Mixer.General
 > import Graphics.UI.SDL.Mixer.Channels
 > import Graphics.UI.SDL.Mixer.Samples
@@ -17,28 +12,18 @@
 > import Control.Monad
 
 > import Utils
+> import Logging
 
 > import qualified Data.Map as M
 
 > type SoundPlayer = M.Map String Graphics.UI.SDL.Mixer.Types.Chunk
 
 > initPlayer :: IO SoundPlayer
-> initPlayer = do
+> initPlayer = lg "initPlayer" "" $ do
 >  openAudio 44100 AudioS16Sys 2 4096
 >  soundNames <- findAllFiles "sounds"
 >  let soundNames' = soundNames
-
- >  forM_ soundNames' $ \f -> do
- >                putStrLn $ "file: " ++ f
-
- >  soundList <- mapM loadMUS soundNames
- >  return $ M.fromList $ zip (map takeBaseName soundNames) soundList
-
 >  soundList <- mapM tryLoadWAV soundNames'
-
- >  forM_ (zip (map takeBaseName soundNames') $ soundList)
- >        (\(a,b) -> putStrLn $ a ++ show (isJust b))
-
 >  let properSounds = catMaybes $ map (\(a,b) -> case b of
 >                                        Just x -> Just (a,x)
 >                                        Nothing -> Nothing) $
@@ -78,3 +63,5 @@
 
  >  closeAudio
 
+> lg :: String -> String -> IO c -> IO c
+> lg l = Logging.pLog ("chaos.SoundLib." ++ l)

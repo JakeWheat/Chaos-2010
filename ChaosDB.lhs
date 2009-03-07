@@ -57,34 +57,23 @@ and updates directly
 
 > import Database.HDBC.PostgreSQL
 > import Database.HDBC  hiding (quickQuery'
-
--- >                             ,run
-
---- >                             ,commit
-
->                             ,execute
-
---- >                             ,prepare
-
--- >                             ,getColumnNames
-
->                             ,fetchAllRows'
-
->                             )
-
+>                              ,execute
+>                              ,fetchAllRows'
+>                              )
 > import qualified Database.HDBC as H
 > import Data.List
 > import qualified Data.Map as M
 > import Control.Monad
 > import Data.Maybe
 > import Control.Exception
+
 > import Utils hiding (run)
 > import qualified Logging
 
 > type SqlRow = M.Map String String
 
 > withConn :: String -> (Connection -> IO c) -> IO c
-> withConn cs f = bracket (connectPostgreSQL cs) disconnect
+> withConn cs f = bracket (lg "connectPostgreSQL" "" $ connectPostgreSQL cs) disconnect
 >                   (\conn -> do
 >                     runSql conn "update pg_settings\n\
 >                                 \  set setting=true\n\
