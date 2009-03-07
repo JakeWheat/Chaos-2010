@@ -650,8 +650,10 @@ select add_key('history_sounds', array['history_name', 'sound_name']);
 select set_relvar_type('history_sounds', 'readonly');
 
 copy history_sounds (history_name,sound_name) from stdin;
-moved	walk
+walked	walk
+fly	fly
 attack	attack
+ranged_attack	shoot
 game_drawn	draw
 game_won	win
 spell_failed	fail
@@ -660,7 +662,7 @@ shrugged_off	shrugged_off
 wizard_up	wizard_up
 new_game	new_game
 chinned	kill
-attempt_target_spell	walk
+attempt_target_spell	cast
 \.
 
 create table history_no_visuals (
@@ -1322,7 +1324,7 @@ select create_client_action_wrapper('spell_book_show_all_update_on',
 select create_client_action_wrapper('spell_book_show_all_update_off',
        $$spell_book_show_all_update(false)$$);
 
-create function action_key_pressed(pkeycode text) returns void as $$
+create or replace function action_key_pressed(pkeycode text) returns void as $$
 declare
   a text;
 begin
@@ -1338,7 +1340,6 @@ loop, got rid of that, got it down to about 0.1 sec but this is for an
 unmatched keypress, need to be faster.
 
 */
-
   if get_running_effects() then
     return;
   end if;
@@ -1398,7 +1399,7 @@ $$ language plpgsql volatile;
 == cursor/go actions
 */
 
-create function action_go() returns void as $$
+create or replace function action_go() returns void as $$
 declare
   r record;
   s text;
@@ -1410,8 +1411,8 @@ begin
     execute s;
   else
     select into r action
-      from client_valid_activate_actions;
---      where action <> 'activate';
+      from client_valid_activate_actions
+       where action in ('cast_activate_spell');
     if r is not null then
       s := 'select action_' || r.action || '()';
       execute s;

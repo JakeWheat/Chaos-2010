@@ -2024,7 +2024,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "ranged_attack" False
->     goSquare conn 3 1
+>     goSquare conn 4 1
 >     checkPieceDoneSelection conn "elf" "Buddha"
 >     checkBoard conn ("\n\
 >                   \1 G R  2      3\n\
@@ -2460,8 +2460,9 @@ moved if free'd that turn
 > testBlobSelection = tctor "testBlobSelection" $ \conn -> do
 >   let pl = wizardPiecesList ++
 >            [('O', [PieceDescription "goblin" "Buddha" [],
->                    PieceDescription "gooey_blob" "Kong Fuzi" []])]
->   startNewGameReadyToMove conn ("\n\
+>                    PieceDescription "gooey_blob" "Kong Fuzi" []]),
+>             ('g', [PieceDescription "goblin" "Buddha" []])]
+>   startNewGameReadyToMoveNoSpread conn ("\n\
 >                   \1O     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -2472,15 +2473,25 @@ moved if free'd that turn
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8", pl)
-
- >   goSquare conn 1 0
- >   checkNoSelectedPiece conn
- >   goSquare conn 0 0
- >   rigActionSuccess conn "attack" True
- >   goSquare conn 1 0
- >   checkNoSelectedPiece conn
- >   goSquare conn 1 0
- >   checkSelectedPiece conn "Buddha" "goblin"
+>   goSquare conn 1 0
+>   checkNoSelectedPiece conn
+>   goSquare conn 0 0
+>   rigActionSuccess conn "attack" True
+>   goSquare conn 1 0
+>   checkNoSelectedPiece conn
+>   checkBoard conn ("\n\
+>                   \1g     2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",pl)
+>   goSquare conn 1 0
+>   checkSelectedPiece conn "Buddha" "goblin"
 
 
 
@@ -2493,6 +2504,15 @@ check attack,nter,mount from mount
 > startNewGameReadyToMove :: Connection -> BoardDiagram -> IO ()
 > startNewGameReadyToMove conn board = do
 >   startNewGame conn
+>   setupBoard conn board
+>   rigActionSuccess conn "disappear" False
+>   skipToPhase conn "move"
+
+> startNewGameReadyToMoveNoSpread :: Connection -> BoardDiagram -> IO ()
+> startNewGameReadyToMoveNoSpread conn board = do
+>   startNewGame conn
+>   runSql conn "update disable_spreading_table\n\
+>               \set disable_spreading = true;" []
 >   setupBoard conn board
 >   rigActionSuccess conn "disappear" False
 >   skipToPhase conn "move"

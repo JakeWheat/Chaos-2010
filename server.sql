@@ -1698,7 +1698,6 @@ create view current_wizard_spell_squares as
     inner join current_wizard_table
     on (allegiance = current_wizard) where ptype='wizard';
 
-
 /*
 create a view containing all the squares the selected piece
 could move to if they had unlimited speed
@@ -2943,7 +2942,7 @@ begin
   perform check_can_run_action('walk', px, py);
   select into p x,y from pieces natural inner join selected_piece;
   perform selected_piece_move_to(px, py);
-  perform add_history_moved(p.x,p.y);
+  perform add_history_walked(p.x,p.y);
   if get_remaining_walk() = 0 then
     perform do_next_move_subphase(false);
   end if;
@@ -2957,7 +2956,7 @@ begin
   perform check_can_run_action('fly', px, py);
   select into p x,y from pieces natural inner join selected_piece;
   perform selected_piece_move_to(px, py);
-  perform add_history_moved(p.x,p.y);
+  perform add_history_fly(p.x,p.y);
   perform do_next_move_subphase(false);
 end;
 $$ language plpgsql volatile;
@@ -2965,7 +2964,7 @@ $$ language plpgsql volatile;
 /*
 === attacking
 */
-create function action_attack(px int, py int) returns void as $$
+create or replace function action_attack(px int, py int) returns void as $$
 declare
   ap piece_key;
   r piece_key;
@@ -3016,9 +3015,11 @@ begin
   perform add_history_chinned(r);
   perform kill_piece(r);
 
-  --move to the square if walker
+  --move to the square if walker and square empty
   if exists(select 1 from creature_prototypes
-              natural inner join selected_piece) then
+              natural inner join selected_piece)
+     and exists(select 1 from selected_piece_move_squares
+                where (x,y) = (px,py)) then
     perform selected_piece_move_to(px, py);
   end if;
   perform do_next_move_subphase(true);
@@ -3046,7 +3047,7 @@ begin
     from pieces_on_top
     where (x,y) = (px, py);
 
-  perform add_history_attack(r);
+  perform add_history_ranged_attack(r);
 
   if not check_random_success('ranged_attack', max((att - def) * 10 + 50, 10)) then
     --failure
@@ -3268,6 +3269,10 @@ create or replace view spreadable_squares as
   except
   select x,y from pieces natural inner join object_piece_types;
 
+select create_var('disable_spreading', 'boolean');
+insert into disable_spreading_table values (false);
+select set_relvar_type('disable_spreading_table', 'data');
+
 create or replace function do_spreading() returns void as $$
 declare
   r piece_key;
@@ -3279,6 +3284,9 @@ declare
   tg int;
   killed_wizards text[] = '{}';
 begin
+  if get_disable_spreading() then
+    return;
+  end if;
   for sp in select ptype,allegiance,tag,x,y from pieces
            where ptype in ('gooey_blob', 'magic_fire') loop
     --raise notice 'check % e %', sp.allegiance, killed_wizards;
@@ -3549,8 +3557,10 @@ create domain history_name_enum as text
                        ,'spell_failed'
                        ,'chinned'
                        ,'shrugged_off'
-                       ,'moved'
+                       ,'walked'
+                       ,'fly'
                        ,'attack'
+                       ,'ranged_attack'
                        ,'set_imaginary'
                        ,'set_real'
                        ,'game_won'
@@ -3783,7 +3793,7 @@ $$ language plpgsql volatile strict;
 
 
 --Move
-create function add_history_moved(sx int, sy int) returns void as $$
+create function add_history_walked(sx int, sy int) returns void as $$
 declare
   w pos;
   k piece_key;
@@ -3791,7 +3801,19 @@ begin
   select into w x,y from pieces where (ptype,allegiance,tag) = k;
   select into k ptype,allegiance,tag from selected_piece;
   insert into action_history_mr (history_name, ptype, allegiance,tag,x, y, tx, ty)
-    values ('moved', k.ptype, k.allegiance, k.tag, w.x,w.y, sx, sy);
+    values ('walked', k.ptype, k.allegiance, k.tag, w.x,w.y, sx, sy);
+end;
+$$ language plpgsql volatile strict;
+
+create function add_history_fly(sx int, sy int) returns void as $$
+declare
+  w pos;
+  k piece_key;
+begin
+  select into w x,y from pieces where (ptype,allegiance,tag) = k;
+  select into k ptype,allegiance,tag from selected_piece;
+  insert into action_history_mr (history_name, ptype, allegiance,tag,x, y, tx, ty)
+    values ('fly', k.ptype, k.allegiance, k.tag, w.x,w.y, sx, sy);
 end;
 $$ language plpgsql volatile strict;
 
@@ -3805,6 +3827,19 @@ begin
   select into tp x,y from pieces where (ptype,allegiance,tag) = t;
   insert into action_history_mr (history_name, ptype, allegiance,tag,x,y,tx,ty)
     values ('attack', sp.ptype, sp.allegiance, sp.tag, sp.x,sp.y, tp.x,tp.y);
+end;
+$$ language plpgsql volatile strict;
+
+create or replace function add_history_ranged_attack(t piece_key) returns void as $$
+declare
+  sp record;
+  tp pos;
+begin
+  select into sp ptype,allegiance,tag,x,y from selected_piece
+    natural inner join pieces;
+  select into tp x,y from pieces where (ptype,allegiance,tag) = t;
+  insert into action_history_mr (history_name, ptype, allegiance,tag,x,y,tx,ty)
+    values ('ranged_attack', sp.ptype, sp.allegiance, sp.tag, sp.x,sp.y, tp.x,tp.y);
 end;
 $$ language plpgsql volatile strict;
 
@@ -3950,6 +3985,13 @@ begin
   delete from wizards;
   delete from board_size;
   delete from world_alignment_table;
+
+  if not exists(select 1 from disable_spreading_table) then
+    insert into disable_spreading_table values(false);
+  else
+    update disable_spreading_table
+       set disable_spreading = false;
+  end if;
 
   --reset the overrides when starting new game
   delete from test_action_overrides;
