@@ -177,21 +177,52 @@ cursor info
 piece info for pieces on current square
 piece info for selected piece
 
+> forkItemReplace :: Connection
+>            -> TextView
+>            -> [Char]
+>            -> [D.Item]
+>            -> IO ()
+> forkItemReplace conn tv logger items = do
+>   forkUpdate logger
+>              (D.run conn items)
+>              (\i' -> do
+>                      buf <- textViewGetBuffer tv
+>                      textBufferClear buf
+>                      render tv $ i')
+
+> forkItemUpdate :: Connection
+>            -> TextView
+>            -> [Char]
+>            -> [D.Item]
+>            -> IO ()
+> forkItemUpdate conn tv logger items = do
+>   forkUpdate logger
+>              (D.run conn items)
+>              (\i' -> do
+>                      render tv $ i')
+
+
+> forkUpdate :: String -> IO t -> (t -> IO ()) -> IO ()
+> forkUpdate logger prepare rnder = do
+>   forkIO $ lg (logger ++ ".prepare") "" $ do
+>     x <- prepare
+>     flip idleAdd priorityDefaultIdle $ lg (logger ++ ".render") "" $
+>          rnder x >> return False
+>     return ()
+>   return ()
 
 
 > infoWidgetNew :: Connection -> ColourList -> SpriteMap -> IO (TextView, IO ())
 > infoWidgetNew conn colours spriteMap = do
 >   tv <- myTextViewNew colours
->   buf <- textViewGetBuffer tv
 >   let refresh = lg "infoWidgetNew.refresh" "" $ do
->         textBufferClear buf
->         mapM_ (\items -> D.run conn items >>= render tv)
->               [turnPhaseInfo
->               ,spellInfo
->               ,cursorInfo
->               ,cursorPieces
->               ,selectedPieceInfo
->               ]
+>         forkItemReplace conn tv "infoWidgetNew.refresh" $
+>                    concat [turnPhaseInfo
+>                           ,spellInfo
+>                           ,cursorInfo
+>                           ,cursorPieces
+>                           ,selectedPieceInfo
+>                           ]
 >   return (tv, refresh)
 >     where
 
@@ -435,10 +466,9 @@ red 10-20
 >                       IO (TextView, IO())
 > spellBookWidgetNew conn colours spriteMap = do
 >   tv <- myTextViewNew colours
->   buf <- textViewGetBuffer tv
+>   --buf <- textViewGetBuffer tv
 >   let refresh = lg "spellBookWidgetNew.refresh" "" $
->         textBufferClear buf >>
->         D.run conn items >>= render tv
+>         forkItemReplace conn tv "spellBookWidgetNew.refresh" items
 >   return (tv, refresh)
 >     where
 
@@ -507,18 +537,19 @@ new game widget:
 >                     IO (TextView, IO())
 > newGameWidgetNew conn colours spriteMap = do
 >   tv <- myTextViewNew colours
->   buf <- textViewGetBuffer tv
 >
->   let refresh = lg "newGameWidgetNew.refresh" "" $ do
-
-first check the new_game_widget_state relvar
-
->         c <- selectValue conn "select count(*) from new_game_widget_state" []
->         when (c == "0")
->              (dbAction conn "reset_new_game_widget_state" [])
-
->         textBufferClear buf
->         D.run conn (items refresh) >>= render tv
+>   let refresh = lg "newGameWidgetNew.refresh" "" $
+>         forkUpdate "newGameWidgetNew.refresh"
+>           (do
+>             --first check the new_game_widget_state relvar
+>             c <- selectValue conn "select count(*) from new_game_widget_state" []
+>             when (c == "0")
+>                  (dbAction conn "reset_new_game_widget_state" [])
+>             D.run conn (items refresh))
+>           (\i -> do
+>              buf <- textViewGetBuffer tv
+>              textBufferClear buf
+>              render tv i)
 >   return (tv, refresh)
 >     where
 
@@ -601,11 +632,13 @@ text box instead of redrawing them all
 >   lastHistoryIDBox <- newIORef (-1::Integer)
 
 >   let refresh = lg "actionHistoryWidgetNew.refresh" "" $ do
->         is <- items lastHistoryIDBox
->         r <- D.run conn [is]
->         --writeText r
->         render tv r
->         textViewScrollToBottom tv
+>         forkUpdate "actionHistoryWidgetNew.refresh"
+>           (do
+>            is <- items lastHistoryIDBox
+>            D.run conn [is])
+>           (\r -> do
+>                  render tv r
+>                  textViewScrollToBottom tv)
 >
 >   return (tv, refresh)
 >     where
@@ -673,11 +706,11 @@ text box instead of redrawing them all
                        "recede"
                        "disappear"
 
->       writeText = mapM_ writeItem
->       writeItem i = case i of
->                     Text t -> putStr t
->                     TaggedText t _ -> putStr t
->                     _ -> return ()
+ >       writeText = mapM_ writeItem
+ >       writeItem i = case i of
+ >                     Text t -> putStr t
+ >                     TaggedText t _ -> putStr t
+ >                     _ -> return ()
 
 ================================================================================
 
@@ -847,6 +880,8 @@ lookup which contains the widget and refresh functions
 >     let limitedRefresh = do
 >                           let (_,r) = fromJust $ lookup "board" widgetData'
 >                           r
+>                           let (_,r1) = fromJust $ lookup "info" widgetData'
+>                           r1
 >                           --let (_,r1) = fromJust $ lookup "action_history" widgetData'
 >                           --r1
 
@@ -888,8 +923,6 @@ pause
 >                                              \  from valid_activate_actions\n\
 >                                              \   where action = 'ai_continue'" []
 >                             when ((read ai::Integer) /= 0) $ do
->                               tp <- selectValue conn "select turn_phase\n\
->                                                      \from turn_phase_table" []
 >                               flip timeoutAdd 500 $ do
 >                                 dbAction conn "client_ai_continue" []
 >                                 refresh

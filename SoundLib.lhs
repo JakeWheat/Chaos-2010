@@ -20,15 +20,19 @@
 
 > initPlayer :: IO SoundPlayer
 > initPlayer = lg "initPlayer" "" $ do
->  --openAudio 44100 AudioS16Sys 2 4096
->  --soundNames <- findAllFiles "sounds"
->  --let soundNames' = soundNames
->  --soundList <- mapM tryLoadWAV soundNames'
->  --let properSounds = catMaybes $ map (\(a,b) -> case b of
->  --                                      Just x -> Just (a,x)
->  --                                      Nothing -> Nothing) $
->  --                   zip (map takeBaseName soundNames') $ soundList
->  return $ M.fromList $ [] --properSounds
+>  catch (do
+>          openAudio 44100 AudioS16Sys 2 4096
+>          soundNames <- findAllFiles "sounds"
+>          let soundNames' = soundNames
+>          soundList <- mapM tryLoadWAV soundNames'
+>          let properSounds = catMaybes $ map (\(a,b) -> case b of
+>                                                        Just x -> Just (a,x)
+>                                                        Nothing -> Nothing) $
+>                zip (map takeBaseName soundNames') $ soundList
+>          return $ M.fromList $ properSounds)
+>        (\e -> do
+>           putStrLn $ "error initialising sound: " ++ show e
+>           return $ M.fromList $ [])
 
 
 > play :: SoundPlayer -> String -> IO()
@@ -46,7 +50,8 @@
 >                    return ()
 >                  return ()
 >     Nothing -> do
->                  putStrLn $ "tried to play non-existant sound: " ++ soundName
+>                  unless (player == M.empty) $
+>                    putStrLn $ "tried to play non-existant sound: " ++ soundName
 >                  return ()
 >   return ()
 
