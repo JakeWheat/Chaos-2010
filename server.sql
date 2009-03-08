@@ -612,7 +612,7 @@ err... that's it.
 create table pieces (
     ptype text,
     allegiance text,
-    tag serial,
+    tag int,
 --Piece is on the board at grid position 'x', 'y'.
     x int,
     y int);
@@ -1717,7 +1717,7 @@ create view selected_piece_move_squares as
 
 -- = all squares range one from piece, which
 -- dont contain anything but
-create or replace view selected_piece_walk_squares as
+create view selected_piece_walk_squares as
   select x,y from
     selected_piece_move_squares
   intersect
@@ -1766,13 +1766,16 @@ create function is_equipped(text) returns boolean as $$
 
 $$ language sql stable;
 
-create or replace view selected_piece_attackable_squares as
-  select x,y from pieces_on_top
-  natural inner join pieces_mr
+create view selected_piece_attackable_squares as
+  select x,y from pieces_on_top t
+  natural inner join pieces_mr p
+  cross join selected_piece s
   where physical_defense is not null
-    and allegiance <> (select allegiance
-                       from selected_piece)
-    and allegiance <> 'dead'
+    and p.allegiance <> s.allegiance
+    and p.allegiance <> 'dead'
+  --wizards can't attack magic trees but monsters can
+    and not (p.ptype='magic_tree' and s.ptype='wizard')
+
 /*
 
 logic isn't quite right - a wizard can only attack undead with the
@@ -1780,12 +1783,11 @@ magic weapon so e.g. they shouldn't be able to attack h2h if they only
 have a magic bow
 
 */
-    and (not coalesce(undead,false)
-         or coalesce((select coalesce(undead,false) from pieces_mr
-                       natural inner join selected_piece), false)
-         or coalesce((select is_equipped(allegiance)
-                      from selected_piece
-                      where ptype='wizard'), false));
+     and (not coalesce(undead,false)
+          or coalesce((select coalesce(undead,false) from pieces_mr
+                        natural inner join selected_piece), false)
+          or coalesce(s.ptype = 'wizard'
+                      and is_equipped(s.allegiance), false));
 
 create view selected_piece_walk_attack_squares as
   select x,y from selected_piece_attackable_squares
@@ -2556,8 +2558,10 @@ begin
     from pieces_on_top
     where (x,y) = (px,py);
   update pieces
-    set allegiance = get_current_wizard()
-    where (ptype,allegiance,tag)::piece_key = r;
+    set allegiance = get_current_wizard(),
+        tag = get_next_tag(r.ptype,get_current_wizard())
+    where (ptype,allegiance,tag)::piece_key = r
+    returning tag into r.tag;
   insert into crimes_against_nature (ptype,allegiance,tag)
     values (r.ptype,get_current_wizard(),r.tag);
   perform add_history_spell_succeeded();
@@ -2579,7 +2583,8 @@ begin
   select into r ptype,allegiance,tag from pieces_on_top
     where (x,y) = (px, py);
   update pieces
-    set allegiance = get_current_wizard()
+    set allegiance = get_current_wizard(),
+        tag = get_next_tag(r.ptype,get_current_wizard())
     where (ptype,allegiance,tag)::piece_key = r;
   perform add_chinned_history(px, py);
   perform add_history_spell_succeeded();
@@ -2987,7 +2992,7 @@ $$ language plpgsql volatile;
 /*
 === attacking
 */
-create or replace function action_attack(px int, py int) returns void as $$
+create function action_attack(px int, py int) returns void as $$
 declare
   ap piece_key;
   r piece_key;
@@ -3202,7 +3207,7 @@ begin
 end;
 $$ language plpgsql volatile;
 
-create or replace view selected_piece_adjacent_attacking_squares as
+create view selected_piece_adjacent_attacking_squares as
   select x,y from pieces_on_top
   natural inner join pieces_mr
   where attack_strength is not null
@@ -3215,7 +3220,7 @@ create or replace view selected_piece_adjacent_attacking_squares as
   where range = 1;
 
 
-create or replace function check_engaged() returns void as $$
+create function check_engaged() returns void as $$
 declare
   ag int;
 begin
@@ -3244,7 +3249,7 @@ select ptype,allegiance,tag from pieces
     and (x,y) in (select x,y from pieces
                   where ptype='magic_tree');
 
-create or replace function do_autonomous_phase() returns void as $$
+create function do_autonomous_phase() returns void as $$
 declare
   r piece_key;
   r1 piece_key;
@@ -3280,7 +3285,7 @@ $$ language plpgsql volatile;
 can't find this function in the postgresql docs...?
 */
 
-create or replace function array_contains(ar anyarray, e anyelement) returns boolean as $$
+create function array_contains(ar anyarray, e anyelement) returns boolean as $$
 declare
   i int;
 begin
@@ -3314,6 +3319,10 @@ killed previously during this spreading.  I think we need to keep
 track of these manually since the database won't let us read a
 partially updated wizards or pieces table during the transaction
 
+insert into spell_books (wizard_name,spell_name)
+  select wizard_name, 'magic_wood' from wizards
+  where not expired;
+
 
 insert into spell_books (wizard_name,spell_name)
   select wizard_name, 'gooey_blob' from wizards
@@ -3322,7 +3331,7 @@ insert into spell_books (wizard_name,spell_name)
 
 */
 
-create or replace view spreadable_squares as
+create view spreadable_squares as
   select x,y from generate_series(0, 14) as x
     cross join generate_series(0, 9) as y
   except
@@ -3332,7 +3341,7 @@ select create_var('disable_spreading', 'boolean');
 insert into disable_spreading_table values (false);
 select set_relvar_type('disable_spreading_table', 'data');
 
-create or replace function do_spreading() returns void as $$
+create function do_spreading() returns void as $$
 declare
   r piece_key;
   r1 piece_key;
@@ -3441,7 +3450,7 @@ insert into spell_indexes_no_dis_turm (spell_name)
   select spell_name from spells_mr
     where spell_name not in ('disbelieve', 'turmoil');
 
-create or replace function create_object(vptype text, vallegiance text, x int, y int)
+create function create_object(vptype text, vallegiance text, x int, y int)
   returns int as $$
 begin
   --assert ptype is an object ptype
@@ -3481,6 +3490,13 @@ end
 $$ language plpgsql volatile;
 
 -----------------------------------------------------
+create function get_next_tag(pptype text, pallegiance text) returns int as $$
+
+  select coalesce(max(tag) + 1, 0) from pieces
+  where (ptype,allegiance) = ($1,$2);
+
+$$ language sql stable;
+
 create function create_piece_internal(vptype text, vallegiance text,
                                       vx int, vy int, vimaginary boolean)
                                       returns int as $$
@@ -3488,8 +3504,8 @@ declare
   vtag int;
 begin
 
-  insert into pieces (ptype, allegiance, x, y)
-    select vptype, vallegiance, vx, vy
+  insert into pieces (ptype, allegiance, tag, x, y)
+    select vptype, vallegiance, get_next_tag(vptype,vallegiance), vx, vy
     returning tag into vtag;
 
   insert into imaginary_pieces (ptype,allegiance,tag)
@@ -3498,7 +3514,7 @@ begin
 end
 $$ language plpgsql volatile;
 
-create or replace function make_piece_undead(vptype text, vallegiance text, vtag int)
+create function make_piece_undead(vptype text, vallegiance text, vtag int)
   returns void as $$
 begin
   if not exists(select 1 from piece_prototypes_mr
@@ -3540,8 +3556,9 @@ begin
   --todo: generate update rules automatically for entities
   -- and use a single update here
   -- do the sub ones first since the pieces update changes the key
-  update pieces set allegiance = 'dead'
-    where (ptype, allegiance, tag)::piece_key = pk;
+  update pieces set allegiance = 'dead',
+                    tag = get_next_tag(pk.ptype,'dead')
+    where (ptype, allegiance, tag) = pk;
 end
 $$ language plpgsql volatile;
 
@@ -3556,7 +3573,7 @@ begin
 end;
 $$ language plpgsql volatile;
 
-create or replace function kill_wizard(pwizard_name text) returns void as $$
+create function kill_wizard(pwizard_name text) returns void as $$
 begin
 --if current wizard then next_wizard
   if get_current_wizard() = pwizard_name then
@@ -3750,7 +3767,7 @@ $$ language plpgsql volatile strict;
 
 --Casting
 
-create or replace function add_history_attempt_target_spell(px int, py int) returns void as $$
+create function add_history_attempt_target_spell(px int, py int) returns void as $$
 declare
   w pos;
 begin
@@ -3763,7 +3780,7 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
-create or replace function add_history_attempt_activate_spell() returns void as $$
+create function add_history_attempt_activate_spell() returns void as $$
 declare
   w pos;
 begin
@@ -3891,7 +3908,7 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
-create or replace function add_history_attack(t piece_key) returns void as $$
+create function add_history_attack(t piece_key) returns void as $$
 declare
   sp record;
   tp pos;
@@ -3904,7 +3921,7 @@ begin
 end;
 $$ language plpgsql volatile strict;
 
-create or replace function add_history_ranged_attack(t piece_key) returns void as $$
+create function add_history_ranged_attack(t piece_key) returns void as $$
 declare
   sp record;
   tp pos;
@@ -4082,8 +4099,8 @@ begin
       from action_new_game_argument;
   --  pieces
   t := (select count(*) from action_new_game_argument);
-  insert into pieces (ptype, allegiance, x, y)
-    select 'wizard', wizard_name, x,y
+  insert into pieces (ptype, allegiance, tag, x, y)
+    select 'wizard', wizard_name, 0, x,y
       from action_new_game_argument
       natural inner join wizard_starting_positions
        where wizard_count = t;
@@ -4556,15 +4573,13 @@ from valid_target_actions
 natural inner join pieces_mr
 where action in('attack','ranged_attack');
 
-create or replace view closest_enemy_to_selected_piece as
-  select b.x,b.y
-  from (select allegiance,x,y from selected_piece
-        natural inner join pieces) s
-  inner join (select ptype,allegiance,tag,x,y
-              from attackable_pieces
-              natural inner join pieces_on_top) b
-    on b.allegiance <> s.allegiance
-  order by distance(s.x,s.y,b.x,b.y) limit 1;
+create view closest_enemy_to_selected_piece as
+  select a.x,a.y
+  from selected_piece_attackable_squares a
+  cross join selected_piece s
+    inner join pieces s1
+    using(ptype,allegiance,tag)
+  order by distance(s1.x,s1.y,a.x,a.y) limit 1;
 
 create view select_best_move as
   select a.action,a.x,a.y from ai_selected_piece_actions a
@@ -4572,7 +4587,7 @@ create view select_best_move as
     where action in('walk', 'fly')
     order by distance(a.x,a.y,e.x,e.y) limit 1;
 
-create or replace function ai_move_selected_piece() returns void as $$
+create function ai_move_selected_piece() returns void as $$
 declare
   r record;
 begin

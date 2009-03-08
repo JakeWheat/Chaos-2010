@@ -512,7 +512,7 @@ piece ptype-allegiance-tag is at x,y, allegiance colour is 'colour',
 sprite is 'sprite', sprite priority is sp.
 
 */
-create or replace view piece_sprite as
+create view piece_sprite as
   select x,y,ptype,
     case when ptype='wizard' then w.sprite
          when allegiance='dead' then 'dead_' || ptype
@@ -580,8 +580,11 @@ $$ language plpgsql volatile;
 put the piece sprites, the highlight and the cursor
 together to give the full list of sprites
 
+split this up so the cursor movement isn't really laggy, just a hack -
+needs some more thought.
+
 */
-create or replace view board_sprites as
+create view board_sprites1_view as
   select x,y,ptype,allegiance,tag,
     sprite,colour,sp,start_tick, animation_speed,
     case when not move_phase is null then true
@@ -593,16 +596,34 @@ create or replace view board_sprites as
   natural inner join sprites
   natural left outer join selected_piece
 union
-select x,y, '', '', -1,'cursor', 'white', 6,0, animation_speed, false
-  from cursor_position
-  inner join sprites on sprite='cursor'
-  where (select not computer_controlled from wizards
-         inner join current_wizard_table on wizard_name = current_wizard)
-union
 select x,y, '', '', -1, sprite, 'white', 5,0, animation_speed,false
   from board_highlights
   natural inner join sprites
 order by sp;
+
+create table board_sprites1_cache as
+  select * from board_sprites1_view;
+select set_relvar_type('board_sprites1_cache', 'data');
+
+create function update_board_sprites_cache() returns void as $$
+begin
+  delete from board_sprites1_cache;
+  insert into board_sprites1_cache
+    select * from board_sprites1_view;
+end;
+$$ language plpgsql volatile;
+
+create view board_sprites as
+ select * from board_sprites1_cache
+union
+select x,y, '', '', -1,'cursor', 'white', 6,0, animation_speed, false
+  from cursor_position
+  inner join sprites on sprite='cursor'
+  where (select not computer_controlled from wizards
+         inner join current_wizard_table on wizard_name = current_wizard);
+
+
+
 
 /*
 == effects
@@ -685,7 +706,7 @@ set_real
 select create_var('last_history_effect_id', 'int');
 select set_relvar_type('last_history_effect_id_table', 'data');
 
-create or replace function check_for_effects() returns void as $$
+create function check_for_effects() returns void as $$
 begin
   insert into board_square_effects (subtype, x1, y1, queuePos)
     select history_name,case when tx is null then x else tx end,
@@ -705,7 +726,13 @@ begin
     select history_name,sound_name,id
     from action_history_mr
     natural inner join history_sounds
-    where id > get_last_history_effect_id();
+    left outer join wizards on allegiance = wizard_name
+    where id > get_last_history_effect_id()
+--exclude turn sound for computer controlled wizards choose phase
+      and not(history_name='wizard_up'
+              and turn_phase='choose'
+              and coalesce(computer_controlled,false))
+;
   update last_history_effect_id_table set
     last_history_effect_id = (select max(id) from action_history_mr);
 end;
@@ -719,7 +746,16 @@ begin
 
   perform action_ai_continue();
   perform update_missing_startticks();
-  perform check_for_effects();
+  if (select computer_controlled from wizards
+      inner join current_wizard_table on wizard_name=current_wizard)
+     and get_turn_phase() = 'choose' then
+    perform action_client_ai_continue();
+  else
+    perform check_for_effects();
+    perform update_board_sprites_cache();
+  end if;
+  perform action_move_cursor_to_current_wizard();
+
 end;
 $$ language plpgsql volatile;
 
@@ -1324,9 +1360,10 @@ select create_client_action_wrapper('spell_book_show_all_update_on',
 select create_client_action_wrapper('spell_book_show_all_update_off',
        $$spell_book_show_all_update(false)$$);
 
-create or replace function action_key_pressed(pkeycode text) returns void as $$
+create function action_key_pressed(pkeycode text) returns void as $$
 declare
   a text;
+  cursor_move boolean := false;
 begin
 /*
 basic plan
@@ -1349,6 +1386,9 @@ unmatched keypress, need to be faster.
       on k.action_name = v.action
       where key_code = pkeycode;
   if not a is null then
+      if substr(a,0,11) =  'move_cursor' then
+        cursor_move := true;
+      end if;
       execute 'select action_' || a || '();';
   else
     select into a action_name from key_control_settings k
@@ -1356,6 +1396,9 @@ unmatched keypress, need to be faster.
         on k.action_name = v.action
       natural inner join cursor_position
         where key_code = pkeycode;
+    if substr(a,0,11) =  'move_cursor' then
+      cursor_move := true;
+    end if;
     if not a is null then
       execute 'select action_' || a ||
               '(' || (select x from cursor_position) ||
@@ -1366,6 +1409,9 @@ unmatched keypress, need to be faster.
   end if;
   perform update_missing_startticks();
   perform check_for_effects();
+  if not cursor_move then
+    perform update_board_sprites_cache();
+  end if;
 end;
 $$ language plpgsql volatile;
 
@@ -1399,7 +1445,7 @@ $$ language plpgsql volatile;
 == cursor/go actions
 */
 
-create or replace function action_go() returns void as $$
+create function action_go() returns void as $$
 declare
   r record;
   s text;

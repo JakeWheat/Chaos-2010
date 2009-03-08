@@ -205,9 +205,9 @@ redraw, and doonexpose hooks this event up to the mydraw function
 
 update the board sprites 10 times a second to animate them
 
->   --flip timeoutAdd 100 $ do
->   --  widgetQueueDrawArea canvas 0 0 2000 2000
->   --  return True
+>   flip timeoutAdd 100 $ do
+>     widgetQueueDrawArea canvas 0 0 2000 2000
+>     return True
 
 >   return (frame, refresh')
 

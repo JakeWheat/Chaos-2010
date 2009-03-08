@@ -844,11 +844,11 @@ lookup which contains the widget and refresh functions
 >
 >     --used for testing when the full refresh is too slow
 
- >     let limitedRefresh = do
- >                           let (_,r) = fromJust $ lookup "board" widgetData'
- >                           r
- >                           let (_,r1) = fromJust $ lookup "action_history" widgetData'
- >                           r1
+>     let limitedRefresh = do
+>                           let (_,r) = fromJust $ lookup "board" widgetData'
+>                           r
+>                           --let (_,r1) = fromJust $ lookup "action_history" widgetData'
+>                           --r1
 
 
 == Key press handling
@@ -876,7 +876,7 @@ lookup which contains the widget and refresh functions
 Until the notify stuff is working just do a full refresh after every
 action as a kludge
 
->                       refresh
+>                       limitedRefresh
 
 
 Bit hacky, if we just ran the next_phase action, and the current
@@ -890,10 +890,7 @@ pause
 >                             when ((read ai::Integer) /= 0) $ do
 >                               tp <- selectValue conn "select turn_phase\n\
 >                                                      \from turn_phase_table" []
->                               flip timeoutAdd
->                                    (if tp == "choose" then 50
->                                       else if tp == "cast" then 1000
->                                               else 1000) $ do
+>                               flip timeoutAdd 500 $ do
 >                                 dbAction conn "client_ai_continue" []
 >                                 refresh
 >                                 do_ai
