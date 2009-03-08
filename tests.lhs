@@ -202,6 +202,11 @@ Run all the tests.
 >                         ,testStraightRangedDone conn
 >                         ,testAttackDone conn
 >                         ,testNoAvailAttackDone conn
+>                         ,testAttackNonUndeadOnUndead conn
+>                         ,testMagicWeaponOnUndead conn
+>                         ,testAttackUndeadOnUndead conn
+>                         ,testNoMoveEngaged conn
+>                         ,testBreakEngaged conn
 >                         ]
 >           ,testGroup "moveMisc" [
 >                           testAttackWizard conn
@@ -2048,7 +2053,7 @@ variations, so we don't need to test them elsewhere.
 >                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G  R  2      3\n\
->                   \  R R          \n\
+>                   \   RR          \n\
 >                   \               \n\
 >                   \               \n\
 >                   \4             5\n\
@@ -2063,7 +2068,7 @@ variations, so we don't need to test them elsewhere.
 >     goSquare conn 2 0
 >     checkBoard conn ("\n\
 >                   \1 G R  2      3\n\
->                   \  R R          \n\
+>                   \   RR          \n\
 >                   \               \n\
 >                   \               \n\
 >                   \4             5\n\
@@ -2075,7 +2080,7 @@ variations, so we don't need to test them elsewhere.
 >     checkMoveSubphase conn "attack"
 >     checkBoard conn ("\n\
 >                   \1 G R  2      3\n\
->                   \  R R          \n\
+>                   \   RR          \n\
 >                   \               \n\
 >                   \               \n\
 >                   \4             5\n\
@@ -2089,7 +2094,7 @@ variations, so we don't need to test them elsewhere.
 >     checkPieceDoneSelection conn "elf" "Buddha"
 >     checkBoard conn ("\n\
 >                   \1 G R  2      3\n\
->                   \  R R          \n\
+>                   \   RR          \n\
 >                   \               \n\
 >                   \               \n\
 >                   \4             5\n\
@@ -2203,8 +2208,6 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
 >     checkPieceDoneSelection conn "shadow_tree" "Buddha"
-
-
 
 == other move action tests
 
@@ -2530,14 +2533,164 @@ todo: attack when dismounting, dismounting when flying
 >   assertEqual "attacking loses shadow form" oldStats newStats
 
 
-testAttackUndeadOnUndead
+> testAttackUndeadOnUndead :: Connection -> Test.Framework.Test
+> testAttackUndeadOnUndead = tctor "testAttackUndeadOnUndead" $ \conn -> do
+>   let pl = wizardPiecesList ++
+>            [('G', [PieceDescription "ghost" "Kong Fuzi" [PUndead]]),
+>             ('S', [PieceDescription "goblin" "Buddha" [PUndead]])]
+>   startNewGameReadyToMove conn ("\n\
+>                   \1S     2      3\n\
+>                   \ G             \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8", pl)
+>   goSquare conn 1 0
+>   rigActionSuccess conn "attack" True
+>   goSquare conn 1 1
+>   checkBoard conn ("\n\
+>                   \1      2      3\n\
+>                   \ S             \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8", pl)
 
-testAttackNonUndeadOnUndead
+> testAttackNonUndeadOnUndead :: Connection -> Test.Framework.Test
+> testAttackNonUndeadOnUndead = tctor "testAttackNonUndeadOnUndead" $ \conn -> do
+>   let pl = wizardPiecesList ++
+>            [('G', [PieceDescription "ghost" "Kong Fuzi" [PUndead]]),
+>             ('S', [PieceDescription "goblin" "Buddha" []])]
+>   startNewGameReadyToMove conn ("\n\
+>                   \1S     2      3\n\
+>                   \ G             \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8", pl)
+>   sendKeyPress conn "space"
+>   goSquare conn 1 0
+>   rigActionSuccess conn "attack" True
+>   goSquare conn 1 1
+>   checkBoard conn ("\n\
+>                   \1S     2      3\n\
+>                   \ G             \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8", pl)
 
-testMagicWeaponOnUndead (success, no corpse)
+> testMagicWeaponOnUndead :: Connection -> Test.Framework.Test
+> testMagicWeaponOnUndead = tctor "testMagicWeaponOnUndead" $ \conn -> do
+>   let pl = wizardPiecesList ++
+>            [('G', [PieceDescription "ghost" "Kong Fuzi" [PUndead]]),
+>             ('S', [PieceDescription "spectre" "Buddha" [PUndead]])]
+>   startNewGameReadyToMove conn ("\n\
+>                   \1S     2      3\n\
+>                   \ G             \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8", pl)
+>   runSql conn "update wizards set magic_sword = true\n\
+>               \where wizard_name='Buddha'" []
+>   goSquare conn 0 0
+>   rigActionSuccess conn "attack" True
+>   goSquare conn 1 1
+>   checkBoard conn ("\n\
+>                   \ S     2      3\n\
+>                   \ 1             \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8", pl)
 
 
 == misc todo
+
+> testNoMoveEngaged :: Connection -> Test.Framework.Test
+> testNoMoveEngaged = tctor "testNoMoveEngaged" $ \conn -> do
+>   let pl = wizardPiecesList ++
+>            [('G', [PieceDescription "goblin" "Kong Fuzi" [PUndead]])]
+>   startNewGameReadyToMove conn ("\n\
+>                   \1      2      3\n\
+>                   \ G             \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8", pl)
+>   rigActionSuccess conn "break_engaged" False
+>   goSquare conn 0 0
+>   goSquare conn 0 1
+>   checkBoard conn ("\n\
+>                   \1      2      3\n\
+>                   \ G             \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8", pl)
+
+> testBreakEngaged :: Connection -> Test.Framework.Test
+> testBreakEngaged = tctor "testBreakEngaged" $ \conn -> do
+>   let pl = wizardPiecesList ++
+>            [('G', [PieceDescription "goblin" "Kong Fuzi" [PUndead]])]
+>   startNewGameReadyToMove conn ("\n\
+>                   \1      2      3\n\
+>                   \ G             \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8", pl)
+>   rigActionSuccess conn "break_engaged" True
+>   goSquare conn 0 0
+>   goSquare conn 0 1
+>   checkBoard conn ("\n\
+>                   \       2      3\n\
+>                   \1G             \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8", pl)
 
 engaged stuff: engaged at start of move, and becoming engaged part way
 through walk for multiwalkers
@@ -2548,7 +2701,7 @@ check moving 2 diagonal squares uses up three squares to move
 
 check mount ends motion subphase for wizard
 
-
+---
 
 check when moving a mounted wizard, that the corpse on that square stays put
 
@@ -2601,9 +2754,6 @@ moved if free'd that turn
 >   goSquare conn 1 0
 >   checkSelectedPiece conn "Buddha" "goblin"
 
-
-
-shadow form attack and moving, shadow form and magic wings at same time
 
 check attack when has mount moves wizard
 check attack,nter,mount from mount
@@ -3225,7 +3375,7 @@ setup a particular game before running some tests
 >                        \where ptype='wizard' and allegiance=?"
 >                    [show x, show y, name]))
 >   -- add extra pieces
->   forM_ nonWizardItems (\(PieceDescription ptype allegiance tags, x, y) ->
+>   forM_ nonWizardItems $ \(PieceDescription ptype allegiance tags, x, y) -> do
 >     if allegiance == "dead"
 >       then callSp conn "create_corpse"
 >                   [ptype,
@@ -3237,7 +3387,10 @@ setup a particular game before running some tests
 >                    allegiance,
 >                    (show x),
 >                    (show y),
->                    show (PImaginary `elem` tags)])
+>                    show (PImaginary `elem` tags)]
+>     when (PUndead `elem` tags) $ do
+>       tag <- selectValue conn "select max(tag) from pieces" []
+>       callSp conn "make_piece_undead" [ptype,allegiance, tag]
 >   return ()
 
 this overrides the next random test by name e.g. so we can test the

@@ -1319,7 +1319,8 @@ create table selected_piece (
   ptype text,
   allegiance text,
   tag int,
-  move_phase move_phase
+  move_phase move_phase,
+  engaged boolean
 ); -- 0 to 1 tuple when in move phase,
 -- piece key from current wizards army, empty otherwise
 select add_key('selected_piece', array['ptype', 'allegiance', 'tag']);
@@ -1431,7 +1432,7 @@ you have to set the override each time you want to override something
 create domain random_test text check (value in
        ('disappear', 'spread', 'attack',
         'ranged_attack', 'resist', 'cast',
-        'bonus'));
+        'bonus','break_engaged'));
 
 create table test_action_overrides (
   override random_test,
@@ -1716,7 +1717,7 @@ create view selected_piece_move_squares as
 
 -- = all squares range one from piece, which
 -- dont contain anything but
-create view selected_piece_walk_squares as
+create or replace view selected_piece_walk_squares as
   select x,y from
     selected_piece_move_squares
   intersect
@@ -1729,7 +1730,7 @@ create view selected_piece_walk_squares as
 --exclude flying creatures
     where range = 1
 
-      and not (select flying
+      and not (select flying or engaged
                from creature_pieces
                natural inner join selected_piece)
 -- only if the selected piece has squares left to walk
@@ -1758,12 +1759,33 @@ create view selected_piecexy as
 --  select x,y from pieces_on_top
 --  natural inner join attackable_pieces;
 
-create view selected_piece_attackable_squares as
+create function is_equipped(text) returns boolean as $$
+
+  select magic_sword or magic_knife or magic_bow
+    from wizards where wizard_name = $1;
+
+$$ language sql stable;
+
+create or replace view selected_piece_attackable_squares as
   select x,y from pieces_on_top
-  natural inner join attackable_pieces
-  where allegiance <> (select allegiance
+  natural inner join pieces_mr
+  where physical_defense is not null
+    and allegiance <> (select allegiance
                        from selected_piece)
-     and allegiance <> 'dead';
+    and allegiance <> 'dead'
+/*
+
+logic isn't quite right - a wizard can only attack undead with the
+magic weapon so e.g. they shouldn't be able to attack h2h if they only
+have a magic bow
+
+*/
+    and (not coalesce(undead,false)
+         or coalesce((select coalesce(undead,false) from pieces_mr
+                       natural inner join selected_piece), false)
+         or coalesce((select is_equipped(allegiance)
+                      from selected_piece
+                      where ptype='wizard'), false));
 
 create view selected_piece_walk_attack_squares as
   select x,y from selected_piece_attackable_squares
@@ -2835,8 +2857,8 @@ begin
     end if;
     return;
   end if;
-  insert into selected_piece (ptype, allegiance, tag, move_phase) values
-    (pk.ptype, pk.allegiance, pk.tag, nextp);
+  insert into selected_piece (ptype, allegiance, tag, move_phase, engaged) values
+    (pk.ptype, pk.allegiance, pk.tag, nextp, false);
 
   if nextp = 'motion' and
        exists(select 1 from selected_piece
@@ -2849,6 +2871,7 @@ begin
         natural inner join selected_piece;
     update remaining_walk_hack_table
       set remaining_walk_hack = false;
+    perform check_engaged();
   end if;
 end;
 $$ language plpgsql volatile;
@@ -3173,10 +3196,43 @@ begin
      (select move_phase from selected_piece)='motion' then
     update remaining_walk_table
     set remaining_walk = remaining_walk - 1;
+    perform check_engaged();
   end if;
 
 end;
 $$ language plpgsql volatile;
+
+create or replace view selected_piece_adjacent_attacking_squares as
+  select x,y from pieces_on_top
+  natural inner join pieces_mr
+  where attack_strength is not null
+    and allegiance <> (select allegiance
+                       from selected_piece)
+    and allegiance <> 'dead'
+  intersect
+  select tx,ty from board_ranges r
+  natural inner join selected_piecexy
+  where range = 1;
+
+
+create or replace function check_engaged() returns void as $$
+declare
+  ag int;
+begin
+  if exists(select 1 from selected_piece_adjacent_attacking_squares) then
+    select into ag agility from pieces_mr
+    natural inner join selected_piece;
+    if check_random_success('break_engaged', ag * 10) then
+      update selected_piece set engaged = false;
+    else
+      update selected_piece set engaged = true;
+    end if;
+  else
+    update selected_piece set engaged = false;
+  end if;
+end;
+$$ language plpgsql volatile;
+
 
 /*
 == autonomous
@@ -3440,6 +3496,21 @@ begin
     select vptype,vallegiance,vtag where coalesce(vimaginary,false);
   return vtag;
 end
+$$ language plpgsql volatile;
+
+create or replace function make_piece_undead(vptype text, vallegiance text, vtag int)
+  returns void as $$
+begin
+  if not exists(select 1 from piece_prototypes_mr
+                where ptype=vptype and undead)
+      and not exists (select 1 from crimes_against_nature
+                      where (ptype,allegiance,tag) =
+                        (vptype,vallegiance,vtag)) then
+    insert into crimes_against_nature
+      (ptype,allegiance,tag) values
+      (vptype,vallegiance,vtag);
+  end if;
+end;
 $$ language plpgsql volatile;
 
 ----------------------------------------------
