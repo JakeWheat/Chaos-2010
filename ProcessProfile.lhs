@@ -1,39 +1,90 @@
 #!/usr/bin/env runghc
 
-Gave up and wrote this in ruby (See processProfile.rb), because of the
-total train wreck that is regexes in haskell.
-
-> import Data.Maybe
+> --import Data.Maybe
 > import System.IO
 > import System.Environment
-> import Text.Regex.PCRE
-> import Control.Monad
+> --import Text.Regex.PCRE
+> --import Control.Monad
+> import Text.ParserCombinators.Parsec
+> import qualified Text.ParserCombinators.Parsec.Token as P
+> import Text.ParserCombinators.Parsec.Language
+> import Control.Monad.Identity
+> import qualified Text.Parsec.Prim
 
-> data TimeInfoType = Start | End
 
-> data TimeInfo = String TimeInfoType Integer
+ > import Text.Parsec.Token
 
-name, start or end, secs since midnight
+> data LineTag = Start | End | Point
+>     deriving Show
+
+> data LogLine = LogLine {
+>      threadID :: Integer
+>     ,logPath :: [String]
+>     ,secs :: Integer
+>     ,picosecs :: Integer
+>     ,lineTag :: LineTag
+>     ,additional :: String
+>     } deriving Show
 
 > main :: IO ()
 > main = do
 >   args <- getArgs
 >   text <- readFile (head args)
->   mapM_ parseLine $ lines text
->   --let matches = catMaybes $ map parseLine $ lines text
->   return ()
+>   putStrLn $ show $ parseLog text
 
-> parseLine :: String -> IO ()
-> parseLine l = do
+> parseLog :: String -> Either ParseError [LogLine]
+> parseLog input = parse logFile "(unknown)" input
 
-NOTICE:  end action_new_game 2009-02-27 00:00:30.850723+00
+> logFile :: GenParser Char st [LogLine]
+> logFile = do
+>   result <- many line
+>   eof
+>   return result
 
->   let m = getAllTextMatches (l =~
->             "^NOTICE:\\s*start ([A-Za-z_0-9]+)\\s*\
->             \\\d\\d\\d\\d-\\d\\d-\\d\\d \
->             \(\\d\\d):(\\d\\d):(\\d\\d)\\.(\\d+)\\+\\d\\d\\s*") ::[[String]]
->   unless (null m) $ putStrLn $ show m
+> line :: GenParser Char st LogLine
+> line = do
+>   char '['
+>   lp <- lpath
+>   char ']'
+>   whitespace
+>   se <- integer
+>   char ':'
+>   ps <- integer
+>   whitespace
+>   string "ThreadId"
+>   whitespace
+>   tid <- integer
+>   whitespace
+>   tag <- string "start" <|> string "end"
+>   let tag' = case tag of
+>                       "start" -> Start
+>                       "end" -> End
+>                       _ -> error $ "expected start or end, got " ++ tag
+>   whitespace
 
- >   Just $ head m
+parse until we hit \n[, consuming the \n but not the [
 
-  getAllTextMatches ("the place" =~ "(t|e)") :: [String]
+>   padd  <- manyTill
+>              anyChar (
+>                (try (char '\n' >>
+>                      lookAhead (char '['))
+>                 >> return ()) <|> eof)
+>   return $ LogLine tid lp se ps tag' padd
+
+[chaos.MyTextView.render/DEBUG] 1236534159:94889000000 ThreadId 304 start
+
+> lpath :: GenParser Char st [String]
+> lpath = sepBy lpathEle (char '.')
+
+> lpathEle :: GenParser Char st String
+> lpathEle = many (noneOf ".]")
+
+> lexer :: P.GenTokenParser String u Identity
+
+> lexer = P.makeTokenParser haskellDef
+
+> integer :: Text.Parsec.Prim.ParsecT String u Identity Integer
+> integer = P.integer lexer
+
+> whitespace :: Text.Parsec.Prim.ParsecT String u Identity ()
+> whitespace= P.whiteSpace lexer

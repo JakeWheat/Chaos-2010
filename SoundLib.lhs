@@ -20,15 +20,15 @@
 
 > initPlayer :: IO SoundPlayer
 > initPlayer = lg "initPlayer" "" $ do
->  openAudio 44100 AudioS16Sys 2 4096
->  soundNames <- findAllFiles "sounds"
->  let soundNames' = soundNames
->  soundList <- mapM tryLoadWAV soundNames'
->  let properSounds = catMaybes $ map (\(a,b) -> case b of
->                                        Just x -> Just (a,x)
->                                        Nothing -> Nothing) $
->                     zip (map takeBaseName soundNames') $ soundList
->  return $ M.fromList $ properSounds
+>  --openAudio 44100 AudioS16Sys 2 4096
+>  --soundNames <- findAllFiles "sounds"
+>  --let soundNames' = soundNames
+>  --soundList <- mapM tryLoadWAV soundNames'
+>  --let properSounds = catMaybes $ map (\(a,b) -> case b of
+>  --                                      Just x -> Just (a,x)
+>  --                                      Nothing -> Nothing) $
+>  --                   zip (map takeBaseName soundNames') $ soundList
+>  return $ M.fromList $ [] --properSounds
 
 
 > play :: SoundPlayer -> String -> IO()

@@ -8,6 +8,7 @@
 > import System.Log.Logger
 > import System.Time
 > import Control.Exception
+> import Control.Concurrent
 
 > setupLogging :: IO ()
 > setupLogging = do
@@ -21,7 +22,9 @@
 >   logger <- verboseStreamHandler h DEBUG
 >   updateGlobalLogger "chaos"
 >                (setLevel DEBUG . setHandlers [logger])
->   debugM "chaos.chaos.setupLogging" "start logging"
+>   --t <- getClockTime
+>   --tid <- myThreadId
+>   --debugM "chaos.chaos.setupLogging" (show t ++ "logging"
 
  > pLogM :: String -> [Char] -> IO ()
  > pLogM l m = do
@@ -29,19 +32,21 @@
  >   debugM l $ (clockTimeToString t) ++ " " ++ m
 
 > clockTimeToString :: ClockTime -> [Char]
-> clockTimeToString (TOD s ps) = show s ++ "." ++ show ps
+> clockTimeToString (TOD s ps) = show s ++ ":" ++ show ps
 
 > pLog :: String -> String -> IO c -> IO c
 > pLog logName s f = bracket (do
 >                           --putStrLn $ "log to " ++ logName ++ " start " ++ s
 >                           t <- getClockTime
+>                           tid <- myThreadId
 >                           debugM logName $
->                                  clockTimeToString t ++ " start " ++ s
+>                                  clockTimeToString t ++ " " ++ show tid ++ " start " ++ s
 >                           return ())
 >                          (\_ -> do
 >                           --putStrLn $ "log to " ++ logName ++ " end"
 >                           t <- getClockTime
+>                           tid <- myThreadId
 >                           debugM logName $
->                                  clockTimeToString t ++ " end"
+>                                  clockTimeToString t ++ " " ++ show tid ++ " end"
 >                           return ())
 >                          (\_ -> f)

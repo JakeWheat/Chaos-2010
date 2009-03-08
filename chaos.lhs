@@ -154,7 +154,7 @@ todo: if cannot connect to database give info to this effect
 
 >          lg "initGui" "" unsafeInitGUIForThreadedRTS
 >          timeoutAddFull (yield >> return True)
->                         priorityDefaultIdle 100
+>                         priorityDefaultIdle 50
 >          withConn ("host=localhost dbname=" ++ Conf.dbName conf ++
 >                    " user=" ++ Conf.username conf ++
 >                    " password=" ++ Conf.password conf)
