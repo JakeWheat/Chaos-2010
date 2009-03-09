@@ -349,6 +349,8 @@ tell the caller whether there are effects in the cache or not
 This is the code that actually draws the canvas which is then rendered
 to show the player
 
+
+
 > myDraw :: IO()
 >        -> SpriteMap
 >        -> ColourList
@@ -361,6 +363,7 @@ to show the player
 >        -> Render ()
 > myDraw refresh' spriteMap colours player startTicks
 >        boardSpritesRef effectsRef w h = do
+>   liftIO $ Logging.logTime True "chaos.BoardWidget.mydraw" ""
 >   --make the background black
 >   setSourceRGB 0 0 0
 >   paint
@@ -394,6 +397,7 @@ and toY functions which take into account the changed scale factor.
 >   cf <- liftIO $ getTicks startTicks
 >   drawSprites cf colours spriteMap toXS toYS boardSpritesRef
 >   runEffects refresh' spriteMap cf player boardSpritesRef effectsRef toXS toYS
+>   liftIO $ Logging.logTime False "chaos.BoardWidget.mydraw" ""
 
 == drawing helpers
 

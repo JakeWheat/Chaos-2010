@@ -1,6 +1,7 @@
 > module Logging (
 >                 setupLogging
 >                ,pLog
+>                ,logTime
 >                ) where
 
 > import System.Log.Handler.Simple
@@ -35,18 +36,16 @@
 > clockTimeToString (TOD s ps) = show s ++ ":" ++ show ps
 
 > pLog :: String -> String -> IO c -> IO c
-> pLog logName s f = bracket (do
->                           --putStrLn $ "log to " ++ logName ++ " start " ++ s
->                           t <- getClockTime
->                           tid <- myThreadId
->                           debugM logName $
->                                  clockTimeToString t ++ " " ++ show tid ++ " start " ++ s
->                           return ())
->                          (\_ -> do
->                           --putStrLn $ "log to " ++ logName ++ " end"
->                           t <- getClockTime
->                           tid <- myThreadId
->                           debugM logName $
->                                  clockTimeToString t ++ " " ++ show tid ++ " end"
->                           return ())
+> pLog logName s f = bracket (logTime True logName s)
+>                          (\_ -> logTime False logName s)
 >                          (\_ -> f)
+
+> logTime :: Bool -> String -> [Char] -> IO ()
+> logTime st logName s = do
+>   t <- getClockTime
+>   tid <- myThreadId
+>   debugM logName $
+>          clockTimeToString t ++ " " ++ show tid ++
+>          if st then " start " ++ s else " end"
+>   return ()
+

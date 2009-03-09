@@ -1,12 +1,19 @@
+> {-# OPTIONS  -cpp #-}
 
 > module SoundLib (initPlayer, play, SoundPlayer) where
 
+
+#if !defined(mingw32_HOST_OS) && !defined(__MINGW32__) 
+
 > import Graphics.UI.SDL.Mixer.Types
-> import Control.Concurrent
-> import System.FilePath
 > import Graphics.UI.SDL.Mixer.General
 > import Graphics.UI.SDL.Mixer.Channels
 > import Graphics.UI.SDL.Mixer.Samples
+
+#endif
+
+> import Control.Concurrent
+> import System.FilePath
 > import Data.List
 > import Data.Maybe
 > import Control.Monad
@@ -16,10 +23,25 @@
 
 > import qualified Data.Map as M
 
+#if defined(mingw32_HOST_OS) || defined(__MINGW32__) 
+
+> type SoundPlayer = ()
+
+#else
+
 > type SoundPlayer = M.Map String Graphics.UI.SDL.Mixer.Types.Chunk
+
+#endif
 
 > initPlayer :: IO SoundPlayer
 > initPlayer = lg "initPlayer" "" $ do
+
+#if defined(mingw32_HOST_OS) || defined(__MINGW32__) 
+
+>   return ()
+
+#else
+
 >  catch (do
 >          openAudio 44100 AudioS16Sys 2 4096
 >          soundNames <- findAllFiles "sounds"
@@ -34,9 +56,18 @@
 >           putStrLn $ "error initialising sound: " ++ show e
 >           return $ M.fromList $ [])
 
+#endif
+
 
 > play :: SoundPlayer -> String -> IO()
 > play player soundName = do
+
+#if defined(mingw32_HOST_OS) || defined(__MINGW32__) 
+
+>   return ()
+
+#else
+
 >   let w = M.lookup soundName player
 >   case w of
 >     Just w' -> do
@@ -54,6 +85,8 @@
 >                    putStrLn $ "tried to play non-existant sound: " ++ soundName
 >                  return ()
 >   return ()
+
+#endif
 
  > main :: IO ()
  > main = do

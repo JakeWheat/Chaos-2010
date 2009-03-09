@@ -204,12 +204,19 @@ piece info for selected piece
 
 > forkUpdate :: String -> IO t -> (t -> IO ()) -> IO ()
 > forkUpdate logger prepare rnder = do
->   forkIO $ lg (logger ++ ".prepare") "" $ do
->     x <- prepare
->     flip idleAdd priorityDefaultIdle $ lg (logger ++ ".render") "" $
->          rnder x >> return False
->     return ()
->   return ()
+>   prepare >>= rnder
+
+ >   forkIO $ lg (logger ++ ".prepare") "" $ do
+ >     putStrLn $ "start prepare " ++ logger
+ >     x <- prepare
+ >     putStrLn $ "end prepare " ++ logger
+ >     flip idleAdd priorityDefaultIdle $ lg (logger ++ ".render") "" $ do
+ >          putStrLn $ "start idle handler " ++ logger
+ >          rnder x
+ >          putStrLn $ "end idle handler " ++ logger
+ >          return False
+ >     return ()
+ >   return ()
 
 
 > infoWidgetNew :: Connection -> ColourList -> SpriteMap -> IO (TextView, IO ())
@@ -861,6 +868,7 @@ setup the handler so that clicking the button toggles the window visibility
 >                                               \where window_name=?;" [name])
 >                          ,Text "\n"]
 >         refresh = lg "windowManagerNew.refresh" "" $ do
+>           --forkItemReplace conn wm "windowManagerNew.refresh" [items]
 >           textBufferClear buf
 >           D.run conn [items] >>= render wm
 
@@ -924,6 +932,8 @@ pause
 >                                              \   where action = 'ai_continue'" []
 >                             when ((read ai::Integer) /= 0) $ do
 >                               flip timeoutAdd 500 $ do
+>                                 --forkIO $ lg "windowManagerNew.handleKeyPress.do_ai" ""
+>                                 --(do
 >                                 dbAction conn "client_ai_continue" []
 >                                 refresh
 >                                 do_ai

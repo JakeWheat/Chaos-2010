@@ -4,9 +4,8 @@
 line of sight
 turmoil
 make ai todo list
-cursor movement optmisation - avoid redoing board_sprites
 replace game start sound
-variable ai continue speeds dependant on last action
+variable ai continue speeds dependent on last action
 diagonal moves
 fix history window bug - not showing history when starting new game
 sound effects: spread, recede, receive, disappear, select, unselect
