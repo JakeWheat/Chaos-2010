@@ -66,7 +66,7 @@ create function action_reset_windows() returns void as $$
 begin
   delete from windows;
   insert into windows (window_name, px, py, sx, sy, state) values
-    ('window_manager', 0,28, 92,320, 'normal'),
+    --('window_manager', 0,28, 92,320, 'normal'),
     ('info', 0,371, 579,213, 'normal'),
     ('spell_book', 587,28, 268,556, 'normal'),
     ('new_game', 514, 27, 500, 500, 'hidden'),
@@ -1381,30 +1381,36 @@ unmatched keypress, need to be faster.
     return;
   end if;
 
-  select into a action_name from key_control_settings k
-    inner join client_valid_activate_actions v
-      on k.action_name = v.action
-      where key_code = pkeycode;
-  if not a is null then
+  if exists(select 1 from valid_activate_actions
+            where action='ai_continue')
+     and pkeycode = 'space' then
+    perform action_client_ai_continue();
+  else
+    select into a action_name from key_control_settings k
+      inner join client_valid_activate_actions v
+        on k.action_name = v.action
+        where key_code = pkeycode;
+    if not a is null then
+        if substr(a,0,11) =  'move_cursor' then
+          cursor_move := true;
+        end if;
+        execute 'select action_' || a || '();';
+    else
+      select into a action_name from key_control_settings k
+        inner join client_valid_target_actions v
+          on k.action_name = v.action
+        natural inner join cursor_position
+          where key_code = pkeycode;
       if substr(a,0,11) =  'move_cursor' then
         cursor_move := true;
       end if;
-      execute 'select action_' || a || '();';
-  else
-    select into a action_name from key_control_settings k
-      inner join client_valid_target_actions v
-        on k.action_name = v.action
-      natural inner join cursor_position
-        where key_code = pkeycode;
-    if substr(a,0,11) =  'move_cursor' then
-      cursor_move := true;
-    end if;
-    if not a is null then
-      execute 'select action_' || a ||
-              '(' || (select x from cursor_position) ||
-              ', ' || (select y from cursor_position) || ');';
-    else
-      null;
+      if not a is null then
+        execute 'select action_' || a ||
+                '(' || (select x from cursor_position) ||
+                ', ' || (select y from cursor_position) || ');';
+      else
+        null;
+      end if;
     end if;
   end if;
   perform update_missing_startticks();

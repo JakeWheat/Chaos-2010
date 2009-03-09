@@ -13,15 +13,9 @@
 
 > setupLogging :: IO ()
 > setupLogging = do
->   --find some way to never spit logs out on stderr
->   nullHandler <- fileHandler "/dev/null" ERROR
->   updateGlobalLogger rootLoggerName
->                (setLevel ERROR . setHandlers [nullHandler])
->   --set log level for the chaos stuff, and send to a file
->   --logger <- fileHandler "chaos.log" DEBUG
 >   h <- openFile "chaos.log" AppendMode
 >   logger <- verboseStreamHandler h DEBUG
->   updateGlobalLogger "chaos"
+>   updateGlobalLogger rootLoggerName
 >                (setLevel DEBUG . setHandlers [logger])
 >   --t <- getClockTime
 >   --tid <- myThreadId

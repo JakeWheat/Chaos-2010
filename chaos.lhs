@@ -159,7 +159,7 @@ todo: if cannot connect to database give info to this effect
 >                    " user=" ++ Conf.username conf ++
 >                    " password=" ++ Conf.password conf)
 >            (\conn -> do
->              windowManagerNew conn
+>              setupGui conn
 >              mainGUI)
 
 > lg :: String -> String -> IO c -> IO c
@@ -176,48 +176,6 @@ spell info
 cursor info
 piece info for pieces on current square
 piece info for selected piece
-
-> forkItemReplace :: Connection
->            -> TextView
->            -> [Char]
->            -> [D.Item]
->            -> IO ()
-> forkItemReplace conn tv logger items = do
->   forkUpdate logger
->              (D.run conn items)
->              (\i' -> do
->                      buf <- textViewGetBuffer tv
->                      textBufferClear buf
->                      render tv $ i')
-
-> forkItemUpdate :: Connection
->            -> TextView
->            -> [Char]
->            -> [D.Item]
->            -> IO ()
-> forkItemUpdate conn tv logger items = do
->   forkUpdate logger
->              (D.run conn items)
->              (\i' -> do
->                      render tv $ i')
-
-
-> forkUpdate :: String -> IO t -> (t -> IO ()) -> IO ()
-> forkUpdate logger prepare rnder = do
->   prepare >>= rnder
-
- >   forkIO $ lg (logger ++ ".prepare") "" $ do
- >     putStrLn $ "start prepare " ++ logger
- >     x <- prepare
- >     putStrLn $ "end prepare " ++ logger
- >     flip idleAdd priorityDefaultIdle $ lg (logger ++ ".render") "" $ do
- >          putStrLn $ "start idle handler " ++ logger
- >          rnder x
- >          putStrLn $ "end idle handler " ++ logger
- >          return False
- >     return ()
- >   return ()
-
 
 > infoWidgetNew :: Connection -> ColourList -> SpriteMap -> IO (TextView, IO ())
 > infoWidgetNew conn colours spriteMap = do
@@ -721,60 +679,100 @@ text box instead of redrawing them all
 
 ================================================================================
 
-= Window Manager Widget
+= setup gui
 
-This widget is provides a bunch of buttons which the user can toggle
-to show the other windows. The program exits when this window is
-closed.
+This code creates the widgets and windows
 
-TODO: save size, position, scroll positions, minimised/maximised, etc.
+> setupGui :: Connection -> IO ()
+> setupGui conn = lg "setupGui" "" $ handleSqlError $ do
+>   colours <- readColours conn
+>   spriteMap <- loadSprites conn
+>   player <- initPlayer
 
-> windowManagerNew :: Connection -> IO TextView
-> windowManagerNew conn = lg "windowManagerNew" "" $ handleSqlError $ do
+make sure the windows relvar is ok
 
-== basic setup
+>   c <- selectValue conn "select count(*) from windows\n\
+>                         \where window_name = 'window_manager'" []
+>   when (read c == (0::Int))
+>        (dbAction conn "reset_windows" [])
 
-load the colours and sprites, then create a textview to represent the
-window manager widget
+create the windows and widgets
 
->     colours <- readColours conn
->     spriteMap <- loadSprites conn
->     player <- initPlayer
+>   widgetData <- selectTuplesIO conn "select window_name,px,py,sx,sy,state\n\
+>                                     \from windows" [] $
+>                   \r -> do
+>                         (name, (ww, wrefresh)) <- makeWindow colours player
+>                                                     spriteMap
+>                                                     (lk "window_name" r)
+>                         showWindow r ww wrefresh
+>                         return (name, (ww, wrefresh))
 
->     wm <- myTextViewNew colours
->     buf <- textViewGetBuffer wm
+>   let refreshAll = mapM_ (\(_,(_,r)) -> r) widgetData
 
-Do the other widgets. Each line in the windows table corresponds to a top level
-widget which is contained directly in a gtk window. For each line in the table,
-create the widget and window if it isn't the window manager.
+== Key press handling
 
-create a name for the window without underscores to
-display to the user
+All the widgets/windows use the same key press handler, which mainly
+sends the keycodes to the database code.
 
->     let niceNameF = map
->                     (\c -> if c == '_' then ' ' else c)
->     c <- selectValue conn "select count(*) from windows\n\
->                            \where window_name = 'window_manager'" []
->     when (read c == (0::Int))
->          (dbAction conn "reset_windows" [])
+>   let handleKeyPress e = Logging.pLog "chaos.chaos.windowManagerNew.\
+>                                         \handleKeyPress" "" $ do
+>         case e of
+>            Key { eventKeyName = key } -> do
+>              --putStrLn ("Key pressed: " ++ key)
+>              dbAction conn "key_pressed" [key]
+>              --when (key == "F12") $
+>              --putStrLn "manual refresh" >> refresh
+>              --Until the notify stuff is working just do a full
+>              --refresh after every action as a kludge
+>              refreshAll
 
-== create windows
+Bit hacky, if we just ran the next_phase action, and the current
+wizard is computer controlled, then run next phase again after a small
+pause
+TODO: this belongs somewhere else
 
->     let castIt (iw, r) = return (castToWidget iw, r)
+>              let do_ai = do
+>                    ai <- selectValue conn "select count(1)\n\
+>                                           \  from valid_activate_actions\n\
+>                                           \   where action = 'ai_continue'" []
+>                    when ((read ai::Integer) /= 0) $ do
+>                      flip timeoutAdd 500 $ do
+>                        --forkIO $ lg "windowManagerNew.handleKeyPress.do_ai" ""
+>                        --(do
+>                        dbAction conn "client_ai_continue" []
+>                        refreshAll
+>                        do_ai
+>                        return False
+>                      return ()
+>              do_ai
+>              return ()
 
->     let makeWindow name = do
->         (widget,wrefresh) <- case name of
+>            _ -> error "key press handler got non key event"
+>         return False
+
+Add the handler to all the windows:
+
+>   forM_ widgetData (\(_,(window,_)) ->
+>                     onKeyPress window handleKeyPress)
+
+
+>   return ()
+
+>   where
+>     showWindow r ww wrefresh = do
+>       widgetShowAll ww
+>       windowMove ww (read $ lk "px" r) (read $ lk "py" r)
+>       windowResize ww (read $ lk "sx" r) (read $ lk "sy" r)
+>       wrefresh
+>     castIt (iw, r) = return (castToWidget iw, r)
+>     makeWindow colours player spriteMap name = do
+>       (widget,wrefresh) <- case name of
 >           "info" ->
 >             infoWidgetNew conn colours spriteMap >>= castIt
 >           "board" ->
 >             boardWidgetNew conn player colours spriteMap >>= castIt
 >           "spell_book" ->
 >             spellBookWidgetNew conn colours spriteMap >>= castIt
-
-We don't have the window manager's refresh at this state so
-put in a dummy function and fix it up later
-
->           "window_manager" -> castIt (castToWidget wm, (return()))
 >           "new_game" ->
 >             newGameWidgetNew conn colours spriteMap >>= castIt
 >           "action_history" ->
@@ -783,179 +781,17 @@ put in a dummy function and fix it up later
 
 wrap each widget in a window
 
->         ww <- wrapInFullScroller widget >>=
->                        wrapInWindow (niceNameF name)
+>       ww <- wrapInFullScroller widget >>=
+>                        wrapInWindow name
 
-When closing the window manager, we close the database connection and
-exit the app, when closing any of the other windows, we just hide the
-window and update the database
-
->         if name == "window_manager"
->           then do
->             onDestroy ww mainQuit
->             return ()
->           else do
->             onDelete ww (const $ do
->               --hide the window and return true so that
->               -- gtk doesn't destroy the window
->               widgetHideAll ww
->               runSql conn
->                      "update windows set state='hidden'\n\
->                      \where window_name=?;" [name]
->               return True)
->             return ()
+>       onDestroy ww mainQuit
 
 we save a list of the windows and refresh functions so that the window
 manager refresh fn can hook the toggle buttons for each window up to
 that window and hook pressing F12 up to refresh all the widgets
 
->         return (name, (ww, wrefresh))
->
+>       return (name, (ww, wrefresh))
 
->     widgetData <- selectTuplesIO conn "select window_name \n\
->                              \from windows" []
->                     (\r -> makeWindow (lk "window_name" r))
-
-== refresh
-
-Add a button for each widget which toggles whether the window for that
-widget is visible or not (the windows can also be hidden by clicking
-the close button also, clicking the window manager button is the only
-way to unhide them).
-
->     let items = D.SelectTuplesIO "select window_name,px,py,sx,sy,state \n\
->                                \from windows" [] $ \wi -> do
->                   let name = lk "window_name" wi
->                       niceName = niceNameF name
->                       (ww,wrefresh) = safeLookup
->                                       "window manager refresh" name widgetData
-
-now fix up the windows that contain the other widgets the window
-manager handles all the window position, size and visibility so none
-of the widgets have to worry about this when the resize and reposition
-is hooked up to the database it will be hooked up in the window
-manager ctor (this function)
-
-
->                   if name == "window_manager" || lk "state" wi /= "hidden"
->                     then widgetShowAll ww >> wrefresh
->                     else widgetHideAll ww
->                   --fix up the size and position
->                   windowMove ww (read $ lk "px" wi) (read $ lk "py" wi)
->                   windowResize ww (read $ lk "sx" wi) (read $ lk "sy" wi)
-
->                   return [ToggleButton niceName
->                            (lk "state" wi /= "hidden")
-
-setup the handler so that clicking the button toggles the window visibility
-
->                            (\i -> if i
->                                  then do
->                                    widgetShowAll ww
->                                    --reposition the window since
->                                    --it's position is reset
->                                    -- when the window is hidden
->                                    windowMove ww (read $ lk "px" wi)
->                                                  (read $ lk "py" wi)
->                                    wrefresh
->                                    runSql conn
->                                      "update windows set state='normal'\n\
->                                      \where window_name=?;" [name]
->                                  else unless (name == "window_manager") $ do
->                                    widgetHideAll ww
->                                    runSql conn
->                                               "update windows set state='hidden'\n\
->                                               \where window_name=?;" [name])
->                          ,Text "\n"]
->         refresh = lg "windowManagerNew.refresh" "" $ do
->           --forkItemReplace conn wm "windowManagerNew.refresh" [items]
->           textBufferClear buf
->           D.run conn [items] >>= render wm
-
-now we have our window manager refresh function, stick it into the
-lookup which contains the widget and refresh functions
-
->     let widgetData' = updateLookup "window_manager"
->                         (fst $ safeLookup "window manager refresh widgets"
->                                           "window_manager" widgetData,
->                          refresh)
->                         widgetData
->
->     timeoutAdd (refresh>>return False) 100
->
->     --used for testing when the full refresh is too slow
-
->     let limitedRefresh = do
->                           let (_,r) = fromJust $ lookup "board" widgetData'
->                           r
->                           let (_,r1) = fromJust $ lookup "info" widgetData'
->                           r1
->                           --let (_,r1) = fromJust $ lookup "action_history" widgetData'
->                           --r1
-
-
-== Key press handling
-
->     let handleKeyPress e = Logging.pLog "chaos.chaos.windowManagerNew.\
->                                         \handleKeyPress" "" $ do
->           case e of
->                  Key { eventKeyName = key } -> do
->                       --putStrLn ("Key pressed: " ++ key)
->                       ai1 <- selectValue conn "select count(1)\n\
->                                              \  from valid_activate_actions\n\
->                                              \   where action = 'ai_continue'" []
->                       if (read ai1 /= (0 ::Int)) && key == "space"
->                         then
->                           dbAction conn "client_ai_continue" []
->                         else
->                           dbAction conn "key_pressed" [key]
-
- >                       if key == "F12"
- >                         then do
- >                           putStrLn "manual refresh"
- >                           refresh
- >                         else do
-
-Until the notify stuff is working just do a full refresh after every
-action as a kludge
-
->                       limitedRefresh
-
-
-Bit hacky, if we just ran the next_phase action, and the current
-wizard is computer controlled, then run next phase again after a small
-pause
-
->                       let do_ai = do
->                             ai <- selectValue conn "select count(1)\n\
->                                              \  from valid_activate_actions\n\
->                                              \   where action = 'ai_continue'" []
->                             when ((read ai::Integer) /= 0) $ do
->                               flip timeoutAdd 500 $ do
->                                 --forkIO $ lg "windowManagerNew.handleKeyPress.do_ai" ""
->                                 --(do
->                                 dbAction conn "client_ai_continue" []
->                                 refresh
->                                 do_ai
->                                 return False
->                               return ()
->                       do_ai
->                       return ()
-
->                  _ -> error "key press handler got non key event"
-
->           return False
-
-Add the handler to all the windows:
-
->     forM_ widgetData'
->           (\(_,(window,_)) ->
->                onKeyPress window handleKeyPress)
-
-TODO: Hook up the relvar listener: need to toggle the buttons if the
-database is altered
-
->     return wm
 
 
 ================================================================================
@@ -1023,6 +859,8 @@ Setup a text view with the styles and colours used in this app.
 > myTextViewNew :: ColourList -> IO TextView
 > myTextViewNew colours = do
 >   tv <- textViewNew
+>   tb <- textViewGetBuffer tv
+>   textBufferInsertAtCursor tb "loading..."
 >   textViewSetEditable tv False
 >   textViewSetWrapMode tv WrapWord
 >   fd <- fontDescriptionNew
@@ -1036,7 +874,6 @@ Setup the tags, we want one tag for each colour in the list of colours
 passed to the ctor and one tag for the inverted colour (black text on
 coloured background)
 
->   tb <- textViewGetBuffer tv
 >   tagTable <- textBufferGetTagTable tb
 >   forM_ colours (\(name, c) -> do
 >     tag <- textTagNew (Just name)
@@ -1047,6 +884,7 @@ coloured background)
 >                     textTagForeground := "black"]
 >     textTagTableAdd tagTable inverseTag
 >     return ())
+
 >
 >   return tv
 
@@ -1082,4 +920,50 @@ must be an easier way than this?
 >                      then '0' : h
 >                      else h
 >             div256 i = truncate (fromIntegral i / 256::Double)
+
+= temporary threading stuff
+
+> forkItemReplace :: Connection
+>            -> TextView
+>            -> [Char]
+>            -> [D.Item]
+>            -> IO ()
+> forkItemReplace conn tv logger items = do
+>   forkUpdate logger
+>              (D.run conn items)
+>              (\i' -> do
+>                      buf <- textViewGetBuffer tv
+>                      textBufferClear buf
+>                      render tv $ i')
+
+> forkItemUpdate :: Connection
+>            -> TextView
+>            -> [Char]
+>            -> [D.Item]
+>            -> IO ()
+> forkItemUpdate conn tv logger items = do
+>   forkUpdate logger
+>              (D.run conn items)
+>              (\i' -> do
+>                      render tv $ i')
+
+
+> forkUpdate :: String -> IO t -> (t -> IO ()) -> IO ()
+> forkUpdate logger prepare rnder = do
+>   let useFork = False
+>   if useFork
+>     then do
+>       forkIO $ lg (logger ++ ".prepare") "" $ do
+>         putStrLn $ "start prepare " ++ logger
+>         x <- prepare
+>         putStrLn $ "end prepare " ++ logger
+>         flip idleAdd priorityDefaultIdle $ lg (logger ++ ".render") "" $ do
+>              putStrLn $ "start idle handler " ++ logger
+>              rnder x
+>              putStrLn $ "end idle handler " ++ logger
+>              return False
+>         return ()
+>       return ()
+
+>     else prepare >>= rnder
 
