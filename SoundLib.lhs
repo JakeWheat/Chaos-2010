@@ -2,6 +2,8 @@
 
 > module SoundLib (initPlayer, play, SoundPlayer) where
 
+Disable sounds on windows since I can't get the haskell SDL library
+compiled on windows.
 
 #if !defined(mingw32_HOST_OS) && !defined(__MINGW32__) 
 

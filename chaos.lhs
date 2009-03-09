@@ -954,16 +954,49 @@ must be an easier way than this?
 >   if useFork
 >     then do
 >       forkIO $ lg (logger ++ ".prepare") "" $ do
->         putStrLn $ "start prepare " ++ logger
+>         --putStrLn $ "start prepare " ++ logger
 >         x <- prepare
->         putStrLn $ "end prepare " ++ logger
+>         --putStrLn $ "end prepare " ++ logger
 >         flip idleAdd priorityDefaultIdle $ lg (logger ++ ".render") "" $ do
->              putStrLn $ "start idle handler " ++ logger
+>              --putStrLn $ "start idle handler " ++ logger
 >              rnder x
->              putStrLn $ "end idle handler " ++ logger
+>              --putStrLn $ "end idle handler " ++ logger
 >              return False
 >         return ()
 >       return ()
 
 >     else prepare >>= rnder
 
+Plan to get responsiveness fixed
+
+Two main areas where the responsiveness is not good enough:
+
+1) moving the cursor around
+
+2) trying to click a button or quit whilst the ai is running
+
+TODO: get some logging to highlight how long it takes to respond to
+each event, also how long the gtk thread is updating instead of
+waiting for the user - percentages, distribution of times.
+
+Some ideas on how to fix these issues:
+
+1) only have one update for each of the widgets running at one
+time. If another update is needed and the current running update is
+not in the render phase, kill it (need to be careful of problems
+whilst the idle handler is being setup, and also check to see if
+killing the update thread doesn't break an already setup idle handler
+
+2) don't use this for the board widget, which must update as quickly
+as possible. Never cancel a board widget update, but only ever have
+one pending. To speed it up, kill and requeue any non board updates
+running when an update board widget request is queued.
+
+3) when anything changes, start the board widget update as soon as
+possible, but wait 1/2 a second or something for the other widgets. if
+another change comes in before the 1/2 second is up, reset it to wait
+another 1/2 second - this might starve the other windows from being
+updated though, maybe only do this if the update is a cursor move, or
+maybe make them wait only if a board update is running, and kill and
+requeue them if they are running during a board update. Need to test
+to see what kind of latencies we get.
