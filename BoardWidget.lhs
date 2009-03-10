@@ -95,13 +95,15 @@ time (this is used by the sprite animation and the effects).
 > import Data.Maybe
 > import Data.IORef
 > import System.Time
-> import Control.Concurrent
+
+ > import Control.Concurrent
 
 > import ChaosDB
 > import Utils
 > import qualified Logging
 > import SoundLib
 > import ChaosTypes
+> import ThreadingUtils
 
 ================================================================================
 
@@ -150,7 +152,8 @@ create the initial draw surface and io ref
 >   surf <- createImageSurface FormatARGB32 100 100
 >   surfRef <- newIORef surf
 
->   let refresh = refreshA conn colours player spriteMap
+>   fbr@(forkBR,_) <- forkAndQueueOneNew
+>   let refresh = refreshA fbr conn colours player spriteMap
 >                          canvas surfRef startTicks queueAiUpdate
 
 hook the onexpose event up to drawing the saved surface
@@ -169,8 +172,7 @@ hook the onexpose event up to drawing the saved surface
 queue the first board update
 
 >   flip idleAdd priorityDefaultIdle $ do
->     forkIO $ do
->       refresh
+>     forkBR refresh
 >     return False
 
 >   return (frame, return())
@@ -182,7 +184,8 @@ queue the first board update
 The refresh function loads the board sprites and effects data from the
 database and draws them to the cached surface
 
-> refreshA :: Connection
+> refreshA :: Forker
+>          -> Connection
 >          -> ColourList
 >          -> SoundPlayer
 >          -> SpriteMap
@@ -191,7 +194,8 @@ database and draws them to the cached surface
 >          -> ClockTime
 >          -> IO()
 >          -> IO ()
-> refreshA conn colours player spriteMap canvas surfRef startTicks queueAiUpdate =
+> refreshA fbr@(forkBR, doneBR) conn colours player spriteMap canvas
+>          surfRef startTicks queueAiUpdate =
 >   lg "boardWidgetNew.refreshA" "" $ do
 >   --putStrLn "startrefresha"
 
@@ -239,12 +243,12 @@ and toY functions which take into account the changed scale factor.
 >   flip idleAdd priorityDefaultIdle $ do
 >     widgetQueueDrawArea canvas 0 0 2000 2000
 >     flip timeoutAdd 100 $ do
->       forkIO $ do
->         refreshA conn colours player spriteMap
->                  canvas surfRef startTicks queueAiUpdate
+>       forkBR $ refreshA fbr conn colours player spriteMap
+>                         canvas surfRef startTicks queueAiUpdate
 >       return False
+>     doneBR
+>     when (emptyEl effectsLine) queueAiUpdate
 >     return False
->   --when (emptyEl effectsLine) queueAiUpdate
 >   return ()
 >     where
 >       getSurface = do

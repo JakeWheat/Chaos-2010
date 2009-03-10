@@ -108,6 +108,7 @@ move
 > import SoundLib
 > import BoardWidget
 > import ChaosTypes
+> import ThreadingUtils
 
 ================================================================================
 
@@ -181,7 +182,6 @@ piece info for selected piece
 > infoWidgetNew conn colours spriteMap = do
 >   tv <- myTextViewNew colours
 >   let refresh = lg "infoWidgetNew.refresh" "" $ do
->         
 >         forkItemReplace conn tv "infoWidgetNew.refresh" $
 >                    concat [turnPhaseInfo
 >                           ,spellInfo
@@ -691,6 +691,8 @@ This code creates the widgets and windows
 >   spriteMap <- loadSprites conn
 >   player <- initPlayer
 
+>   aiQF <- forkOneAtATimeNew
+
 make sure the windows relvar is ok
 
 >   c <- selectValue conn "select count(*) from windows\n\
@@ -703,14 +705,14 @@ create the windows and widgets
 >   widgetData <- selectTuplesIO conn "select window_name,px,py,sx,sy,state\n\
 >                                     \from windows" [] $
 >                   \r -> do
->                         (name, (ww, wrefresh)) <- makeWindow colours player
->                                                     spriteMap
+>                         (name, (ww, wrefresh)) <- makeWindow aiQF
+>                                                     colours player spriteMap
 >                                                     (lk "window_name" r)
 >                         showWindow r ww wrefresh
 >                         return (name, (ww, wrefresh))
 
->   let refreshAll = mapM_ (\(_,(_,r)) -> r) widgetData
->   let (_,refreshBoard) = safeLookup "get board refresh" "board" widgetData
+ >   let refreshAll = mapM_ (\(_,(_,r)) -> r) widgetData
+ >   let (_,refreshBoard) = safeLookup "get board refresh" "board" widgetData
 
 == Key press handling
 
@@ -759,17 +761,22 @@ Add the handler to all the windows:
  >                loop
  >     loop
 
+
+
 >   return ()
 
 >   where
->     queueAiUpdate conn = do
->       forkIO $ do
+>     queueAiUpdate (fk, done) = do
+>       fk $ do
 >         ai <- selectValue conn "select count(1)\n\
 >                                \  from valid_activate_actions\n\
 >                                \   where action = 'ai_continue'" []
 >         when ((read ai::Integer) /= 0) $ do
->           threadDelay 1500000
+>           --putStrLn "queue ai update"
+>           threadDelay 1000000
+>           --putStrLn "running ai update"
 >           dbAction conn "client_ai_continue_if" []
+>           done
 >           --flip idleAdd priorityDefaultIdle $
 >           --  refreshAll >> return False
 >           return ()
@@ -781,13 +788,13 @@ Add the handler to all the windows:
 >       windowResize ww (read $ lk "sx" r) (read $ lk "sy" r)
 >       wrefresh
 >     castIt (iw, r) = return (castToWidget iw, r)
->     makeWindow colours player spriteMap name = do
+>     makeWindow aiQueuedMVar colours player spriteMap name = do
 >       (widget,wrefresh) <- case name of
 >           "info" ->
 >             infoWidgetNew conn colours spriteMap >>= castIt
 >           "board" ->
 >             boardWidgetNew conn player colours spriteMap
->                            (queueAiUpdate conn) >>= castIt
+>                            (queueAiUpdate aiQueuedMVar) >>= castIt
 >           "spell_book" ->
 >             spellBookWidgetNew conn colours spriteMap >>= castIt
 >           "new_game" ->

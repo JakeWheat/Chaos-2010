@@ -10,6 +10,7 @@ didn't find them.
 >               time,
 >               --timeName,
 >               updateLookup,
+>               removeLookup,
 >               hasKey,
 >               safeLookup,
 >               safeMLookup,
@@ -58,7 +59,12 @@ didn't find them.
 
 > updateLookup :: Eq k => k -> v -> [(k,v)] -> [(k,v)]
 > updateLookup k v lkp =
->     (k,v):filter (\(k',_) -> k' /= k) lkp
+>     (k,v):removeLookup k lkp
+
+
+> removeLookup :: Eq k => k -> [(k,v)] -> [(k,v)]
+> removeLookup k lkp =
+>     filter (\(k',_) -> k' /= k) lkp
 
 > hasKey :: (Eq k) => k -> [(k, v)] -> Bool
 > hasKey k = any (\(k',_) ->  k == k')
