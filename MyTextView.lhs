@@ -66,6 +66,54 @@ Shortcut method to clear buffer - i.e. wipe the textview clean to start again
 > textViewScrollToBottom :: TextView -> IO ()
 > textViewScrollToBottom _ = do
 
+can't get this to actually work, have no idea if i'm using it right or
+there is a bug in gtk2hs or gtk or what
+
+ >   flip idleAdd priorityDefaultIdle $ do
+
+ >     putStrLn "scroll to bottom"
+ >     tb <- textViewGetBuffer tv
+ >     ei <- textBufferGetEndIter tb
+ >     o <- textIterGetLineOffset ei
+ >     t <- get tb textBufferText
+ >     putStrLn $ "chars in this fucking thing: " ++ (show $ length t)
+ >     --putStrLn $ "scrolling to " ++ show o
+ >     realIter <- textBufferGetIterAtOffset tb $ length t
+ >     --putStrLn $ "scrolling to " ++ show
+ >     textViewScrollToIter tv realIter 0.1 Nothing
+
+
+ >     m <- textBufferGetMark tb "endMark"
+ >     case m of
+ >       Just m' -> do
+ >              textViewScrollToMark tv m' 0 Nothing
+ >              i <- textBufferGetIterAtMark tb m'
+ >              o <- textIterGetLineOffset i
+ >              putStrLn $ "mark offset is " ++ show o
+ >       Nothing -> putStrLn "no mark"
+ >     return False
+
+ >   tb <- textViewGetBuffer tv
+ >   ei <- textBufferGetEndIter tb
+ >   m <- textBufferCreateMark tb (Just "endMark") ei False
+ >   i <- textBufferGetIterAtMark tb m
+ >   o <- textIterGetLineOffset i
+ >   putStrLn $ "current mark offset is " ++ show o
+ >   textViewScrollToMark tv m 0 Nothing
+
+>   return ()
+
+> textViewAddScrollToBottom :: TextView -> IO ()
+> textViewAddScrollToBottom tv = do
+>   tb <- textViewGetBuffer tv
+>   ei <- textBufferGetEndIter tb
+>   m <- textBufferCreateMark tb (Just "endMark") ei False
+>   i <- textBufferGetIterAtMark tb m
+>   o <- textIterGetLineOffset i
+>   putStrLn $ "init mark offset is " ++ show o
+>   return ()
+
+
 haven't worked out how to do this in gtk2hs yet.
 
 may need this line so that it scrolls to the bottom after the last

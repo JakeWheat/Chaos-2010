@@ -181,6 +181,7 @@ piece info for selected piece
 > infoWidgetNew conn colours spriteMap = do
 >   tv <- myTextViewNew colours
 >   let refresh = lg "infoWidgetNew.refresh" "" $ do
+>         
 >         forkItemReplace conn tv "infoWidgetNew.refresh" $
 >                    concat [turnPhaseInfo
 >                           ,spellInfo
@@ -520,7 +521,7 @@ new game widget:
 
 Fill in the rows which correspond to each wizard
 
->       items refresh=
+>       items refresh =
 >               [D.SelectTuples "select * from new_game_widget_state\n\
 >                              \order by line" [] $ \l ->
 
@@ -535,7 +536,7 @@ or not present
 
 >                 ,ToggleButtonGroup ["human", "computer", "none"]
 >                                    (lk "state" l)
->                                    (\label -> runSql conn
+>                                    (\label -> forkIt $ runSql conn
 >                                             "update new_game_widget_state\n\
 >                                             \set state =? where line =?"
 >                                             [label, lk "line" l])
@@ -546,13 +547,13 @@ add the buttons at the bottom of the panel to start the game and
 reset the panel
 
 >               ,D.Items $ [MyTextView.Button "start game" $
->                             dbAction conn
+>                             forkIt $ dbAction conn
 >                                      "client_new_game_using_\
 >                                      \new_game_widget_state" []
 >                             --temp:
 >                             --win <- getParentWidget tv
 >                             --widgetHideAll win
->                          ,MyTextView.Button "reset this window" $ do
+>                          ,MyTextView.Button "reset this window" $ forkIt $ do
 >                             dbAction conn "reset_new_game_widget_state" []
 >                             refresh
 >                          ,Text "\n"
@@ -563,7 +564,7 @@ add some temporary buttons to start custom games for testing purposes
 >                           for ["all_pieces"
 >                               ,"upgraded_wizards"
 >                               ,"overlapping"
->                               ] (\l -> MyTextView.Button l $ do
+>                               ] (\l -> MyTextView.Button l $ forkIt $ do
 >                                   dbAction conn
 >                                            "client_new_game_using_\
 >                                            \new_game_widget_state" []
@@ -589,6 +590,7 @@ you can see what's going on.
 >                           IO (TextView, IO())
 > actionHistoryWidgetNew conn colours _ = do
 >   tv <- myTextViewNew colours
+>   textViewAddScrollToBottom tv
 
 we save the id of the last history item shown. This is so when refresh
 is called, it only needs to append the new ones to the bottom of the
@@ -708,6 +710,7 @@ create the windows and widgets
 >                         return (name, (ww, wrefresh))
 
 >   let refreshAll = mapM_ (\(_,(_,r)) -> r) widgetData
+>   let (_,refreshBoard) = safeLookup "get board refresh" "board" widgetData
 
 == Key press handling
 
@@ -718,34 +721,18 @@ sends the keycodes to the database code.
 >                                         \handleKeyPress" "" $ do
 >         case e of
 >            Key { eventKeyName = key } -> do
->              --putStrLn ("Key pressed: " ++ key)
->              dbAction conn "key_pressed" [key]
->              --when (key == "F12") $
->              --putStrLn "manual refresh" >> refresh
->              --Until the notify stuff is working just do a full
->              --refresh after every action as a kludge
->              refreshAll
+>              forkIO $ lg "windowManagerNew.handleKeyPress.forkIO" "" $ do
+>                --putStrLn ("Key pressed: " ++ key)
+>                dbAction conn "key_pressed" [key]
+>                --when (key == "F12") $
+>                --putStrLn "manual refresh" >> refresh
+>                --Until the notify stuff is working just do a full
+>                --refresh after every action as a kludge
+>                --refreshAll
 
-Bit hacky, if we just ran the next_phase action, and the current
-wizard is computer controlled, then run next phase again after a small
-pause
-TODO: this belongs somewhere else
-
->              let do_ai = do
->                    ai <- selectValue conn "select count(1)\n\
->                                           \  from valid_activate_actions\n\
->                                           \   where action = 'ai_continue'" []
->                    when ((read ai::Integer) /= 0) $ do
->                      flip timeoutAdd 500 $ do
->                        --forkIO $ lg "windowManagerNew.handleKeyPress.do_ai" ""
->                        --(do
->                        dbAction conn "client_ai_continue" []
->                        refreshAll
->                        do_ai
->                        return False
->                      return ()
->              do_ai
->              return ()
+ >                flip idleAdd priorityDefaultIdle $ do
+ >                  refreshBoard
+ >                  return False
 
 >            _ -> error "key press handler got non key event"
 >         return False
@@ -755,10 +742,39 @@ Add the handler to all the windows:
 >   forM_ widgetData (\(_,(window,_)) ->
 >                     onKeyPress window handleKeyPress)
 
+ >   incomingChan <- newChan
+ >   forkIO $ do
+ >     let loop = do
+ >           cmd <- readChan incomingChan
+ >           flip idleAdd priorityDefaultIdle $ do
+ >             putStrLn cmd
+ >             return False
+ >           loop
+ >     loop
+
+ >   forkIO $ do
+ >     let loop = do
+ >                threadDelay 500000
+ >                writeChan incomingChan "Yo!"
+ >                loop
+ >     loop
 
 >   return ()
 
 >   where
+>     queueAiUpdate conn = do
+>       forkIO $ do
+>         ai <- selectValue conn "select count(1)\n\
+>                                \  from valid_activate_actions\n\
+>                                \   where action = 'ai_continue'" []
+>         when ((read ai::Integer) /= 0) $ do
+>           threadDelay 1500000
+>           dbAction conn "client_ai_continue_if" []
+>           --flip idleAdd priorityDefaultIdle $
+>           --  refreshAll >> return False
+>           return ()
+>       return ()
+
 >     showWindow r ww wrefresh = do
 >       widgetShowAll ww
 >       windowMove ww (read $ lk "px" r) (read $ lk "py" r)
@@ -770,7 +786,8 @@ Add the handler to all the windows:
 >           "info" ->
 >             infoWidgetNew conn colours spriteMap >>= castIt
 >           "board" ->
->             boardWidgetNew conn player colours spriteMap >>= castIt
+>             boardWidgetNew conn player colours spriteMap
+>                            (queueAiUpdate conn) >>= castIt
 >           "spell_book" ->
 >             spellBookWidgetNew conn colours spriteMap >>= castIt
 >           "new_game" ->
@@ -922,6 +939,9 @@ must be an easier way than this?
 >             div256 i = truncate (fromIntegral i / 256::Double)
 
 = temporary threading stuff
+
+> forkIt :: IO() -> IO()
+> forkIt a = forkIO a >> return()
 
 > forkItemReplace :: Connection
 >            -> TextView

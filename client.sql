@@ -607,6 +607,9 @@ select set_relvar_type('board_sprites1_cache', 'data');
 
 create function update_board_sprites_cache() returns void as $$
 begin
+  if get_running_effects() then
+    return;
+  end if;
   delete from board_sprites1_cache;
   insert into board_sprites1_cache
     select * from board_sprites1_view;
@@ -618,9 +621,7 @@ create view board_sprites as
 union
 select x,y, '', '', -1,'cursor', 'white', 6,0, animation_speed, false
   from cursor_position
-  inner join sprites on sprite='cursor'
-  where (select not computer_controlled from wizards
-         inner join current_wizard_table on wizard_name = current_wizard);
+  inner join sprites on sprite='cursor';
 
 
 
@@ -661,6 +662,14 @@ create table board_sound_effects (
 );
 select add_key('board_sound_effects', 'id');
 select set_relvar_type('board_sound_effects', 'data');
+
+create function get_running_effects() returns boolean as $$
+begin
+  return exists (select 1 from board_beam_effects)
+      or exists (select 1 from board_square_effects)
+      or exists (select 1 from board_sound_effects);
+end;
+$$ language plpgsql stable;
 
 
 create table history_sounds (
@@ -738,6 +747,88 @@ begin
 end;
 $$ language plpgsql volatile;
 
+/*
+
+call this function before reading the current effects table and it
+will leave those tables the same if the current effects are still
+playing, or it will clear the old effects and fill them with the next
+set of effects.
+
+call it after reading the current effects table to clear the current
+row of sounds, that way the sounds will only be returned to the ui
+once and thus will only be played once.
+
+*/
+
+create table current_effects (
+  ticks int,
+  queuePos int
+);
+select set_relvar_type('current_effects', 'data');
+select constrain_to_zero_or_one_tuple('current_effects');
+
+create view current_board_sound_effects as
+  select * from board_sound_effects
+  natural inner join current_effects;
+
+create view current_board_beam_effects as
+  select * from board_beam_effects
+  natural inner join current_effects;
+
+create view current_board_square_effects as
+  select * from board_square_effects
+  natural inner join current_effects;
+
+create function action_reset_current_effects() returns void as $$
+begin
+    delete from board_sound_effects;
+    delete from board_beam_effects;
+    delete from board_square_effects;
+    delete from current_effects;
+end;
+$$ language plpgsql volatile;
+
+create or replace function action_update_effects_ticks(pticks int) returns void as $$
+declare
+  wasEffects boolean := false;
+  nextQp int;
+begin
+  if exists(select 1 from current_effects) then
+    wasEffects := true;
+  end if;
+  --always delete sound effects after the first time they are returned
+  if exists(select 1 from current_board_sound_effects) then
+    delete from board_sound_effects
+      where queuePos = (select queuePos from current_effects);
+  end if;
+  --see if we need a new row of effects
+  if not exists(select 1 from current_effects)
+    or pticks > (select ticks + 6 from current_effects) then
+    delete from board_sound_effects
+      where queuePos = (select queuePos from current_effects);
+    delete from board_beam_effects
+      where queuePos = (select queuePos from current_effects);
+    delete from board_square_effects
+      where queuePos = (select queuePos from current_effects);
+    delete from current_effects;
+    nextQp := (select min(queuePos) from
+                 (select queuePos from board_sound_effects
+                  union all
+                  select queuePos from board_beam_effects
+                  union all
+                  select queuePos from board_square_effects) as a);
+    if nextQp is not null and nextQp <> 0 then
+      insert into current_effects (ticks, queuePos)
+        values (pticks, nextQp);
+    end if;
+  end if;
+  if not exists(select 1 from current_effects)
+     and wasEffects then
+    perform update_board_sprites_cache();
+  end if;
+end;
+$$ language plpgsql volatile;
+
 create function action_client_ai_continue() returns void as $$
 begin
   if get_running_effects() then
@@ -754,19 +845,22 @@ begin
     perform check_for_effects();
     perform update_board_sprites_cache();
   end if;
-  perform action_move_cursor_to_current_wizard();
-
+  if not (select computer_controlled from wizards
+          inner join current_wizard_table
+          on wizard_name=current_wizard) then
+    perform action_move_cursor_to_current_wizard();
+  end if;
 end;
 $$ language plpgsql volatile;
 
-/*
-don't want the ai to run or the player to be able to trigger new actions when
-effects are being run:
-*/
-
-select create_var('running_effects', 'bool');
-select set_relvar_type('running_effects_table', 'data');
-
+create function action_client_ai_continue_if() returns void as $$
+begin
+  if exists(select 1 from valid_activate_actions
+            where action='ai_continue') then
+    perform action_client_ai_continue();
+  end if;
+end;
+$$ language plpgsql volatile;
 
 /*
 
@@ -1360,7 +1454,7 @@ select create_client_action_wrapper('spell_book_show_all_update_on',
 select create_client_action_wrapper('spell_book_show_all_update_off',
        $$spell_book_show_all_update(false)$$);
 
-create function action_key_pressed(pkeycode text) returns void as $$
+create or replace function action_key_pressed(pkeycode text) returns void as $$
 declare
   a text;
   cursor_move boolean := false;
@@ -1441,7 +1535,11 @@ $$ language plpgsql volatile;
 create function action_client_next_phase() returns void as $$
 begin
   perform action_next_phase();
-  perform action_move_cursor_to_current_wizard();
+  if not (select computer_controlled from wizards
+          inner join current_wizard_table
+          on wizard_name=current_wizard) then
+    perform action_move_cursor_to_current_wizard();
+  end if;
 end;
 $$ language plpgsql volatile;
 
@@ -1598,11 +1696,10 @@ begin
 
   delete from last_history_effect_id_table;
   insert into last_history_effect_id_table values (-1);
-  delete from running_effects_table;
-  insert into running_effects_table values (false);
   delete from board_square_effects;
   delete from board_beam_effects;
   delete from board_sound_effects;
+  delete from current_effects;
 
   -- don't reset windows, see below
   --call server new_game
@@ -1632,6 +1729,8 @@ begin
     insert into spell_book_show_all_table values (false);
   end if;
 
+  perform update_board_sprites_cache();
+  perform check_for_effects();
   perform init_cursor_position();
 end
 $$ language plpgsql volatile;

@@ -3397,8 +3397,9 @@ this overrides the next random test by name e.g. so we can test the
 board after a spell has succeeded and after it has failed
 
 > rigActionSuccess :: Connection -> String -> Bool -> IO ()
-> rigActionSuccess conn override setting =
+> rigActionSuccess conn override setting = do
 >   dbAction conn "rig_action_success" [override, show setting]
+>   dbAction conn "reset_current_effects" []
 
 ================================================================================
 
@@ -3409,6 +3410,7 @@ board after a spell has succeeded and after it has failed
 >   dbAction conn "reset_new_game_widget_state" []
 >   runSql conn "update new_game_widget_state set state='human'" []
 >   dbAction conn "client_new_game_using_new_game_widget_state" []
+>   dbAction conn "reset_current_effects" []
 >   checkNewGameRelvars conn
 
 > startNewGameAI :: Connection -> IO ()
@@ -3416,6 +3418,7 @@ board after a spell has succeeded and after it has failed
 >   dbAction conn "reset_new_game_widget_state" []
 >   runSql conn "update new_game_widget_state set state='computer'" []
 >   dbAction conn "client_new_game_using_new_game_widget_state" []
+>   dbAction conn "reset_current_effects" []
 >   checkNewGameRelvars conn
 
 
@@ -3438,7 +3441,9 @@ keep running next_phase until we get to the cast phase
 >          skipToPhase conn phase
 
 > sendKeyPress :: Connection -> String -> IO ()
-> sendKeyPress conn k = dbAction conn "key_pressed" [k]
+> sendKeyPress conn k = do
+>   dbAction conn "key_pressed" [k]
+>   dbAction conn "reset_current_effects" []
 
 > rollbackOnError :: Connection -> IO c -> IO c
 > rollbackOnError conn =

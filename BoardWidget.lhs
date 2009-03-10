@@ -1,5 +1,3 @@
-#! /usr/bin/env runghc
-
 Copyright 2009 Jake Wheat
 
 = Board Widget
@@ -14,11 +12,10 @@ impossible to follow what is going on in a game without them).
 The way the board widget works is shaped by the following constraints:
 
 * we need to update the cairo canvas several times a second to animate
-  the sprites
+  the sprites.
 
 * reading a fresh copy of the board_sprites relvar is quite slow, so
-  we prefer to avoid this unless it has changed, so the animation
-  update code uses a cached copy of the boardsprites in an ioref
+  we want to avoid this unless it has changed
 
 * because of the way the server code works, the client only sees an
   action has occured after the action has completed (from the action
@@ -29,78 +26,39 @@ The way the board widget works is shaped by the following constraints:
   effects on the previous board layout: with the attacked piece still
   there and the attacking piece in its starting position.
 
-The main variables used are:
+* the board has to be responsive, it is much more important that the
+  board updates in a timely fashion than the rest of the interface,
+  especially when the player is moving the cursor around (i.e. if a
+  cursor move doesn't update the board for 0.2 seconds, this is a
+  failure and will result in a crap user experience, but if the info
+  widget doesn't update for 0.2 secs after the cursor has been moved,
+  this isn't really bad).
 
-board_sprites relvar: this view contains the sprites for the pieces on
-top, the board highlight sprites and the cursor sprite.
+* to keep the app responsive, we want to keep the database querying
+  and update functions and draw the board to an offscreen surface
+  outside of a gtk handler
 
-board_effects relvar: this table contains the effects that were
-derived from the history entries created by the last action. It's used
-as a queue, so when the board widget refresh sees enties in here, it
-reads them out into local iorefs and clears this table.
+The database design is as follows:
 
-shared iorefs in this code:
-boardSpritesRef: this contains the cached board_sprites view
-effectsRef: this contains the effects currently playing or queued to
-be played soon
-soundsRef: this contains the sounds queued to be played soon
+board_sprites_cache
+board_effects
+check effects after actions, hold off updating cache
 
-We end up with two main drawing routines:
+sequence:
+run key_pressed or ai_continue
+fill effects tables after action has been run (from new history entries)
+loop: set current effects
+      draw effects and board_sprites (not update since before actions
+      from key pressed/ ai continue)
+      loop while there are effects
+update the board_sprites cache
+add timeout to run the next ai_continue if available
 
-myDraw: this draws the locally saved copy of the board sprites, and
-just animates them, so it works pretty quickly. It also handles
-showing any effects briefly and triggering sound effects.
+in between the key_pressed/ai_continue and adding the timeout at the
+bottom, the client doesn't respond to player game actions except
+cursor move (still responds to window changes, closing app, fiddling
+with new game widget)
 
-refresh: this reads the database, if there are effects waiting to be
-played then it loads them up and skips loading a new copy of the board
-sprites from the database, otherwise it updates the local copy of the
-board sprites. In either case, it then calls the myDraw routine to
-update the screen
-
-If there are currently no effects then:
-
-* timeout: to update the animations, a timeout is called every 100ms,
-  this just calls myDraw
-
-* refresh: this is currently called after every database action. This
-  is a little inefficient but ensures that the board is kept up to
-  date, so when the board sprites change, the board is updated pretty
-  soon afterwoods.
-
-When there are effects, the following sequence happens:
-
-The sql code inserts rows into the effects table based on any new
-history entries after an action is run. This updates the boardSpritesRef
-
-The ui calls refresh in the usual way which calls the board widget
-refresh function.
-
-The refresh function checks the effects table, and getting some
-results back, doesn't update the board sprites, so the displayed
-sprites don't change from before the action was run. It updates the
-effectsRef and soundsRef
-
-The mydraw function is then called, it starts drawing the effects over
-the existing board sprites, and triggering the sound effects. It just
-updates the canvas once like usual.
-
-The timeout continues to call mydraw which draws the effects and sound
-effects until they are no longer fresh (each effect is typically ~ 0.5
-secs long). As each sound is played it is removed from the queue, and
-after an effect has been on for the required time it is removed from
-the effectsRef. All this time, the client blocks ai and user initiated
-actions, and the boardSpritesRef is not updated.
-
-When mydraw removes the last effect, it restores the flag allowing the
-ai and player to continue, and calls refresh to refresh the
-boardSpritesRef and draw the new set of pieces.
-
-It's slightly hacky, and might work better by the server giving the ui
-control over the progression, e.g. so that action_attack initiates the
-attack, adds the attack attempted history item then returns to the ui
-which can play that effect then call an action_continue to get the
-attacked piece dying and the pieces moving, this is similar to the way
-the ai works atm.
 
 Animation:
 
@@ -124,6 +82,8 @@ widget is created, it saves the current time, and then everything is
 cued using the number of ticks since this saved time to the current
 time (this is used by the sprite animation and the effects).
 
+
+
 > module BoardWidget (boardWidgetNew) where
 
 > import Graphics.UI.Gtk
@@ -135,12 +95,17 @@ time (this is used by the sprite animation and the effects).
 > import Data.Maybe
 > import Data.IORef
 > import System.Time
+> import Control.Concurrent
 
 > import ChaosDB
 > import Utils
 > import qualified Logging
 > import SoundLib
 > import ChaosTypes
+
+================================================================================
+
+= data types
 
 > data BoardSprite = BoardSprite {
 >      bsx :: Int
@@ -152,19 +117,12 @@ time (this is used by the sprite animation and the effects).
 >     ,bsASpeed :: Int
 >     ,bsSelected :: Bool}
 
-> type BoardSpritesCache = IORef (String, [BoardSprite])
-
 > type SoundEffect = (String,String)
 > type SquareEffect = (String,Int,Int)
 > type BeamEffect = (String,Int,Int,Int,Int)
-> type EffectsLine = (Int
->                    ,[BeamEffect]
+> type EffectsLine = ([BeamEffect]
 >                    ,[SquareEffect]
 >                    ,[SoundEffect])
-
-> type EffectsCacheType = (Int,[EffectsLine])
-
-> type EffectsCache = IORef EffectsCacheType
 
 
 ================================================================================
@@ -172,232 +130,138 @@ time (this is used by the sprite animation and the effects).
 = Ctor
 
 > boardWidgetNew :: Connection -> SoundPlayer -> ColourList ->
->                   SpriteMap -> IO (Frame, IO())
-> boardWidgetNew conn player colours spriteMap = do
+>                   SpriteMap -> IO() -> IO (Frame, IO())
+
+> boardWidgetNew conn player colours spriteMap queueAiUpdate = do
 >   --setup the gtk widgets
 >   frame <- frameNew
 >   canvas <- drawingAreaNew
 >   containerAdd frame canvas
->   --setup the cache iorefs
->   bd <- readBoardSprites conn
->   boardSpritesRef <- newIORef bd -- (("",[])::(String,[BoardSprite]))
->   effectsRef <- newIORef ((0,[])::EffectsCacheType)
 
-clear the effects tables so we don't have a load of effects waiting to
-run when the app is started
-
->   runSql conn "delete from board_sound_effects" []
->   runSql conn "delete from board_square_effects" []
->   runSql conn "delete from board_beam_effects" []
+>   dbAction conn "reset_current_effects" []
 
 used to calculate how many ticks since the app was started, to time
 the animations and effects:
 
 >   startTicks <- getClockTime
 
-hook things up the the expose event, this is how gtk triggers a
-redraw, and doonexpose hooks this event up to the mydraw function
+create the initial draw surface and io ref
 
->   let refresh' = refresh conn canvas boardSpritesRef effectsRef
->   onExpose canvas (doOnExpose refresh' spriteMap colours player
->                               canvas startTicks
->                               boardSpritesRef effectsRef)
+>   surf <- createImageSurface FormatARGB32 100 100
+>   surfRef <- newIORef surf
 
-update the board sprites 10 times a second to animate them
+>   let refresh = refreshA conn colours player spriteMap
+>                          canvas surfRef startTicks queueAiUpdate
 
->   flip timeoutAdd 100 $ do
->     widgetQueueDrawArea canvas 0 0 2000 2000
+hook the onexpose event up to drawing the saved surface
+
+>   onExpose canvas $ \_ -> lg "boardWidgetNew.onExpose" "" $ do
+>     --putStrLn "start expose"
+>     drawin <- widgetGetDrawWindow canvas
+>     renderWithDrawable drawin $ do
+>       s' <- liftIO $ readIORef surfRef
+>       setSourceSurface s' 0 0
+>       paint
+>     --todo: if the canvas has changed size, queue an immediate redraw
+>     --putStrLn "end expose"
 >     return True
 
->   return (frame, refresh')
+queue the first board update
+
+>   flip idleAdd priorityDefaultIdle $ do
+>     forkIO $ do
+>       refresh
+>     return False
+
+>   return (frame, return())
 
 ================================================================================
 
 = refresh
 
-The refresh function updates the ioref caches from the database and
-then calls mydraw.
+The refresh function loads the board sprites and effects data from the
+database and draws them to the cached surface
 
-> refresh :: Connection
->            -> DrawingArea
->            -> BoardSpritesCache
->            -> EffectsCache
->            -> IO ()
-> refresh conn canvas boardSpritesRef effectsRef =
->   lg "boardWidgetNew.refresh" "" $ do
->   ef <- checkForEffects conn effectsRef
->   unless ef $ do
+> refreshA :: Connection
+>          -> ColourList
+>          -> SoundPlayer
+>          -> SpriteMap
+>          -> DrawingArea
+>          -> IORef Surface
+>          -> ClockTime
+>          -> IO()
+>          -> IO ()
+> refreshA conn colours player spriteMap canvas surfRef startTicks queueAiUpdate =
+>   lg "boardWidgetNew.refreshA" "" $ do
+>   --putStrLn "startrefresha"
 
-No effects, so update the board sprites cache
+== read database
 
-(first - if there are no effects update the flag that is used to
-prevent the ai and player from continuing during an effect)
+>   ticks <- getTicks startTicks
+>   effectsLine <- readCurrentEffects conn ticks
+>   bd <- readBoardSprites conn
+>   (surf,w,h) <- getSurface
 
->     re <- selectValueIf conn "select running_effects\n\
->                              \from running_effects_table;" []
->     when (isJust re && read (fromJust re)) $
->          runSql conn "update running_effects_table\n\
->                      \set running_effects = false" []
->     bd1 <- readBoardSprites conn
->     writeIORef boardSpritesRef bd1
-
-Now draw this stuff on screen
-
->   redraw canvas
-
-
-This function checks the database for new effects and updates the
-caches if there are some. It returns true if the effects cache is not
-empty.
-
-TODO overview of the effects queue and how it works
-
-> checkForEffects :: Connection
->                 -> EffectsCache
->                 -> IO Bool
-> checkForEffects conn effectsRef =
->   lg "boardWidgetNew.checkForEffects" "" $ do
->   sef <- selectTuples conn "select queuepos,subtype,sound_name\n\
->                            \from board_sound_effects" []
->   sqef <- selectTuples conn "select queuepos,subtype,x1,y1\n\
->                             \from board_square_effects" []
->   bef <- selectTuples conn "select queuepos,subtype,x1,y1,x2,y2\n\
->                            \from board_beam_effects" []
->
-
->   unless (null sef && null sqef && null bef) $ do
->     --putStrLn "found new effects"
->     --set the flag to stop further player and ai actions
->     --whilst the effects are playing
->     runSql conn "update running_effects_table\n\
->                 \set running_effects = true" []
-
-clean up the effects which are now being put into the cache
-
->     runSql conn "delete from board_sound_effects" []
->     runSql conn "delete from board_square_effects" []
->     runSql conn "delete from board_beam_effects" []
-
-load up the caches
-get the list of unique qps
-each unique qp will correspond to a line in the effects queue
-
->     let qps = (sort . nub)  ((map (\t -> read $ lk "queuepos" t) sef) ++
->                            map (\t -> read $ lk "queuepos" t) sqef ++
->                            map (\t -> read $ lk "queuepos" t) bef) :: [Int]
->     --convert sql tuples to haskell tuples
->     let tToBE t = let l f = lk f t in
->                   let r = read . l in
->                   (l "subtype", r "x1", r "y1", r "x2", r "y2")
->     let tToSqE t = let l f = lk f t in
->                    let r = read . l in
->                   (l "subtype", r "x1", r "y1")
->     let tToSE t = let l f = lk f t in
->                   (l "subtype", l "sound_name")
->     -- filter a list selecting the tuples which match queuePos
->     let getByQp qp = filter (\t -> read (lk "queuepos" t) == qp)
-
-take the three tables from the db and convert to a list of effects
-lines, so each beam,square and sound effect with the same qp will
-appear in the same line and be triggered together
-
->     let newEffects = for qps (\qp -> (qp
->                                      ,map tToBE $ getByQp qp bef
->                                      ,map tToSqE $ getByQp qp sqef
->                                      ,map tToSE $ getByQp qp sef
->                                      ))
->     (pos,currentEffects) <- readIORef effectsRef
->     --putStrLn $ "new effects:\n" ++ concatMap showEffectsLine newEffects
->     --putStrLn $ "1set pos to " ++ show pos
->     writeIORef effectsRef (if null currentEffects then 0 else pos,
->                            currentEffects ++ newEffects)
->     return()
-
-tell the caller whether there are effects in the cache or not
-
->   (_,effs) <- readIORef effectsRef
->   --putStrLn $ "effects queue has " ++ (show $ length effs)
->   return $ not $ null effs
-
-> showEffectsLine :: EffectsLine -> String
-> showEffectsLine (qp, beamEffects, squareEffects, soundEffects) =
->   let s = show in
->   "----------\n" ++ show qp ++
->   if not $ null beamEffects
->     then "\nBeam effects:\n" ++
->     concatMap (\(subtype,x1,y1,x2,y2)
->                -> subtype ++ s x1 ++ "," ++ s y1 ++ ","
->                 ++ s x2 ++ "," ++ s y2 ++ "\n") beamEffects
->     else ""
->   ++
->   if not $ null squareEffects
->     then "Square effects:\n" ++
->     concatMap (\(subtype,x1,y1)
->                 -> subtype ++ s x1 ++ "," ++ s y1 ++ "\n") squareEffects
->     else ""
->   ++
->   if not $ null soundEffects
->     then "sound effects:\n" ++
->      concatMap (\(subtype,soundName)
->                 -> subtype ++ ": " ++ soundName ++ "\n") soundEffects
->     else ""
-
-================================================================================
-
-= mydraw and drawing routines
-
-This is the code that actually draws the canvas which is then rendered
-to show the player
-
-
-
-> myDraw :: IO()
->        -> SpriteMap
->        -> ColourList
->        -> SoundPlayer
->        -> ClockTime
->        -> BoardSpritesCache
->        -> EffectsCache
->        -> Double
->        -> Double
->        -> Render ()
-> myDraw refresh' spriteMap colours player startTicks
->        boardSpritesRef effectsRef w h = do
->   liftIO $ Logging.logTime True "chaos.BoardWidget.mydraw" ""
->   --make the background black
->   setSourceRGB 0 0 0
->   paint
-
-work out the size of each square in cairo co-ords
+== redraw surface
 
 >   let boardWidth = 15
 >       boardHeight = 10
->       squareWidth = (w / boardWidth) ::Double
->       squareHeight = (h / boardHeight) ::Double
->
->   drawGrid squareWidth squareHeight
+>       squareWidth = (fromIntegral w / boardWidth)
+>       squareHeight = (fromIntegral h / boardHeight)
+
+>   renderWith surf $ do
+>     setSourceRGB 0 0 0
+>     paint
+>     drawGrid squareWidth squareHeight
 
 assume sprites are 64x64
 get our scale factors so that the sprites are drawn at the same size
 as the grid squares
 
->   let sw = 64
->       sh = 64
->       scaleX = squareWidth / sw
->       scaleY = squareHeight / sh
+>     let sw = 64
+>         sh = 64
+>         scaleX = squareWidth / sw
+>         scaleY = squareHeight / sh
 >
 
 use a scale transform on the cairo drawing surface to scale the
 sprites. This seems a bit backwards since we have to generate new toX
 and toY functions which take into account the changed scale factor.
 
->   scale scaleX scaleY
->   let toXS a = a * squareWidth / scaleX
->       toYS b = b * squareHeight / scaleY
->   cf <- liftIO $ getTicks startTicks
->   drawSprites cf colours spriteMap toXS toYS boardSpritesRef
->   runEffects refresh' spriteMap cf player boardSpritesRef effectsRef toXS toYS
->   liftIO $ Logging.logTime False "chaos.BoardWidget.mydraw" ""
+>     scale scaleX scaleY
+>     let toXS a = a * squareWidth / scaleX
+>         toYS b = b * squareHeight / scaleY
+>     drawSprites ticks colours spriteMap toXS toYS bd
+>     runEffects spriteMap player effectsLine ticks toXS toYS
+
+== queue draw
+
+>   flip idleAdd priorityDefaultIdle $ do
+>     widgetQueueDrawArea canvas 0 0 2000 2000
+>     flip timeoutAdd 100 $ do
+>       forkIO $ do
+>         refreshA conn colours player spriteMap
+>                  canvas surfRef startTicks queueAiUpdate
+>       return False
+>     return False
+>   --when (emptyEl effectsLine) queueAiUpdate
+>   return ()
+>     where
+>       getSurface = do
+>                    surf' <- readIORef surfRef
+>                    --see if the canvas size is changed
+>                    (w,h) <- widgetGetSize canvas
+>                    surw <- imageSurfaceGetWidth surf'
+>                    surh <- imageSurfaceGetHeight surf'
+>                    surf <- if ((w,h) == (surw,surh))
+>                              then return surf'
+>                              else do
+>                                   surfaceFinish surf'
+>                                   s <- createImageSurface FormatARGB32 w h
+>                                   writeIORef surfRef s
+>                                   return s
+>                    return (surf,w,h)
+>       emptyEl (a,b,c) = null a && null b && null c
 
 == drawing helpers
 
@@ -408,10 +272,9 @@ Draw the board sprites from the saved board
 >             -> SpriteMap
 >             -> (Double -> Double)
 >             -> (Double -> Double)
->             -> BoardSpritesCache
+>             -> (String,[BoardSprite])
 >             -> Render ()
-> drawSprites cf colours spriteMap toXS toYS boardSpritesRef = do
->   (currentWiz, bd2) <- liftIO $ readIORef boardSpritesRef
+> drawSprites cf colours spriteMap toXS toYS (currentWiz, bd2) = do
 >   mapM_ (drawAllegiance colours currentWiz toXS toYS) $
 >         filter (\bs -> not $ (bsAllegiance bs) `elem` ["", "dead"]) bd2
 >   mapM_ (drawAt spriteMap toXS toYS cf) bd2
@@ -419,65 +282,20 @@ Draw the board sprites from the saved board
 process the effects queue, remove any effects which have finished,
 play any new sounds, draw any current visual effects
 
-> runEffects :: IO()
->            -> SpriteMap
->            -> Int
+> runEffects :: SpriteMap
 >            -> SoundPlayer
->            -> BoardSpritesCache
->            -> EffectsCache
+>            -> EffectsLine
+>            -> Int
 >            -> (Double -> Double)
 >            -> (Double -> Double)
 >            -> Render ()
-> runEffects refresh' spriteMap cf player _ effectsRef toXS toYS = do
->   (pos',currentEffectsQueue) <- liftIO $ readIORef effectsRef
->   unless (null currentEffectsQueue) $ do
-
-check if the pos hasn't been set, if not, set it and play the first
-set of sounds
-
->     when (pos' == 0) $ do
->       --liftIO $ putStrLn "init effects"
->       playNewSounds currentEffectsQueue
->       --liftIO $ putStrLn $ "2set pos to " ++ show cf
->       liftIO $ writeIORef effectsRef (cf, currentEffectsQueue)
-
->     (pos,_) <- liftIO $ readIORef effectsRef
-
-see if the head of the currenteffectsqueue has expired (they last for
-12 ticks)
-
->     when (cf > pos + 6) $ do
->       --clear the current row of effects and play the sounds for the next one
->       --liftIO $ putStrLn $ "next effects: " ++ show cf ++ " > " ++ show pos ++" + 24"
->       let newCurrentEffectsQueue = tail currentEffectsQueue
->       --liftIO $ putStrLn $ "3set pos to " ++ show cf
->       liftIO $ writeIORef effectsRef (cf, newCurrentEffectsQueue)
->       playNewSounds newCurrentEffectsQueue
-
-display the visual effects
-
->     (_,vCurrentEffectsQueue) <- liftIO $ readIORef effectsRef
->     unless (null vCurrentEffectsQueue) (do
->       let (_,beamEffects,squareEffects,_):_ = vCurrentEffectsQueue
->       --liftIO $ putStrLn $ "drawing effects for " ++ show qp
->       mapM_ drawBeamEffect beamEffects
->       mapM_ drawSquareEffect squareEffects)
-
-refresh the board sprites if no more effects
-
->     (_,remainingEffects) <- liftIO $ readIORef effectsRef
->     when (null remainingEffects) $ liftIO refresh'
-
-helpers
-
+> runEffects spriteMap player (beamEffects
+>                             ,squareEffects
+>                             ,soundEffects) ticks toXS toYS = do
+>   liftIO $ mapM_ (play player . snd) soundEffects
+>   mapM_ drawBeamEffect beamEffects
+>   mapM_ drawSquareEffect squareEffects
 >     where
-
-play all the sounds from the head of the effects queue
-
->       playNewSounds ((_,_,_,currentSounds) : _) =
->         liftIO $ mapM_ (play player . snd)  currentSounds
->       playNewSounds [] = return ()
-
 >       drawBeamEffect (_,x1,y1,x2,y2) = do
 
 -- >         liftIO $ putStrLn $ "beam: " ++ show x1 ++ " "
@@ -493,9 +311,8 @@ play all the sounds from the head of the effects queue
 >         stroke
 
 >       drawSquareEffect(_,x1,y1) =
->         drawAt spriteMap toXS toYS cf
+>         drawAt spriteMap toXS toYS ticks
 >           (BoardSprite x1 y1 "effect_attack" "" "" 0 250 False)
-
 
 helper function to draw a sprite at board position x,y identifying the
 sprite by name, hiding all that tedious map lookup stuff
@@ -562,7 +379,6 @@ sprite by name, hiding all that tedious map lookup stuff
 
 read the board sprites relvar into the cache format
 
-
 > readBoardSprites :: Connection -> IO (String,[BoardSprite])
 > readBoardSprites conn = do
 >    cw <- selectValueIf conn "select current_wizard from current_wizard_table" []
@@ -576,6 +392,54 @@ read the board sprites relvar into the cache format
 >                                             (read $ lk "animation_speed" bs)
 >                                             (read $ lk "selected" bs))
 >    return (fromMaybe "" cw, s)
+
+
+> readCurrentEffects :: Connection -> Int -> IO EffectsLine
+> readCurrentEffects conn ticks = do
+>   dbAction conn "update_effects_ticks" [show ticks]
+>   bef <- selectTuples conn "select queuepos,subtype,x1,y1,x2,y2\n\
+>                            \from current_board_beam_effects" []
+>   sqef <- selectTuples conn "select queuepos,subtype,x1,y1\n\
+>                             \from current_board_square_effects" []
+>   sef <- selectTuples conn "select queuepos,subtype,sound_name\n\
+>                            \from current_board_sound_effects" []
+>   dbAction conn "update_effects_ticks" [show ticks]
+>   let r = (map tToBE bef, map tToSqE sqef, map tToSE sef)
+>   --putStrLn $ showEffectsLine r
+>   return r
+>     where
+>       tToBE t = let l f = lk f t in
+>                 let r = read . l in
+>                 (l "subtype", r "x1", r "y1", r "x2", r "y2")
+>       tToSqE t = let l f = lk f t in
+>                  let r = read . l in
+>                 (l "subtype", r "x1", r "y1")
+>       tToSE t = let l f = lk f t in
+>                 (l "subtype", l "sound_name")
+
+> showEffectsLine :: EffectsLine -> String
+> showEffectsLine (beamEffects, squareEffects, soundEffects) =
+>   let s = show in
+>   "----------" ++
+>   if not $ null beamEffects
+>     then "\nBeam effects:\n" ++
+>     concatMap (\(subtype,x1,y1,x2,y2)
+>                -> subtype ++ s x1 ++ "," ++ s y1 ++ ","
+>                 ++ s x2 ++ "," ++ s y2 ++ "\n") beamEffects
+>     else ""
+>   ++
+>   if not $ null squareEffects
+>     then "Square effects:\n" ++
+>     concatMap (\(subtype,x1,y1)
+>                 -> subtype ++ s x1 ++ "," ++ s y1 ++ "\n") squareEffects
+>     else ""
+>   ++
+>   if not $ null soundEffects
+>     then "sound effects:\n" ++
+>      concatMap (\(subtype,soundName)
+>                 -> subtype ++ ": " ++ soundName ++ "\n") soundEffects
+>     else ""
+
 
 get the number of ticks since starting the program, so we can
 work out which frame to show for each sprite, and cue the effects
@@ -592,52 +456,8 @@ work out which frame to show for each sprite, and cue the effects
 >       b = fromInteger f1
 >   return b::IO Int
 
-This posts an event to the gtk queue which triggers the onexpose,
-which then triggers the mydraw routine, which apparently how you do
-this sort of thing in gtk
-
-> redraw :: DrawingArea -> IO ()
-> redraw canvas = do
->   win <- widgetGetDrawWindow canvas
->   reg <- drawableGetClipRegion win
->   drawWindowInvalidateRegion win reg True
->   drawWindowProcessUpdates win True
-
-gtk red tape: on expose routes (re)draw events coming from gtk to the
-my draw function - these redraws can be trigged by the redraw function
-or by gtk in response to windows being moved around or resized
-
-> doOnExpose :: IO()
->            -> SpriteMap
->            -> ColourList
->            -> SoundPlayer
->            -> DrawingArea
->            -> ClockTime
->            -> BoardSpritesCache
->            -> EffectsCache
->            -> t
->            -> IO Bool
-> doOnExpose refresh' spriteMap colours player canvas startTicks
->            boardSpritesRef effectsRef _ =
->   lg "boardWidgetNew.doOnExpose" "" $ do
->   (w,h) <- widgetGetSize canvas
->   drawin <- widgetGetDrawWindow canvas
->   renderWithDrawable drawin
->                      (myDraw refresh' spriteMap colours
->                       player startTicks
->                       boardSpritesRef effectsRef
->                       (fromIntegral w) (fromIntegral h))
->   --The following line use to read
->   --return (eventSent x))
->   --but that doesn't compile anymore, so just bodged it.
->   return True
-
-
-
-
 > lg :: String -> String -> IO c -> IO c
 > lg l = Logging.pLog ("chaos.BoardWidget." ++ l)
-
 
 ---------------
 
