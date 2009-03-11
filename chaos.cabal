@@ -1,0 +1,29 @@
+Name:                chaos
+Version:             0.0
+Description:         turn based game with wizards and goblins
+License:             BSD
+License-file:        LICENSE
+Author:              Jake Wheat
+Maintainer:          jakewheatblog@gmail.com
+Build-Type:          Simple
+Cabal-Version:       >=1.2
+
+Executable chaos
+  Main-is:           chaos.lhs
+  Build-Depends:     base,
+                     HDBC,
+                     HDBC-postgresql,
+                     HUnit,
+                     cairo,
+                     containers,
+                     gtk,
+                     old-time,
+                     hslogger,
+                     process,
+                     directory,
+                     filepath,
+                     SDL-mixer,
+                     fez-conf,
+                     regex-posix,
+                     regexpr,
+                     QuickCheck
