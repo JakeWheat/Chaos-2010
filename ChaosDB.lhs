@@ -55,11 +55,8 @@ and updates directly
 >                ) where
 >
 
-> import Database.HDBC.PostgreSQL
-> import Database.HDBC  hiding (quickQuery'
->                              ,execute
->                              ,fetchAllRows'
->                              )
+> import qualified Database.HDBC.PostgreSQL as Pg
+> import Database.HDBC
 > import qualified Database.HDBC as H
 > import Data.List
 > import qualified Data.Map as M
@@ -69,22 +66,64 @@ and updates directly
 
 > import Utils hiding (run)
 > import qualified Logging
+> import ThreadingUtils
+
+
+> type Connection = (Pg.Connection,Pg.Connection,IO() -> IO())
 
 > type SqlRow = M.Map String String
 
+
+Strategy is to use one connection for updates and one for reads. The
+reads all just pile in on the same connection at the same time, seems
+to work. The updates are queued using a mutex so only one update can
+be using the connection at once, you definitely can't use the same
+connection to run two updates at the same time when using multiple
+statement transactions.
+
+ > withConn :: String -> (Connection -> IO c) -> IO c
+ > withConn cs f = f cs
+
 > withConn :: String -> (Connection -> IO c) -> IO c
-> withConn cs f = bracket (lg "connectPostgreSQL" "" $ connectPostgreSQL cs) disconnect
->                   (\conn -> do
->                     runSql conn "update pg_settings\n\
->                                 \  set setting=true\n\
->                                 \  where name='log_duration'" []
->                     runSql conn "update pg_settings\n\
->                                 \  set setting='all'\n\
->                                 \  where name='log_statement'" []
->                     runSql conn "update pg_settings\n\
->                                 \  set setting='1'\n\
->                                 \  where name='log_min_duration_statement'" []
->                     f conn)
+> withConn cs f = bracket (lg "connectPostgreSQL" "" $ do
+>                             a <- Pg.connectPostgreSQL cs
+>                             b <- Pg.connectPostgreSQL cs
+>                             c <- makeMutexer
+
+ >                             runSql conn "update pg_settings\n\
+ >                                         \  set setting=true\n\
+ >                                         \  where name='log_duration'" []
+ >                             runSql conn "update pg_settings\n\
+ >                                         \  set setting='all'\n\
+ >                                         \  where name='log_statement'" []
+ >                             runSql conn "update pg_settings\n\
+ >                                         \  set setting='1'\n\
+ >                                         \  where name='log_min_duration_statement'" []
+
+>                             return (a,b,c)
+>                          ) (\(a,b,_) -> do
+>                              disconnect a
+>                              disconnect b)
+>                          f
+
+
+ > withConnInt :: String -> (Pg.Connection -> IO c) -> IO c
+ > withConnInt cs f = bracket (lg "connectPostgreSQL" "" $
+ >                             Pg.connectPostgreSQL cs) disconnect
+ >                            f
+
+--  (\conn -> do
+-- >                     runSql conn "update pg_settings\n\
+-- >                                 \  set setting=true\n\
+-- >                                 \  where name='log_duration'" []
+-- >                     runSql conn "update pg_settings\n\
+-- >                                 \  set setting='all'\n\
+-- >                                 \  where name='log_statement'" []
+-- >                     runSql conn "update pg_settings\n\
+-- >                                 \  set setting='1'\n\
+-- >                                 \  where name='log_min_duration_statement'" []
+-- >                     f conn)
+
 
 log_min_duration_statement
 update pg_settings
@@ -136,32 +175,27 @@ there is none. The if variants return maybes and the non if versions
 just return the value
 
 
-> selectValueC ::(IConnection conn) =>
->                conn -> String -> [String] -> (String -> b) -> IO b
+> selectValueC :: Connection -> String -> [String] -> (String -> b) -> IO b
 > selectValueC conn query args callback = do
 >   x <- selectValueInternal conn query args callback True
 >   return $ fromJust x
 
-> selectValueIfC :: (IConnection conn) =>
->                   conn -> String -> [String] -> (String -> b) -> IO (Maybe b)
+> selectValueIfC :: Connection -> String -> [String] -> (String -> b) -> IO (Maybe b)
 > selectValueIfC conn query args callback =
 >   selectValueInternal conn query args callback False
 
-> selectValue :: (IConnection conn) =>
->                conn -> String -> [String] -> IO String
+> selectValue :: Connection -> String -> [String] -> IO String
 > selectValue conn query args = do
 >   x <- selectValueInternal conn query args id True
 >   return $ fromJust x
 
-> selectValueIf :: (IConnection conn) =>
->                  conn -> String -> [String] -> IO (Maybe String)
+> selectValueIf :: Connection -> String -> [String] -> IO (Maybe String)
 > selectValueIf conn query args =
 >   selectValueInternal conn query args id False
 
-> selectValueInternal :: (IConnection conn) =>
->                        conn  -> String -> [String] -> (String -> b) ->
+> selectValueInternal :: Connection  -> String -> [String] -> (String -> b) ->
 >                        Bool -> IO (Maybe b)
-> selectValueInternal conn query args callback enf =
+> selectValueInternal (conn,_,_) query args callback enf =
 >   lg "selectValueInternal" query $ handleSqlError $ do
 >   r <- quickQuery' conn query $ map sToSql args
 >   case length r of
@@ -186,37 +220,32 @@ just return the value
 Same pattern as the select value, the value fed into the callback or
 returned when no callback is supplied is a Map String String.
 
-> selectTupleC :: (IConnection conn) =>
->                 conn -> String -> [String] -> (SqlRow -> b) -> IO b
+> selectTupleC :: Connection -> String -> [String] -> (SqlRow -> b) -> IO b
 > selectTupleC conn query args callback = do
 >   x <- selectTupleInternal conn query args callback True
 >   return $ fromJust x
 
-> selectTupleIfC :: (IConnection conn) =>
->                   conn -> String -> [String] -> (SqlRow -> b) -> IO (Maybe b)
+> selectTupleIfC :: Connection -> String -> [String] -> (SqlRow -> b) -> IO (Maybe b)
 > selectTupleIfC conn query args callback =
 >   selectTupleInternal conn query args callback False
 
-> selectTuple :: (IConnection conn) =>
->                conn -> String -> [String] -> IO SqlRow
+> selectTuple :: Connection -> String -> [String] -> IO SqlRow
 > selectTuple conn query args = do
 >   x <- selectTupleInternal conn query args id True
 >   return $ fromJust x
 
-> selectTupleIf :: (IConnection conn) =>
->                  conn -> String -> [String] -> IO (Maybe SqlRow)
+> selectTupleIf :: Connection -> String -> [String] -> IO (Maybe SqlRow)
 > selectTupleIf conn query args =
 >   selectTupleInternal conn query args id False
 
 
-> selectTupleInternal :: (IConnection conn) =>
->                        conn
->                        -> String
->                        -> [String]
->                        -> (SqlRow -> b)
->                        -> Bool
->                        -> IO (Maybe b)
-> selectTupleInternal conn query args callback enf =
+> selectTupleInternal :: Connection
+>                     -> String
+>                     -> [String]
+>                     -> (SqlRow -> b)
+>                     -> Bool
+>                     -> IO (Maybe b)
+> selectTupleInternal (conn,_,_) query args callback enf =
 >   lg "selectTupleInternal" query $ handleSqlError $ do
 >   sth <- prepare conn query
 >   execute sth $ map sToSql args
@@ -244,23 +273,20 @@ more than one tuple, call the callback once for each tuple returned
 from the query. returns the maps or returns from the callbacks in a
 list
 
-> selectTuplesC :: (IConnection conn) =>
->                  conn -> String -> [String] -> (SqlRow -> c) -> IO [c]
+> selectTuplesC :: Connection -> String -> [String] -> (SqlRow -> c) -> IO [c]
 > selectTuplesC = selectTuplesInternal
 
-> selectTuples :: (IConnection conn) =>
->                 conn -> String -> [String] -> IO [SqlRow]
+> selectTuples :: Connection -> String -> [String] -> IO [SqlRow]
 > selectTuples conn query args = selectTuplesInternal conn query args id
 
 IO version, this allows you to pass a callback which performs io.
 
-> selectTuplesIO :: (IConnection conn) =>
->                   conn
->                   -> String
->                   -> [String]
->                   -> (SqlRow -> IO b)
->                   -> IO [b]
-> selectTuplesIO conn query args callback =
+> selectTuplesIO :: Connection
+>                -> String
+>                -> [String]
+>                -> (SqlRow -> IO b)
+>                -> IO [b]
+> selectTuplesIO (conn,_,_) query args callback =
 >   lg "selectTuplesIO" query $ handleSqlError $ do
 >   sth <- prepare conn query
 >   execute sth $ map sToSql args
@@ -268,13 +294,12 @@ IO version, this allows you to pass a callback which performs io.
 >   v <- fetchAllRows' sth
 >   mapM callback (map (convertRow cn) v)
 
-> selectTuplesInternal :: (IConnection conn) =>
->                         conn
+> selectTuplesInternal :: Connection
 >                      -> String
 >                      -> [String]
 >                      -> (SqlRow -> c)
 >                      -> IO [c]
-> selectTuplesInternal conn query args callback =
+> selectTuplesInternal (conn,_,_) query args callback =
 >   lg "selectTuplesInternal" query $ handleSqlError $ do
 >   sth <- prepare conn query
 >   execute sth $ map sToSql args
@@ -316,19 +341,25 @@ shortcut to call a function in postgres hiding all the red tape you
 have to go through i.e. writing the arg list as ?,?,?,...
 
 > callSp :: Connection -> String -> [String] -> IO ()
-> callSp conn spName args = lg "callSp" spName $ do
+> callSp (_,conn,mrun) spName args = lg "callSp" spName $ do
+>     mrun $ callSpC conn spName args
+
+> callSpC :: Pg.Connection -> String -> [String] -> IO ()
+> callSpC conn spName args = lg "callSp" spName $ do
 >     let qs = intersperse ',' $ replicate (length args) '?'
 >     let sqlString = "select " ++ spName ++ "(" ++ qs ++ ")"
 >     quickQuery' conn sqlString $ map toSql args
 >     commit conn
 >     return ()
 
+
 ==== runSql
 
 > runSql :: Connection -> String -> [String] -> IO ()
-> runSql conn query args = lg "runSql" query $ handleSqlError $ do
->   run conn query $ map toSql args
->   commit conn
+> runSql (_,conn,mrun) query args = lg "runSql" query $ handleSqlError $ do
+>   mrun $ do
+>     run conn query $ map toSql args
+>     commit conn
 
 ==== dbaction
 
@@ -337,27 +368,7 @@ separate from the callsp function since this code should only ever
 call actions functions
 
 > dbAction :: Connection -> String -> [String] -> IO ()
-> dbAction conn actionName args = lg "dbAction" actionName $ handleSqlError $ do
->   callSp conn ("action_" ++ actionName) args
->   commit conn
-
-> quickQuery' :: (IConnection conn) =>
->                   conn -> String -> [SqlValue] -> IO [[SqlValue]]
-> quickQuery' conn q = lg "quickQuery'" q . H.quickQuery' conn q
-
- > commit :: (IConnection conn) => conn -> IO ()
- > commit conn = timeName "commit" $ H.commit conn
-
-> execute :: Statement -> [SqlValue] -> IO Integer
-> execute st = lg "execute" "" . H.execute st
-
- > prepare :: (IConnection conn) => conn -> String -> IO Statement
- > prepare conn q = if profileEm
- >                    then timeName ("prepare " ++ q) $ H.prepare conn q
- >                    else H.prepare conn q
-
- > getColumnNames :: Statement -> IO [String]
- > getColumnNames st = timeName "getColumnNames" $ H.getColumnNames st
-
-> fetchAllRows' :: Statement -> IO [[SqlValue]]
-> fetchAllRows' = lg "fetchAllRows'" "" . H.fetchAllRows
+> dbAction (_,conn,mrun) actionName args = lg "dbAction" actionName $ handleSqlError $ do
+>   mrun $ do
+>     callSpC conn ("action_" ++ actionName) args
+>     commit conn

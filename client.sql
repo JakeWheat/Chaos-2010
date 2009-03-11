@@ -605,11 +605,12 @@ create table board_sprites1_cache as
   select * from board_sprites1_view;
 select set_relvar_type('board_sprites1_cache', 'data');
 
-create function update_board_sprites_cache() returns void as $$
+create or replace function update_board_sprites_cache() returns void as $$
 begin
   if get_running_effects() then
     return;
   end if;
+  --raise notice 'update bpc';
   delete from board_sprites1_cache;
   insert into board_sprites1_cache
     select * from board_sprites1_view;

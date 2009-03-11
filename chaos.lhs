@@ -181,8 +181,9 @@ piece info for selected piece
 > infoWidgetNew :: Connection -> ColourList -> SpriteMap -> IO (TextView, IO ())
 > infoWidgetNew conn colours spriteMap = do
 >   tv <- myTextViewNew colours
+>   fk <- forkAndQueueOneNew
 >   let refresh = lg "infoWidgetNew.refresh" "" $ do
->         forkItemReplace conn tv "infoWidgetNew.refresh" $
+>         forkItemReplace fk conn tv "infoWidgetNew.refresh" $
 >                    concat [turnPhaseInfo
 >                           ,spellInfo
 >                           ,cursorInfo
@@ -432,9 +433,9 @@ red 10-20
 >                       IO (TextView, IO())
 > spellBookWidgetNew conn colours spriteMap = do
 >   tv <- myTextViewNew colours
->   --buf <- textViewGetBuffer tv
+>   fk <- forkAndQueueOneNew
 >   let refresh = lg "spellBookWidgetNew.refresh" "" $
->         forkItemReplace conn tv "spellBookWidgetNew.refresh" items
+>         forkItemReplace fk conn tv "spellBookWidgetNew.refresh" items
 >   return (tv, refresh)
 >     where
 
@@ -503,9 +504,9 @@ new game widget:
 >                     IO (TextView, IO())
 > newGameWidgetNew conn colours spriteMap = do
 >   tv <- myTextViewNew colours
->
+>   fk <- forkAndQueueOneNew
 >   let refresh = lg "newGameWidgetNew.refresh" "" $
->         forkUpdate "newGameWidgetNew.refresh"
+>         forkUpdate fk "newGameWidgetNew.refresh"
 >           (do
 >             --first check the new_game_widget_state relvar
 >             c <- selectValue conn "select count(*) from new_game_widget_state" []
@@ -568,7 +569,7 @@ add some temporary buttons to start custom games for testing purposes
 >                                   dbAction conn
 >                                            "client_new_game_using_\
 >                                            \new_game_widget_state" []
->                                   callSp conn "setup_test_board" [l])
+>                                   dbAction conn "setup_test_board" [l])
 >                                   -- need to call refresh all here somehow
 >               ]
 >       sprite s = let (pb,_,_) = safeMLookup ("show sprite " ++ s) s spriteMap
@@ -597,9 +598,9 @@ is called, it only needs to append the new ones to the bottom of the
 text box instead of redrawing them all
 
 >   lastHistoryIDBox <- newIORef (-1::Integer)
-
+>   fk <- forkAndQueueOneNew
 >   let refresh = lg "actionHistoryWidgetNew.refresh" "" $ do
->         forkUpdate "actionHistoryWidgetNew.refresh"
+>         forkUpdate fk "actionHistoryWidgetNew.refresh"
 >           (do
 >            is <- items lastHistoryIDBox
 >            D.run conn [is])
@@ -711,7 +712,8 @@ create the windows and widgets
 >                         showWindow r ww wrefresh
 >                         return (name, (ww, wrefresh))
 
- >   let refreshAll = mapM_ (\(_,(_,r)) -> r) widgetData
+>   let refreshAll = mapM_ (\(_,(_,r)) -> r) widgetData
+
  >   let (_,refreshBoard) = safeLookup "get board refresh" "board" widgetData
 
 == Key press handling
@@ -726,7 +728,7 @@ sends the keycodes to the database code.
 >              forkIO $ lg "windowManagerNew.handleKeyPress.forkIO" "" $ do
 >                --putStrLn ("Key pressed: " ++ key)
 >                dbAction conn "key_pressed" [key]
->                --when (key == "F12") $
+>                when (key == "F12") refreshAll
 >                --putStrLn "manual refresh" >> refresh
 >                --Until the notify stuff is working just do a full
 >                --refresh after every action as a kludge
@@ -743,26 +745,6 @@ Add the handler to all the windows:
 
 >   forM_ widgetData (\(_,(window,_)) ->
 >                     onKeyPress window handleKeyPress)
-
- >   incomingChan <- newChan
- >   forkIO $ do
- >     let loop = do
- >           cmd <- readChan incomingChan
- >           flip idleAdd priorityDefaultIdle $ do
- >             putStrLn cmd
- >             return False
- >           loop
- >     loop
-
- >   forkIO $ do
- >     let loop = do
- >                threadDelay 500000
- >                writeChan incomingChan "Yo!"
- >                loop
- >     loop
-
-
-
 >   return ()
 
 >   where
@@ -772,13 +754,11 @@ Add the handler to all the windows:
 >                                \  from valid_activate_actions\n\
 >                                \   where action = 'ai_continue'" []
 >         when ((read ai::Integer) /= 0) $ do
->           --putStrLn "queue ai update"
+>           putStrLn "queue ai update"
 >           threadDelay 1000000
->           --putStrLn "running ai update"
+>           putStrLn "running ai update"
 >           dbAction conn "client_ai_continue_if" []
 >           done
->           --flip idleAdd priorityDefaultIdle $
->           --  refreshAll >> return False
 >           return ()
 >       return ()
 
@@ -788,13 +768,13 @@ Add the handler to all the windows:
 >       windowResize ww (read $ lk "sx" r) (read $ lk "sy" r)
 >       wrefresh
 >     castIt (iw, r) = return (castToWidget iw, r)
->     makeWindow aiQueuedMVar colours player spriteMap name = do
+>     makeWindow aifk colours player spriteMap name = do
 >       (widget,wrefresh) <- case name of
 >           "info" ->
 >             infoWidgetNew conn colours spriteMap >>= castIt
 >           "board" ->
 >             boardWidgetNew conn player colours spriteMap
->                            (queueAiUpdate aiQueuedMVar) >>= castIt
+>                            (queueAiUpdate aifk) >>= castIt
 >           "spell_book" ->
 >             spellBookWidgetNew conn colours spriteMap >>= castIt
 >           "new_game" ->
@@ -950,49 +930,45 @@ must be an easier way than this?
 > forkIt :: IO() -> IO()
 > forkIt a = forkIO a >> return()
 
-> forkItemReplace :: Connection
->            -> TextView
->            -> [Char]
->            -> [D.Item]
->            -> IO ()
-> forkItemReplace conn tv logger items = do
->   forkUpdate logger
+> forkItemReplace :: Forker
+>                 -> Connection
+>                 -> TextView
+>                 -> [Char]
+>                 -> [D.Item]
+>                 -> IO ()
+> forkItemReplace fk conn tv logger items = do
+>   forkUpdate fk logger
 >              (D.run conn items)
 >              (\i' -> do
 >                      buf <- textViewGetBuffer tv
 >                      textBufferClear buf
 >                      render tv $ i')
 
-> forkItemUpdate :: Connection
->            -> TextView
->            -> [Char]
->            -> [D.Item]
->            -> IO ()
-> forkItemUpdate conn tv logger items = do
->   forkUpdate logger
+> forkItemUpdate :: Forker
+>                -> Connection
+>                -> TextView
+>                -> [Char]
+>                -> [D.Item]
+>                -> IO ()
+> forkItemUpdate fk conn tv logger items = do
+>   forkUpdate fk logger
 >              (D.run conn items)
 >              (\i' -> do
 >                      render tv $ i')
 
 
-> forkUpdate :: String -> IO t -> (t -> IO ()) -> IO ()
-> forkUpdate logger prepare rnder = do
->   let useFork = False
->   if useFork
->     then do
->       forkIO $ lg (logger ++ ".prepare") "" $ do
->         --putStrLn $ "start prepare " ++ logger
+> forkUpdate :: Forker -> String -> IO t -> (t -> IO ()) -> IO ()
+> forkUpdate (fk,done) logger prepare rnder = do
+>       fk $ lg (logger ++ ".prepare") "" $ do
 >         x <- prepare
->         --putStrLn $ "end prepare " ++ logger
 >         flip idleAdd priorityDefaultIdle $ lg (logger ++ ".render") "" $ do
->              --putStrLn $ "start idle handler " ++ logger
 >              rnder x
->              --putStrLn $ "end idle handler " ++ logger
+>              done
 >              return False
 >         return ()
 >       return ()
 
->     else prepare >>= rnder
+ >     else prepare >>= rnder
 
 Plan to get responsiveness fixed
 

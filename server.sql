@@ -4148,7 +4148,7 @@ $$ language plpgsql volatile;
 = test board support
 */
 --TODO: make this function dump the current game to unique file for backup
-create function setup_test_board(flavour text) returns void as $$
+create function action_setup_test_board(flavour text) returns void as $$
 declare
   i int;
   rec record;
