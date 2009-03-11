@@ -749,17 +749,18 @@ Add the handler to all the windows:
 
 >   where
 >     queueAiUpdate (fk, done) = do
+>       putStrLn "queue and stuff"
 >       fk $ do
 >         ai <- selectValue conn "select count(1)\n\
 >                                \  from valid_activate_actions\n\
 >                                \   where action = 'ai_continue'" []
 >         when ((read ai::Integer) /= 0) $ do
->           putStrLn "queue ai update"
+>           --putStrLn "queue ai update"
 >           threadDelay 1000000
->           putStrLn "running ai update"
+>           --putStrLn "running ai update"
 >           dbAction conn "client_ai_continue_if" []
->           done
 >           return ()
+>         done
 >       return ()
 
 >     showWindow r ww wrefresh = do

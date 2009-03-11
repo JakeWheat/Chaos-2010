@@ -1,29 +1,95 @@
 Name:                chaos
 Version:             0.0
 Description:         turn based game with wizards and goblins
-License:             BSD
+License:             BSD3
 License-file:        LICENSE
 Author:              Jake Wheat
 Maintainer:          jakewheatblog@gmail.com
 Build-Type:          Simple
 Cabal-Version:       >=1.2
+data-files:          README,
+                     client.sql,
+                     server.sql,
+                     system.sql,
+                     sprites/creatures/*.png,
+                     sprites/cursors/*.png,
+                     sprites/effects/*.png,
+                     sprites/highlights/*.png,
+                     sprites/objects/*.png,
+                     sprites/spells/*.png,
+                     sprites/wizards/*.png,
+                     sounds/*.ogg
+extra-source-files:  development_guide,
+                     todo
 
 Executable chaos
   Main-is:           chaos.lhs
   Build-Depends:     base,
-                     HDBC,
-                     HDBC-postgresql,
-                     HUnit,
-                     cairo,
                      containers,
-                     gtk,
                      old-time,
-                     hslogger,
                      process,
                      directory,
                      filepath,
-                     SDL-mixer,
+
+                     HDBC,
+                     HDBC-postgresql,
+
+                     hslogger,
                      fez-conf,
+
                      regex-posix,
                      regexpr,
-                     QuickCheck
+
+                     QuickCheck,
+                     HUnit,
+
+                     gtk,
+                     cairo,
+                     SDL-mixer
+
+Executable tests
+  Main-is:           tests.lhs
+  Build-Depends:     base,
+                     containers,
+                     old-time,
+                     process,
+                     directory,
+                     filepath,
+
+                     HDBC,
+                     HDBC-postgresql,
+
+                     hslogger,
+                     fez-conf,
+
+                     regex-posix,
+                     regexpr,
+
+                     QuickCheck,
+                     HUnit,
+                     test-framework,
+                     test-framework-hunit
+
+Executable TreeThing
+  Main-is:           TreeThing.lhs
+  Build-Depends:     base,
+                     containers,
+                     old-time,
+                     process,
+                     directory,
+                     filepath,
+
+                     HDBC,
+                     HDBC-postgresql,
+
+                     hslogger,
+                     fez-conf,
+
+                     regex-posix,
+                     regexpr,
+
+                     QuickCheck,
+                     HUnit,
+
+                     gtk
+
