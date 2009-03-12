@@ -9,6 +9,8 @@ Short code to read the config file and expose values as a record.
 > import Data.Map as M
 > import Data.List
 > import System.IO
+> import System.Directory
+> import System.FilePath
 
 > import Utils
 
@@ -23,7 +25,8 @@ Short code to read the config file and expose values as a record.
 
 > getConfig :: IO (Conf)
 > getConfig = do
->   f <- readFile "chaos.config"
+>   cfgFolder <- getHomeDirectory
+>   f <- readFile $ joinPath [cfgFolder,".chaos.config"]
 >   let m = parseToMap f
 
 >   if M.keys m /= expectedKeys

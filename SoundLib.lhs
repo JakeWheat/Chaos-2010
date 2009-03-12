@@ -19,6 +19,7 @@ compiled on windows.
 > import Data.List
 > import Data.Maybe
 > import Control.Monad
+> import Paths_chaos
 
 > import Utils
 > import Logging
@@ -46,7 +47,8 @@ compiled on windows.
 
 >  catch (do
 >          openAudio 44100 AudioS16Sys 2 4096
->          soundNames <- findAllFiles "sounds"
+>          sFolder <- getDataFileName "sounds"
+>          soundNames <- findAllFiles sFolder
 >          let soundNames' = soundNames
 >          soundList <- mapM tryLoadWAV soundNames'
 >          let properSounds = catMaybes $ map (\(a,b) -> case b of
@@ -76,10 +78,6 @@ compiled on windows.
 >                  forkIO $ do
 >                    --putStrLn $ "playing " ++ soundName
 >                    playChannel (-1) w' 0
-
- >                    playMusic w' 2
- >                    threadDelay 2000000
-
 >                    return ()
 >                  return ()
 >     Nothing -> do
@@ -89,19 +87,6 @@ compiled on windows.
 >   return ()
 
 #endif
-
- > main :: IO ()
- > main = do
- >  p <- initPlayer
- >  play p "sound1"
-
- >  openAudio 44100 AudioS16Sys 2 4096
- >  w <- loadMUS "sounds/sound1.mp3"
- >  playMusic w 1
-
- >  threadDelay 2000000
-
- >  closeAudio
 
 > lg :: String -> String -> IO c -> IO c
 > lg l = Logging.pLog ("chaos.SoundLib." ++ l)

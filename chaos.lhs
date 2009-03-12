@@ -109,6 +109,7 @@ move
 > import BoardWidget
 > import ChaosTypes
 > import ThreadingUtils
+> import Paths_chaos
 
 ================================================================================
 
@@ -132,12 +133,6 @@ all that main needs to do is call this and call the two gtk init actions
 >            time (DBAdmin.setup conf)
 >      | (length args == 1 && head args == "checkSprites") ->
 >            time checkSprites
->      | (length args == 1 && head args == "dos") ->
->            time convertToDos >>
->            putStrLn "converted text files to dos line endings"
->      | (length args == 1 && head args == "unix") ->
->            time convertToUnix >>
->            putStrLn "converted text files to unix line endings"
 >      | not (null args) ->
 >            putStrLn "Call with no arguments to run game,\n\
 >                     \or run 'chaos setup' to initialise database\n\n\
@@ -145,9 +140,7 @@ all that main needs to do is call this and call the two gtk init actions
 >                     \arguments:\n\
 >                     \reset\treset database from sql\n\
 >                     \switch\tswitch temp db\n\
->                     \checkSprites\tcheck sprite pngs\n\
->                     \dos\tconvert text files (sql,lhs) to dos line endings\n\
->                     \unix\tconvert text files to unix line endings\n"
+>                     \checkSprites\tcheck sprite pngs\n"
 >      | otherwise -> do
 
 todo: if cannot connect to database give info to this effect
@@ -749,7 +742,6 @@ Add the handler to all the windows:
 
 >   where
 >     queueAiUpdate (fk, done) = do
->       putStrLn "queue and stuff"
 >       fk $ do
 >         ai <- selectValue conn "select count(1)\n\
 >                                \  from valid_activate_actions\n\
@@ -809,7 +801,9 @@ text views and a cairo surface for drawing on the board
 
 > loadSprites :: Connection -> IO SpriteMap
 > loadSprites conn = lg "loadSprites" "" $ do
->   maybeSpriteFiles <- findAllFiles "sprites"
+>   sFolder <- getDataFileName "sprites"
+>   putStrLn $ "reading files from " ++ sFolder
+>   maybeSpriteFiles <- findAllFiles sFolder
 >   spriteNames <- selectSingleColumn conn "select sprite from sprites" []
 >   let spriteFilenames = for spriteNames
 >         (\sp ->

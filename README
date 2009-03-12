@@ -86,7 +86,7 @@ all of these. Remember the password you used for postgresql.
 
 Get the cabal.exe linked from here:
 
-http://hackage.haskell.org/trac/hackage/wiki/CabalInstall
+http://www.haskell.org/cabal/download.html
 
 You can stick it in the ghc bin folder, which is probably
 C:\ghc\ghc-6.10.1\bin

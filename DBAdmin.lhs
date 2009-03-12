@@ -17,6 +17,7 @@ setup - used to setup the database for an end user install
 
 > import Conf
 > import Utils
+> import Paths_chaos
 
 the way the database reset works is to load the scripts into a
 database called chaos1, then if this succeeds, delete database chaos
@@ -57,6 +58,7 @@ and you have that one available to test whilst you fix the errors.
 >                     exitWith $ ExitFailure 1
 >                 | otherwise -> q
 >     q
+>   clearDatabase conf $ dbName conf
 >   installDbTo conf $ dbName conf
 
 > installDbTo :: Conf -> String -> IO()
@@ -70,10 +72,12 @@ and you have that one available to test whilst you fix the errors.
 >             ("init plpgsql " ++ idbName) >> return ()
 >   --TODO: hack for line endings, if windows then convert sql
 >   --to windows line endings
->   mapM_ (runSqlScript conf idbName) ["system.sql",
->                                            "server.sql",
->                                            "client.sql"]
-
+>   sqlFiles <- mapM getDataFileName
+>                    ["system.sql"
+>                    ,"server.sql"
+>                    ,"client.sql"]
+>   mapM_ (runSqlScript conf idbName) sqlFiles
+>   tidyDB conf idbName
 
 > runSqlScript :: Conf -> String -> String -> IO ()
 > runSqlScript conf tdbName script = do
@@ -135,16 +139,65 @@ run switch to get the new database instead of recompiling it all.
 > switchOverTempDb :: Conf -> IO ()
 > switchOverTempDb conf = do
 >   dropDbIfExists conf $ dbName conf
->   systemWithCheck ("psql -c " ++
->                    "\"alter database " ++ tempDbName conf ++
->                    " rename to " ++ dbName conf ++ ";\"" ++
->                    upargs conf "template1")
->                    ("copying new database over old database " ++
->                     tempDbName conf ++ "=>" ++ dbName conf)
+>   runScript conf "template1"
+>             ("alter database " ++ tempDbName conf ++
+>              " rename to " ++ dbName conf ++ ";")
+>             ("copying new database over old database " ++
+>              tempDbName conf ++ "=>" ++ dbName conf)
 >   return ()
 
 > upargs :: Conf -> String -> String
 > upargs conf cdbName = " \"user=" ++ username conf ++
 >                       " password=" ++ password conf ++
 >                       " dbname=" ++ cdbName ++ "\" "
+
+> runScript :: Conf -> String -> String -> String -> IO String
+> runScript conf cdbName script message = do
+>   systemWithCheck
+>             ("psql -c \"" ++ script ++ "\"" ++
+>              upargs conf cdbName) message
+
+> tidyDB :: Conf -> String  -> IO()
+> tidyDB _ _ = do
+
+ >   systemWithCheck
+ >            ("psql -c \"\n\
+ >             \vacuum full;\n\
+ >             \analyze;\n\
+ >             \reindex database " ++ cdbName ++ "\"" ++
+ >             upargs conf cdbName) ("doing some maintenance on " ++ cdbName)
+
+>   return ()
+
+> clearDatabase :: Conf -> String -> IO ()
+> clearDatabase conf kdbName = do
+>    runScript conf kdbName
+>              ("drop owned by " ++ username conf ++ " cascade;")
+>              ("clearing database " ++ kdbName)
+>    return ()
+
+notes for old approach to clearing database, these generate a list of drop commands:
+
+select 'drop function if exists ' || proname || '(' || oidvectortypes(proargtypes) || ') cascade;'
+from pg_proc
+where pronamespace = (select oid from pg_namespace
+                           where nspname = 'public')
+  order by proname;
+
+select 'drop trigger if exists ' || tgname || ' on ' || relname  || ' cascade;'
+from pg_trigger
+    inner join pg_class on (tgrelid = pg_class.oid)
+    inner join pg_proc on (tgfoid = pg_proc.oid)
+    inner join base_relvars on (relname = base_relvars.relvar_name)
+    where not tgisconstraint;
+
+select 'drop view if exists ' || viewname || ' cascade;'
+    from pg_views
+    where schemaname = 'public';
+
+select 'drop domain if exists ' || typname || ' cascade;'
+    from pg_type
+     where typtype = 'd'
+    and typnamespace =
+     (select oid from pg_namespace where nspname='public');
 

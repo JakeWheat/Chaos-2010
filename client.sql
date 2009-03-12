@@ -1740,6 +1740,3 @@ select set_module_for_preceding_objects('client_new_game');
 
 select protect_readonly_relvars();
 select set_all_attributes_to_not_null();
-
-vacuum full;
-analyze;
