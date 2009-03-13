@@ -33,9 +33,9 @@ for this.
 >     putStrLn "Please enter the postgresql password to use"
 >     pw <- getLine
 >     writeFile f $ "tempDbName=chaos1\n\
->                 \dbName=chaos\n\
->                 \username=" ++ un ++ "\n\
->                 \password=" ++ pw ++ "\n"
+>                   \dbName=chaos\n\
+>                   \username=" ++ un ++ "\n\
+>                   \password=" ++ pw ++ "\n"
 >     putStrLn "Config file written. If you need to change anything \
 >               \you can edit this file in a text editor or if you \
 >               \delete it and run this program again it can recreate."
@@ -66,8 +66,8 @@ If the database isn't present, offer to create it.
 If the database appears empty, offer to set it up automatically.
 
 >   c <- getCount conf
->                 ("select count(1) from pg_class where relnamespace =\n\
->                   \(select oid from pg_namespace where nspname = 'public')\n\
+>                 ("select count(1) from pg_class where relnamespace = \
+>                   \(select oid from pg_namespace where nspname = 'public') \
 >                   \and relkind = 'r' and relname='system_implementation_objects';")
 >                 (dbName conf) ("check db contents " ++ dbName conf)
 >   when (c == 0) $ installDbTo conf $ dbName conf
