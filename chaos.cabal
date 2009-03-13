@@ -274,15 +274,15 @@ Executable chaos
                      hslogger,
                      fez-conf,
 
-                     regex-posix,
                      regexpr,
 
                      QuickCheck,
                      HUnit,
 
                      gtk,
-                     cairo,
-                     SDL-mixer
+                     cairo
+  if !os(windows)
+    Build-Depends:   SDL-mixer
   Other-Modules:     Paths_chaos
 
 Executable tests
