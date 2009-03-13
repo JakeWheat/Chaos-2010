@@ -1,55 +1,139 @@
 = Notes for developers
 
+To get a copy of the development version, install bzr and use
+bzr branch lp:chaos2010
+
+You can browse the files online here (no syntax highlighting yet, sorry):
+http://bazaar.launchpad.net/~jakewheat/chaos2010/trunk/files
+
+changelog available here:
+https://code.launchpad.net/~jakewheat/chaos2010/trunk
+
+== Overview of architecture
+
+Uses postgresql, haskell and gtk to run.
+
+All data is stored in database tables except the png files for the
+sprites, and the ogg files for the sound effects.
+
+=== layers
+
+The system has a loose layering (which in retrospect is probably a bad design):
+
+application independent extensions to postgresql - system.sql
+
+table definitions and all the code to actually run a game without a ui - server.sql
+
+ui specific database tables and functions - client.sql
+
+ui code - chaos.lhs, and other haskell files (most of the widgets have
+a section in chaos.lhs and a section in client.sql)
+
+For the most part, as much ui logic is pushed out of the haskell and
+into client.sql
+
+=== details
+
+When playing the game, almost all updates to the database use db
+stored procs (the exceptions are a few bits of code that update the ui
+specific tables, like the new game widget).
+
+The ui uses sql select statements to read the data from the database.
+
+The ui attempts to be as declarative as possible.
+
+Gtk & Cairo are used to draw the playing board, the rest of the
+widgets use gtk text views.
+
+SDL_mixer is used to play the sound effects.
+
+The ui uses threads a lot to improve ui responsiveness, all database
+updates fork a separate thread to run in, and all ui updates from the
+database fork a thread to read the database and process it, and then
+add a gtk idle handler to update the widgets themselves. This is all
+done to minimise the amount of code executed within the gtk event
+handler thread.
+
+The automated tests are mostly written in haskell and are mostly
+functional tests.
+
 == Files
 
-chaos.config        dbms connection details
+=== sql
 
-chaos.lhs           implements the gtk ui using haskell, and front end to
-                    some utility functions
+system.sql          mainly an lightweight extended constraint system for
+                    postgresql
 
-ChaosDB.lhs         some simple wrappers around HDBC for database access
+server.sql          database implementation of the game, main relvars and
+                    functions
 
 client.sql          database stuff for ui and chaos.lhs
 
-Conf.lhs            reads chaos.config
+=== exes
 
-DBAadmin.lhs         functions to reset the database from the sql scripts for
-                    development and installation
+chaos.lhs           implements the gtk ui using haskell, and front end to
 
-development_guide   this file, an overview of the source
+ProcessProfile.lhs  parse the logs produced by the logging system and
+                    creates a visualisation (needs a lot of work)
+                    some utility functions
+
+tests.lhs           automated tests using hunit
+
+TreeThing.lhs       for developers, displays an outline of files and
+                    sections, as well as the database relvars,
+                    functions, etc.
+
+=== other haskell files
+
+BoardWidget.lhs     code to draw the board graphics and effects
+
+ChaosDB.lhs         some simple wrappers around HDBC for database access
+
+ChaosTypes.lhs      contains type definitions which are used by chaos.lhs
+                    and boardwidget.lhs
+
+Conf.lhs            reads ~/.chaos.config
+
+DBAadmin.lhs        functions to load/reset the database from the sql scripts
+                    for development and installation
 
 FileAdmin.lhs       some file utils
 
 GtkUtils.lhs        some gtk utils which are shared between programs
+
+Logging.lhs         simple wrapper around hslogger, logging is currently used
+                    for some basic profiling
+
+MyTextView.lhs      some code to describe the contents of a
+                    textview/textbuffer purely (including tags,
+                    embedded widgets), code to render this to an
+                    actual textview, and a few utility functions for
+                    working with textviews
+
+Paths_chaos.lhs     file to work with cabal data files system
+
+Setup.lhs           for cabal builds
+
+SoundLib.lhs        code to load and play sounds
+
+ThreadingUtils.lhs  some util functions for the ui threading code
+
+Utils.lhs           code utility functions
+
+=== other files
+
+chaos.cabal         cabal build file for the project
+
+development_guide   this file, an overview of the source
 
 LICENSE             license that this code is distributed under
 
 README              overview, prerequisites, installation instructions,
                     playing instructions
 
-server.sql          database implementation of the game, main relvars and
-                    functions
+todo                list of areas to work on and milestones
 
-system.sql          mainly an lightweight extended constraint system for
-                    postgresql
-
-tests.lhs           automated tests using hunit
-
-todo                list of areas to work on
-
-TreeThing.lhs       for developers, displays an outline of files and
-                    sections, as well as the database relvars,
-                    functions, etc.
-
-Utils.lhs           code utility functions
-
-The substantial files (chaos.lhs, client.sql, server.sql, system.sql
-and tests.lhs) each start with a quick list of the main sections in
-that file.
-
-== Design/implementation notes
-
-Uses postgresql, haskell and gtk to run.
+== more details
 
 The code and comments uses/abuses a mixture of sql and proper
 relational terminology, and also often refers to postgresql (pg)
@@ -95,7 +179,8 @@ which isn't supported in HDBC, so it doesn't yet work this way.
 
 The game state and ui state persist independently of whether the game
 is running or not, and changes are always saved instantly so crashes
-almost never lose anything.
+almost never lose anything, when there is an error in the database
+code, only the last transaction is lost.
 
 == Getting started with the source code
 

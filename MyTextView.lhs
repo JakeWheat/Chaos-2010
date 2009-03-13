@@ -110,7 +110,7 @@ there is a bug in gtk2hs or gtk or what
 >   m <- textBufferCreateMark tb (Just "endMark") ei False
 >   i <- textBufferGetIterAtMark tb m
 >   o <- textIterGetLineOffset i
->   putStrLn $ "init mark offset is " ++ show o
+>   --putStrLn $ "init mark offset is " ++ show o
 >   return ()
 
 

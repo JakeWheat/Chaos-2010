@@ -3,7 +3,7 @@ Copyright 2009 Jake Wheat
 
 Short code to read the config file and expose values as a record.
 
-> module Conf (getConfig, Conf (..)) where
+> module Conf (getConfig, getConfigFilePath, Conf (..)) where
 
 > import Fez.Data.Conf
 > import Data.Map as M
@@ -23,10 +23,17 @@ Short code to read the config file and expose values as a record.
 > expectedKeys :: [[Char]]
 > expectedKeys = sort ["tempDbName", "dbName", "username", "password"]
 
+> getConfigFilePath :: IO String
+> getConfigFilePath = do
+>   f <- getHomeDirectory
+>   return $ joinPath [f, ".chaos.config"]
+
+
 > getConfig :: IO (Conf)
 > getConfig = do
->   cfgFolder <- getHomeDirectory
->   f <- readFile $ joinPath [cfgFolder,".chaos.config"]
+>   fn <- getConfigFilePath
+>   putStrLn $ "loading config file: " ++ fn
+>   f <- readFile fn
 >   let m = parseToMap f
 
 >   if M.keys m /= expectedKeys

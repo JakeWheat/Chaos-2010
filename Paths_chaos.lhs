@@ -5,6 +5,6 @@
 #if !defined(CABAL)
 
 > getDataFileName :: FilePath -> IO FilePath
-> getDataFileName f = putStrLn "mine" >> return f
+> getDataFileName = return
 
 #endif

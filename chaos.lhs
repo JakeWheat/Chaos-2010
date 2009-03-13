@@ -110,6 +110,7 @@ move
 > import ChaosTypes
 > import ThreadingUtils
 > import Paths_chaos
+> import SetupUtils
 
 ================================================================================
 
@@ -122,7 +123,7 @@ all that main needs to do is call this and call the two gtk init actions
 > main :: IO ()
 > main = do
 >  Logging.setupLogging
->  conf <- Conf.getConfig
+>  conf <- SetupUtils.checkSetup
 >  args <- getArgs
 >  case True of
 >    _ | (length args == 1 && head args == "reset") ->
@@ -142,10 +143,6 @@ all that main needs to do is call this and call the two gtk init actions
 >                     \switch\tswitch temp db\n\
 >                     \checkSprites\tcheck sprite pngs\n"
 >      | otherwise -> do
-
-todo: if cannot connect to database give info to this effect
- if database doesn't appear to be a chaos db or is empty, message
-
 >          lg "initGui" "" unsafeInitGUIForThreadedRTS
 >          timeoutAddFull (yield >> return True)
 >                         priorityDefaultIdle 50
@@ -802,7 +799,6 @@ text views and a cairo surface for drawing on the board
 > loadSprites :: Connection -> IO SpriteMap
 > loadSprites conn = lg "loadSprites" "" $ do
 >   sFolder <- getDataFileName "sprites"
->   putStrLn $ "reading files from " ++ sFolder
 >   maybeSpriteFiles <- findAllFiles sFolder
 >   spriteNames <- selectSingleColumn conn "select sprite from sprites" []
 >   let spriteFilenames = for spriteNames

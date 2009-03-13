@@ -2,19 +2,8 @@
 
 A clone of Chaos, a turn based spectrum game from 1985.
 
+See wikipedia for information about the original game:
 http://en.wikipedia.org/wiki/Chaos_(video_game)
-
-This is an pre-alpha version. You can play it but there are some minor
-things missing, the main one being computer controlled
-opponents. There is no installer, getting it running is a challenge.
-
-You can try the original in an emulator:
-http://www.worldofspectrum.org/infoseekid.cgi?id=0000894
-http://www.worldofspectrum.org/emulators.html
-
-Or to play a slick remake that runs in windows:
-http://chaosgroove.wordpress.com/
-which is much better than this version.
 
 ===============================================================================
 
@@ -39,54 +28,77 @@ from a distance.
 
 ================================================================================
 
-= Prerequisites:
+= Important notes
 
-Postgresql 8.3+
-gtk
-ghc6.10 with the following packages:
-  gtk2hs 0.10, hdbc, hdbc-postgresql, hunit, fez-conf, quickcheck, regexpr
-  (these are all on cabal except gtk2hs)
+This is an alpha version. You can play it but there are some minor
+things missing (e.g. there is no line of sight calculation, and the
+computer controlled opponents are a bit crap). Also, the ui is very
+unpolished.
 
-If you are interested in the code see the file 'development_guide' file for more
-information.
+There is no installer, getting it running is a real challenge. (A
+prebuilt windows exe to make windows installation much easier is a
+priority).
+
+You can try the original in an emulator:
+http://www.worldofspectrum.org/infoseekid.cgi?id=0000894
+http://www.worldofspectrum.org/emulators.html
+
+Or to play a slick remake that runs in windows:
+http://chaosgroove.wordpress.com/
+which is better than this version.
+
+The project web site is
+https://launchpad.net/chaos2010
+
+You can download source/binaries from:
+https://launchpad.net/chaos2010/+download
+
+The file 'development_guide' gives a quick intro to the code if you
+are interested in that sort of thing.
 
 ================================================================================
 
 = Installation instructions:
 
+== from source
+
+The prerequisites are:
+Postgresql 8.3+
+gtk
+ghc6.10, cabal, gtk2hs 0.10, and some libraries which cabal can install
+  (sdl is cabal installable but the dev version is complicated to get
+  working on windows)
+
 Short version:
+install and setup postgresql, you can use the script on windows,
+or if you install it another way you need to add a user and database
+install ghc, gtk2hs, cabal-install
 get the source
-install ghc, postgresql, gtk2hs, cabal then the extra haskell libs
-download the source for this game
-add a user to postgresql, set this in chaos.conf
-run 'runghc chaos.lhs setup'
+install the project using cabal: unzip the files, and run 'cabal
+install' from that folder
+then you can run the chaos exe, as with the binary installation
 
-Then to play,
-runghc chaos.lhs
+You can get the prerequisites for windows from the following web sites:
 
-
-
-== Windows
-
-Rough guide, will be fleshed out more.
-
-Warning: currently, install on windows takes ~100MB downloads and
-another ~750MB of disk space when installed!
-
-Get the latest windows installers for these:
-
+ghc
 http://www.haskell.org/ghc/download.html
 
+postgresql
 http://www.enterprisedb.com/products/pgdownload.do#windows
 
-http://haskell.org/gtk2hs/archives/2009/02/11/gtk2hs-version-0100-released/
+gtk2hs
+http://www.haskell.org/gtk2hs/download/
+
+cabal-install exe
+http://www.haskell.org/cabal/download.html
+
+[Warning: currently, install on windows takes ~100MB downloads and
+another ~750MB of disk space when installed!]
 
 Install them, you can accept the defaults during the installation on
-all of these. Remember the password you used for postgresql.
+all of these.
 
 Get the cabal.exe linked from here:
-
-http://www.haskell.org/cabal/download.html
 
 You can stick it in the ghc bin folder, which is probably
 C:\ghc\ghc-6.10.1\bin
@@ -96,36 +108,11 @@ which cabal/HDBC-postgresql needs. Do this in
 controlpanel/system/environment, the folder you want to add to the
 path is probably C:\Program Files\PostgreSQL\8.3\bin
 
-Now run
-cabal install HDBC HDBC-postgresql HUnit fez-conf regexpr QuickCheck
-
-Congratulations, you've installed the prerequisites.
-
-You'll need to add a user with password to postgresql (todo: provide
-links to help on this), create a database called chaos, and give the
-added user access to this database.
-
-If you have a irresponsible approach to security, you can skip adding
-a postgresql user and database if you use the sa password you entered
-during the postgresql install, the username for this will be
-'postgres'. (DO NOT do this if you have any other postgresql databases
-installed, or if your computer is ever connected to the internet or
-any network. See the LICENSE file for a disclaimer.)
-
-Download the source for this project from
-https://launchpad.net/chaos2010/+download
-
-Unzip the source files.
-
-Edit the file chaos.config to put the username and password in.
-
-to setup the database, run
-runghc chaos.lhs setup
-
-This only needs to be done once.
-
-Then to play,
-runghc chaos.lhs
+For linux, I recommend using the package manager included with your
+system to install all of the prerequisites (this might be apt-get or
+rpm).  Not sure what do to on Mac os x, but if you can get the
+prerequisites installed, there's not reason why the game shouldn't run
+fine.
 
 ================================================================================
 

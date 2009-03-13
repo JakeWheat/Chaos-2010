@@ -9,11 +9,14 @@ switch - switch the temp database over
 setup - used to setup the database for an end user install
 
 
-> module DBAdmin (reset, switchOverTempDb, setup) where
+> module DBAdmin (reset, switchOverTempDb, setup,
+>                 checkLoginAndDb, createDb, CheckDbEnum(..),
+>                 getCount, installDbTo) where
 
 > import Control.Monad
 > import System.Cmd
 > import System.Exit
+> import Data.List
 
 > import Conf
 > import Utils
@@ -44,22 +47,25 @@ and you have that one available to test whilst you fix the errors.
 > -- drop database if exists, then recreate from source
 > setup conf = do
 >   putStrLn "Loading database"
->   d <- dbExists conf $ dbName conf
->   unless d $ do
->     let q = do
->             putStrLn $ "Database " ++
->                        dbName conf ++ " doesn't exist \
->                                  \shall I create it (y/n)?"
->             inpStr <- getLine
->             case True of
->               _ | inpStr `elem` ["y","Y"] ->
->                     createDb conf $ dbName conf
->                 | inpStr `elem` ["n","N"] ->
->                     exitWith $ ExitFailure 1
->                 | otherwise -> q
->     q
 >   clearDatabase conf $ dbName conf
 >   installDbTo conf $ dbName conf
+
+> data CheckDbEnum = LoginBad | NoDatabase | OtherError | OK
+
+> checkLoginAndDb :: Conf -> String -> IO CheckDbEnum
+> checkLoginAndDb conf cdbName = do
+>   (ex,t) <- runStringScriptNoThrow conf cdbName "select true;"
+>                        ("check login and database " ++ cdbName)
+>   if ex == 0
+>     then return OK
+>     else
+>       if isInfixOf ("database \"" ++ cdbName ++ "\" does not exist") t
+>         then return NoDatabase
+>         else
+>           if isInfixOf "Ident authentication failed for user" t
+>             then return LoginBad
+>             else return OtherError
+
 
 > installDbTo :: Conf -> String -> IO()
 > installDbTo conf idbName = do
@@ -91,13 +97,19 @@ and you have that one available to test whilst you fix the errors.
 
 > systemWithCheck :: String -> String -> IO String
 > systemWithCheck command message = do
+>   (ex,t) <- systemRun command message
+>   case ex of
+>     0 -> return $ t
+>     _ -> error $ message ++ " failed with return code " ++ show ex
+
+> systemRun :: String -> String -> IO (Int,String)
+> systemRun command message = do
 >   putStrLn message
 >   (std,err,ex) <- run command
 >   putStrLn std
 >   putStrLn err
->   case ex of
->     0 -> return $ std ++ err
->     _ -> error $ message ++ " failed with return code " ++ show ex
+>   return (ex, std ++ err)
+
 
 > dbExists :: Conf -> String -> IO Bool
 > dbExists conf edbName = do
@@ -139,7 +151,7 @@ run switch to get the new database instead of recompiling it all.
 > switchOverTempDb :: Conf -> IO ()
 > switchOverTempDb conf = do
 >   dropDbIfExists conf $ dbName conf
->   runScript conf "template1"
+>   runStringScript conf "template1"
 >             ("alter database " ++ tempDbName conf ++
 >              " rename to " ++ dbName conf ++ ";")
 >             ("copying new database over old database " ++
@@ -151,11 +163,18 @@ run switch to get the new database instead of recompiling it all.
 >                       " password=" ++ password conf ++
 >                       " dbname=" ++ cdbName ++ "\" "
 
-> runScript :: Conf -> String -> String -> String -> IO String
-> runScript conf cdbName script message = do
+> runStringScript :: Conf -> String -> String -> String -> IO String
+> runStringScript conf cdbName script message = do
 >   systemWithCheck
 >             ("psql -c \"" ++ script ++ "\"" ++
 >              upargs conf cdbName) message
+
+> runStringScriptNoThrow :: Conf -> String -> String -> String -> IO (Int,String)
+> runStringScriptNoThrow conf cdbName script message = do
+>   systemRun
+>             ("psql -c \"" ++ script ++ "\"" ++
+>              upargs conf cdbName) message
+
 
 > tidyDB :: Conf -> String  -> IO()
 > tidyDB _ _ = do
@@ -171,7 +190,7 @@ run switch to get the new database instead of recompiling it all.
 
 > clearDatabase :: Conf -> String -> IO ()
 > clearDatabase conf kdbName = do
->    runScript conf kdbName
+>    runStringScript conf kdbName
 >              ("drop owned by " ++ username conf ++ " cascade;")
 >              ("clearing database " ++ kdbName)
 >    return ()
@@ -187,7 +206,7 @@ where pronamespace = (select oid from pg_namespace
 select 'drop trigger if exists ' || tgname || ' on ' || relname  || ' cascade;'
 from pg_trigger
     inner join pg_class on (tgrelid = pg_class.oid)
-    inner join pg_proc on (tgfoid = pg_proc.oid)
+   inner join pg_proc on (tgfoid = pg_proc.oid)
     inner join base_relvars on (relname = base_relvars.relvar_name)
     where not tgisconstraint;
 
