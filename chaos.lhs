@@ -704,7 +704,7 @@ create the windows and widgets
 
 >   let refreshAll = mapM_ (\(_,(_,r)) -> r) widgetData
 
- >   let (_,refreshBoard) = safeLookup "get board refresh" "board" widgetData
+>   let (_,refreshBoard) = safeLookup "get board refresh" "board" widgetData
 
 == Key press handling
 
@@ -719,6 +719,12 @@ sends the keycodes to the database code.
 >                --putStrLn ("Key pressed: " ++ key)
 >                dbAction conn "key_pressed" [key]
 >                when (key == "F12") refreshAll
+
+>                when (key `elem` ["Up","KP_Up","Left","KP_Left","Right",
+>                                  "KP_Right","Down","KP_Down","KP_Home",
+>                                  "KP_Page_Up","KP_Page_Down","KP_End"])
+>                     refreshBoard
+
 >                --putStrLn "manual refresh" >> refresh
 >                --Until the notify stuff is working just do a full
 >                --refresh after every action as a kludge

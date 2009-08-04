@@ -21,13 +21,15 @@ then runs ai_continue. We only ever want one of these waiting to run.
 > forkOneAtATimeNew :: IO Forker
 > forkOneAtATimeNew = do
 >   mv <- newEmptyMVar
->   let complete = do
->         tryTakeMVar mv
->         return ()
 >   let forkIt act = do
 >         forkIO $ do
->           s <- tryPutMVar mv ()
->           when s act
+>             s <- tryPutMVar mv ()
+>             when s act
+>         return ()
+>   let complete = do
+>         forkIO $ do
+>           tryTakeMVar mv
+>           return ()
 >         return ()
 >   return (forkIt, complete)
 
@@ -47,38 +49,85 @@ possible?).
 
 > forkAndQueueOneNew :: IO Forker
 > forkAndQueueOneNew = do
+>   mut <- makeMutexer
 >   running <- newEmptyMVar
 >   queued <- newEmptyMVar
 >   queuedAction <- newIORef (return())
->   let complete = do
->         --if queued, then start the queued action
+>   let forkIt act = do
+>         forkIO $ do
+>           s <- tryPutMVar running ()
+>           mut $ do
+>                 if s
+>                   then do
+>                        forkIO $ act
+>                        return ()
+>                   else do
+>                        s' <- tryPutMVar queued ()
+>                        when s' $ writeIORef queuedAction act
+>         return ()
+>   let complete = (forkIO $ mut $ do
 >         q <- tryTakeMVar queued
 >         if isJust q
 >           then do
 >             tryTakeMVar queued
 >             a <- readIORef queuedAction
 >             writeIORef queuedAction (return())
->             a
+>             forkIO $ a
+>             return ()
 >           else tryTakeMVar running >> return ()
->         return ()
->   let forkIt act = do
->         forkIO $ do
->           s <- tryPutMVar running ()
->           if s
->             then act
->             else do
->               s' <- tryPutMVar queued ()
->               when s' $ do
->                 writeIORef queuedAction act
->         return ()
+>         return ()) >> return()
 >   return (forkIt, complete)
 
-> makeMutexer :: IO (IO() -> IO())
+> makeMutexer :: IO (IO a -> IO a)
 > makeMutexer = do
 >   running <- newEmptyMVar
->   let runit f =bracket (putMVar running () >> return())
+>   let runit f = bracket (putMVar running () >> return())
 >                         (\_ -> takeMVar running)
 >                         (\_ -> f)
 >   return runit
 
 
+-- > delayResetOnNew :: IO Forker
+-- > delayResetOnNew = do
+-- >   mut <- makeMutexer
+-- >   delaying <- newEmptyMVar
+-- >   running <- newEmptyMVar
+-- >   queued <- newEmptyMVar
+-- >   queuedAction <- newIORef (return())
+-- >   delayingThread <- newIORef Nothing
+-- >   let forkIt act = mut $ do
+
+-- if there is a currently delaying thread, kill it and start the delay again
+
+-- >                       s <- tryTakeMVar delaying
+-- >                       when s $ do
+-- >                         
+
+-- if there is a currently running thread, queue this one
+
+-- otherwise start the delay thread
+
+-- >         forkIO $ do
+-- >           s <- tryPutMVar running ()
+-- >           if s
+-- >             then act
+-- >             else do
+-- >               s' <- tryPutMVar queued ()
+-- >               when s' $ do
+-- >                 writeIORef queuedAction act
+-- >         return ()
+-- >   let complete = do
+
+-- if there is a queued thread, start it delaying, else just clean up
+
+-- >         --if queued, then start the queued action
+-- >         q <- tryTakeMVar queued
+-- >         if isJust q
+-- >           then do
+-- >             tryTakeMVar queued
+-- >             a <- readIORef queuedAction
+-- >             writeIORef queuedAction (return())
+-- >             a
+-- >           else tryTakeMVar running >> return ()
+-- >         return ()
+-- >   return (forkIt, complete)

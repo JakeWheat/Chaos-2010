@@ -56,7 +56,7 @@ and updates directly
 >
 
 > import qualified Database.HDBC.PostgreSQL as Pg
-> import Database.HDBC
+> import Database.HDBC hiding (fetchAllRows')
 > import qualified Database.HDBC as H
 > import Data.List
 > import qualified Data.Map as M
@@ -345,7 +345,7 @@ have to go through i.e. writing the arg list as ?,?,?,...
 >     mrun $ callSpC conn spName args
 
 > callSpC :: Pg.Connection -> String -> [String] -> IO ()
-> callSpC conn spName args = lg "callSp" spName $ do
+> callSpC conn spName args = do
 >     let qs = intersperse ',' $ replicate (length args) '?'
 >     let sqlString = "select " ++ spName ++ "(" ++ qs ++ ")"
 >     quickQuery' conn sqlString $ map toSql args
@@ -372,3 +372,9 @@ call actions functions
 >   mrun $ do
 >     callSpC conn ("action_" ++ actionName) args
 >     commit conn
+
+
+
+> fetchAllRows' :: Statement -> IO [[SqlValue]]
+> fetchAllRows' s = lg "fetchAllRows'" (originalQuery s) $ handleSqlError $
+>                      H.fetchAllRows' s
