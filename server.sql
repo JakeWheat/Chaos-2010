@@ -19,6 +19,9 @@ ai - ai for computer controlled wizards
 = metadata
 == base relvar tags
 
+This stuff is mainly used to produce some half-baked documentation/
+diagrams of the database.
+
 */
 select new_module('chaos', 'root');
 select new_module('server', 'chaos');
@@ -71,6 +74,14 @@ begin
   return success;
 end;
 $$ language plpgsql volatile;
+
+/*
+
+After we've loaded the sql, we can protect all the readonly relvars
+from being updated again using transition constraints (see below for
+how they are implemented). This might catch some programming error.
+
+ */
 
 create function protect_readonly_relvars() returns void as $$
 declare
@@ -514,14 +525,10 @@ create table wizards (
 select add_key('wizards', 'wizard_name');
 select set_relvar_type('wizards', 'data');
 
-create view live_wizards_aux as
-  select * from wizards where not expired;
-
 create view live_wizards as
-select *, (select count(1)
-           from live_wizards_aux lwc
-           where lwc.original_place < lw.original_place) as place
-           from live_wizards_aux lw;
+  select *,
+         row_number() over(order by original_place) - 1 as place
+  from wizards where not expired;
 
 /*
 == spell books
@@ -641,35 +648,35 @@ create type piece_key as (
     tag int
 );
 
-create function piece_key_equals(piece_key, piece_key) returns boolean as $$
-  select $1.ptype = $2.ptype and
-         $1.allegiance = $2.allegiance and
-         $1.tag = $2.tag;
-$$ language sql stable;
+--create function piece_key_equals(piece_key, piece_key) returns boolean as $$
+--  select $1.ptype = $2.ptype and
+--         $1.allegiance = $2.allegiance and
+--         $1.tag = $2.tag;
+--$$ language sql stable;
 
-create operator = (
-    leftarg = piece_key,
-    rightarg = piece_key,
-    procedure = piece_key_equals,
-    commutator = =
-);
+-- create operator = (
+--     leftarg = piece_key,
+--     rightarg = piece_key,
+--     procedure = piece_key_equals,
+--     commutator = =
+-- );
 
 create type pos as (
   x int,
   y int
 );
 
-create function pos_equals(pos, pos) returns boolean as $$
-  select $1.x = $2.x and
-         $1.y = $2.y;
-$$ language sql stable;
+-- create function pos_equals(pos, pos) returns boolean as $$
+--   select $1.x = $2.x and
+--          $1.y = $2.y;
+-- $$ language sql stable;
 
-create operator = (
-    leftarg = pos,
-    rightarg = pos,
-    procedure = pos_equals,
-    commutator = =
-);
+-- create operator = (
+--     leftarg = pos,
+--     rightarg = pos,
+--     procedure = pos_equals,
+--     commutator = =
+-- );
 
 
 /*
@@ -1582,10 +1589,11 @@ create view board_ranges as
                 cross join generate_series(1, 20) as range
                 cross join generate_series(0, 14) as tx
                 cross join generate_series(0, 9) as ty
-  where distance(x,y,tx,ty) - 0.5 <= range --round to closest int
-  --slightly hacky, we never need the centre square to be included so
-  --exclude it here even though it's not quite mathematically correct
-  and (x,y) != (tx,ty);
+  where
+    --slightly hacky, we never need the centre square to be included so
+    --exclude it here even though it's not quite mathematically correct
+    (x,y) != (tx,ty) and
+    distance(x,y,tx,ty) - 0.5 <= range; --round to closest int
 
 select set_module_for_preceding_objects('squares_valid');
 

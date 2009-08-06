@@ -39,6 +39,8 @@ others force the whole app to quit.
 
 == control summary
 
+This is half notes and half what has been coded.
+
 escape to exit program
 
 ctrl-space to continue, uses space at the moment but this is a bit
@@ -815,12 +817,16 @@ text views and a cairo surface for drawing on the board
 >           in if null spritefiles
 >                then error $ "no sprite files for: " ++ sp
 >                else sort spritefiles)
->   spritePixbufs <- lg "loadfromfiles" "" $ mapM (\l -> mapM pixbufNewFromFile l) spriteFilenames
+>   spritePixbufs <- lg "loadfromfiles" "" $ mapM
+>                                              (\l -> mapM pixbufNewFromFile l)
+>                                              spriteFilenames
 >   let eachPb fn = mapM (\l -> mapM fn l) spritePixbufs
 >   --create the mini pixbufs
->   miniSpritePixbufs <- lg "createMinisprites" "" $ eachPb (\p -> pixbufScaleSimple p 16 16 InterpHyper)
+>   miniSpritePixbufs <- lg "createMinisprites" "" $
+>                          eachPb (\p -> pixbufScaleSimple p 16 16 InterpHyper)
 >   --create the normal sized pixbufs
->   mediumSpritePixbufs <- lg "createNormalsprites" "" $ eachPb (\p -> pixbufScaleSimple p 32 32 InterpHyper)
+>   mediumSpritePixbufs <- lg "createNormalsprites" "" $
+>                           eachPb (\p -> pixbufScaleSimple p 32 32 InterpHyper)
 >   --create the cairo surfaces
 >   spriteSurfaces <- lg "createSurfaces" "" $ forM spriteFilenames
 >     (\l -> mapM imageSurfaceCreateFromPNG l)

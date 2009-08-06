@@ -1,6 +1,6 @@
 = Introduction
 
-A clone of Chaos, a turn based spectrum game from 1985.
+An updated version of Chaos, a turn based spectrum game from 1985.
 
 See wikipedia for information about the original game:
 http://en.wikipedia.org/wiki/Chaos_(video_game)
@@ -10,7 +10,7 @@ http://en.wikipedia.org/wiki/Chaos_(video_game)
 = Game overview
 
 Two to eight wizards battle each other. None, some or all can be
-computer controlled.
+computer controlled, with the others controlled by human players.
 
 The battleground is a grid 15x10 squares, the play is turn based. Each
 wizard casts spells, and moves his army around to attack other wizards
@@ -30,7 +30,7 @@ from a distance.
 
 = Important notes
 
-This is an alpha version. You can play it but there are some minor
+This is a pre-alpha version. You can play it but there are some minor
 things missing (e.g. there is no line of sight calculation, and the
 computer controlled opponents are a bit crap). Also, the ui is very
 unpolished.
@@ -53,17 +53,21 @@ https://launchpad.net/chaos2010
 You can download source/binaries from:
 https://launchpad.net/chaos2010/+download
 
-The file 'development_guide' gives a quick intro to the code if you
-are interested in that sort of thing.
+The file 'development_guide' gives a quick intro to the source code if
+you are interested in that sort of thing.
 
 ================================================================================
 
 = Installation instructions:
 
+Currently, the skills you need are to be able to download and install
+software from the internet or using your os's package manager, and to
+be able to add a user and database to postgresql.
+
 == from source
 
 The prerequisites are:
-Postgresql 8.3+
+Postgresql 8.4
 gtk
 ghc6.10, cabal, gtk2hs 0.10, and some libraries which cabal can install
   (sdl is cabal installable but the dev version is complicated to get

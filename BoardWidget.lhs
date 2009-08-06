@@ -6,13 +6,15 @@ The board widget uses cairo to draw a board based around a grid
 (15x10) with sprites in the squares. Each sprite is animated (at
 different speeds), and basic effects are also provided to give cues
 whn actions occur. Sound effects accompany these visual
-effects. (These effects were going to be left till later but it's
-impossible to follow what is going on in a game without them).
+effects. (These effects were going to be left till later but I think
+it's too difficult to follow what is going on in a game without some
+sort of display like this).
 
-The way the board widget works is shaped by the following constraints:
+The way the board widget works is currently shaped by the following
+constraints:
 
 * we need to update the cairo canvas several times a second to animate
-  the sprites.
+  the sprites
 
 * reading a fresh copy of the board_sprites relvar is quite slow, so
   we want to avoid this unless it has changed
@@ -32,23 +34,26 @@ The way the board widget works is shaped by the following constraints:
   cursor move doesn't update the board for 0.2 seconds, this is a
   failure and will result in a crap user experience, but if the info
   widget doesn't update for 0.2 secs after the cursor has been moved,
-  this isn't really bad).
+  this isn't nearly as bad)
 
 * to keep the app responsive, we want to keep the database querying
   and update functions and draw the board to an offscreen surface
   outside of a gtk handler
 
-The database design is as follows:
+This is an in progress design and a bit of a bodge at the moment.
+
+The database relvars are as follows:
 
 board_sprites_cache
 board_effects
+
 check effects after actions, hold off updating cache
 
-sequence:
+sequence for updating board, trying to queue the effects and updates properly:
 run key_pressed or ai_continue
 fill effects tables after action has been run (from new history entries)
 loop: set current effects
-      draw effects and board_sprites (not update since before actions
+      draw effects and board_sprites (not updated since before actions
       from key pressed/ ai continue)
       loop while there are effects
 update the board_sprites cache
@@ -59,6 +64,11 @@ bottom, the client doesn't respond to player game actions except
 cursor move (still responds to window changes, closing app, fiddling
 with new game widget)
 
+The current main problems are: cursor movement can be very
+unresponsive and/or slow, best way to see this is to run a game with 8
+computer wizards and try to scroll the cursor around - it is vitally
+important for this to be extremely responsive but on my computer it
+really isn't.
 
 Animation:
 
@@ -81,7 +91,6 @@ should probably change to milliseconds or something. When the board
 widget is created, it saves the current time, and then everything is
 cued using the number of ticks since this saved time to the current
 time (this is used by the sprite animation and the effects).
-
 
 
 > module BoardWidget (boardWidgetNew) where
@@ -118,6 +127,8 @@ time (this is used by the sprite animation and the effects).
 >     ,bsStartTick :: Int
 >     ,bsASpeed :: Int
 >     ,bsSelected :: Bool}
+
+todo: add some docs for these:
 
 > type SoundEffect = (String,String)
 > type SquareEffect = (String,Int,Int)
@@ -465,9 +476,11 @@ work out which frame to show for each sprite, and cue the effects
 
 ---------------
 
-= new effects designs
+= new effects design notes
 
-spread, recede: grow piece from a point or shrink it
+some ideas on how the effects should look when properly polished:
+
+spread, recede: grow piece from a pixel or shrink it
 disappear: shower of sparks, fade out, fall apart animation
 receive spell: shower of sparks
 select: intensify highlight briefly, whilst selected keep highlighted in some way
@@ -477,7 +490,7 @@ attack: move piece half over target square, flash attacked creature in red
 killed: morph to corpse or fade out/ shower of sparks
 ranged attack: projectile is short line like in original, flash attacked creature in red
   fire: some sort of flame animation
-new turn: announce "turn 3"
+new turn: announce "turn 3" using text to speech, make it sound a bit like mortal kombat
 after win, move remaining creatures around randomly
 dark power: multicoloured beam with multicoloured sparks, fade out, shower of sparks
 lightning: draw a lighning bolt somehow, attacked flash red,etc.

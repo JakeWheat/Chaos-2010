@@ -18,11 +18,13 @@ sprites, and the ogg files for the sound effects.
 
 === layers
 
-The system has a loose layering (which in retrospect is probably a bad design):
+The system has a loose layering (which in retrospect is pointlessly
+overcomplicated):
 
 application independent extensions to postgresql - system.sql
 
-table definitions and all the code to actually run a game without a ui - server.sql
+table definitions and all the code to actually run a game without a ui
+  - server.sql
 
 ui specific database tables and functions - client.sql
 
@@ -136,8 +138,8 @@ todo                list of areas to work on and milestones
 == more details
 
 The code and comments uses/abuses a mixture of sql and proper
-relational terminology, and also often refers to postgresql (pg)
-functions as stored procedures.
+relational terminology, and also often incorrectly refers to
+postgresql (pg) functions as stored procedures.
 
 Most of the code to implement the game is written in pl/pgpsql. The ui
 and most of the tests are written in haskell.
@@ -160,11 +162,13 @@ All the base relvars in the database are tagged as one of
 All updates to the relvars use 'actions' which are the stored procs
 which update the database. (The reason for this is that most of the
 updates don't really map to straightforward relvar
-inserts/updates/deletes, and not for some idealogical reason.) No
-database reads use stored procedures. Each action which can be called
-directly by the ui code has an associated predicate which tests
-whether it is valid to run the action at that time (analogous to
-database constraints).
+inserts/updates/deletes, and not for some idealogical attachment to
+only updating the database by stored procedures in this case.) No
+database reads use stored procedures, only direct select statements
+(mostly the complicated select statements are abstracted as views in
+the database). Each action which can be called directly by the ui code
+has an associated predicate which tests whether it is valid to run the
+action at that time (analogous to database constraints).
 
 Data integrity is maintained using transactions exclusively for
 updates (you can't really see them in the code, every function
@@ -179,7 +183,7 @@ which isn't supported in HDBC, so it doesn't yet work this way.
 
 The game state and ui state persist independently of whether the game
 is running or not, and changes are always saved instantly so crashes
-almost never lose anything, when there is an error in the database
+almost never lose anything; when there is an error in the database
 code, only the last transaction is lost.
 
 == Getting started with the source code
@@ -192,8 +196,8 @@ then look at the board widget, spellbook widget, and info widget
 sections which should give you an idea of how the data from the
 database is presented to the user. If you haven't looked at the data
 structures and game code mentioned in the previous section you could
-do that next, then follow the key press handling to see how updates
-are triggered by the ui.
+do that next, then follow the key press handling code path to see how
+updates are triggered by the ui.
 
 tests: see the tests in tests.lhs which are mostly kind of acceptance/
 functional tests and may provide some useful examples of how the code
