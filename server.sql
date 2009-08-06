@@ -1050,18 +1050,18 @@ create type turn_pos as (
     current_wizard text
 );
 
-create function turn_pos_equals(turn_pos, turn_pos) returns boolean as $$
-  select $1.turn_number = $2.turn_number and
-         $1.turn_phase = $2.turn_phase and
-         $1.current_wizard = $2.current_wizard;
-$$ language sql stable;
+-- create function turn_pos_equals(turn_pos, turn_pos) returns boolean as $$
+--   select $1.turn_number = $2.turn_number and
+--          $1.turn_phase = $2.turn_phase and
+--          $1.current_wizard = $2.current_wizard;
+-- $$ language sql stable;
 
-create operator = (
-    leftarg = turn_pos,
-    rightarg = turn_pos,
-    procedure = turn_pos_equals,
-    commutator = =
-);
+-- create operator = (
+--     leftarg = turn_pos,
+--     rightarg = turn_pos,
+--     procedure = turn_pos_equals,
+--     commutator = =
+-- );
 
 create function get_current_turn_pos() returns turn_pos as $$
   select (turn_number, turn_phase, current_wizard)::turn_pos
@@ -3443,16 +3443,13 @@ create type random_entry as (
 );
 
 create function makeNRandoms(n int, maxi int) returns setof random_entry as $$
-declare
-  r random_entry;
 begin
-  for i in 1..n loop
-    r := (i - 1, (random() * maxi + 0.5)::int);
-    return next r;
-  end loop;
-  return;
+  return query
+    select generate_series(0, n - 1),
+      (random() * maxi + 0.5)::int as num;
 end;
 $$ language plpgsql volatile;
+
 
 insert into spell_indexes_no_dis_turm (spell_name)
   select spell_name from spells_mr

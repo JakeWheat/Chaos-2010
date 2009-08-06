@@ -1167,6 +1167,12 @@ select new_module('utils', 'system');
 == set all columns to not null
 
 saves us putting not null all over almost every table definition
+
+The _mr suffix was left over from an attempt to do some sort of poor
+man's multirelation system.  The _mr tables can contain nullable as
+well as non-nullable columns, so we leave them alone when setting non
+nulls and ignore them when checking for nullable attributes.
+
 */
 create function set_all_attributes_to_not_null() returns void as $$
 begin
