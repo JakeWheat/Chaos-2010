@@ -1,0 +1,28 @@
+= Quick playing guide
+
+== turn sequence overview
+
+3 phases, each wizard goes in order
+
+Spell choice
+
+Each wizard chooses a spell starting with the first wizard and
+finishing with the last wizard in strict order. A wizard can opt not
+to cast any spells.
+
+Spell cast
+
+Each wizard casts his spell starting with the first wizard.
+
+Move
+
+Each wizard moves his army starting with the first wizard etc.. The
+wizard can move his pieces in any order. Each piece can do the
+following in order:
+
+1. move the piece if it can
+2. attack any creatures it is next to
+3. fire any ranged weapons it has
+
+== controls
+
