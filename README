@@ -28,12 +28,12 @@ from a distance.
 
 ================================================================================
 
-= Important notes
+= Important
 
-This is a pre-alpha version. You can play it but there are some minor
-things missing (e.g. there is no line of sight calculation, and the
-computer controlled opponents are a bit crap). Also, the ui is very
-unpolished.
+This is a pre-alpha version. You can just about play it but there are
+some minor things missing (e.g. the ui doesn't automatically update
+properly, there is no line of sight calculation, and the computer
+controlled opponents are a bit crap).
 
 There is no installer, getting it running is a real challenge. (A
 prebuilt windows exe to make windows installation much easier is a
@@ -47,45 +47,82 @@ Or to play a slick remake that runs in windows:
 http://chaosgroove.wordpress.com/
 which is better than this version.
 
-The project web site is
-https://launchpad.net/chaos2010
-
-You can download source/binaries from:
-https://launchpad.net/chaos2010/+download
-
-The file 'development_guide' gives a quick intro to the source code if
-you are interested in that sort of thing.
-
 ================================================================================
 
 = Installation instructions:
 
-Currently, the skills you need are to be able to download and install
-software from the internet or using your os's package manager, and to
-be able to add a user and database to postgresql.
+Don't try to install at the moment unless you know what you are
+doing. If the instructions for ubuntu or windows below don't make
+sense to you then please express interest on the mailing list and wait
+for more humane installation methods, which is likely to be soon for
+windows but not for any other platform). These instructions install
+the latest development source then run the game from these sources.
 
-== from source
+Overview for experienced users: install postgresql 8.4 and add a
+superuser login for the program to use. Install ghc 6.10 (either the
+platform or vanilla), gtk2hs 0.10 and cabal-install. Get the source
+from launchpad and run "cabal install" to get everything
+installed. (You may have problems with sdl-mixer if your system
+doesn't have a dev package for it (probably everything but linux),
+you'll have to edit the source to disable the sounds, they are already
+disabled on windows).
 
-The prerequisites are:
-Postgresql 8.4
-gtk
-ghc6.10, cabal, gtk2hs 0.10, and some libraries which cabal can install
-  (sdl is cabal installable but the dev version is complicated to get
-  working on windows)
+Please report any success or problems installing this program on the
+mailing list.
 
-Short version:
-install and setup postgresql, you can use the script on windows,
-or if you install it another way you need to add a user and database
-install ghc, gtk2hs, cabal-install
-get the source
-install the project using cabal: unzip the files, and run 'cabal
-install' from that folder
-then you can run the chaos exe, as with the binary installation
+== Ubuntu 9.10
 
+Should be translatable to other linuxes relatively easily.
+This approach won't work on the latest ubuntu (9.04) since it doesn't
+have ghc6.10.
+First install some packages (all on one line):
+
+sudo aptitude install ghc6 libghc6-cairo-dev libghc6-gtk-dev
+  postgresql-8.4 libsdl-mixer1.2-dev libpq-dev libghc6-parsec2-dev
+  libghc6-network-dev bzr
+
+then install cabal-install, see the web page:
+http://hackage.haskell.org/trac/hackage/wiki/CabalInstall
+near the bottom should be Quick Installation on Unix section, follow
+the instructions to wget, untar and bootstrap cabal-install
+(you should add cabal to your path by doing something like adding
+PATH=$PATH:/home/[your home dir]/.cabal/bin
+to the bottom of your ~/.bashrc)
+
+Now get the source code downloaded, do something like
+cd
+mkdir wd # create a top level folder to store source code
+cd wd
+bzr branch lp:chaos2010 #download the source which will go in ~/wd/chaos2010
+
+Use cabal to get all the additional haskell libraries installed and
+working, change to the source folder, e.g.
+cd ~/wd/chaos2010
+cabal install
+(this will take a while as it downloads and installs a bunch of packages)
+
+Add a user to postgresql using:
+sudo -u postgres createuser --superuser [your user name]
+and type in a password for this user
+
+Then run the game using
+cd ~/wd/chaos2010
+./chaos.lhs
+
+which will prompt you to enter the postgresql login and password to
+use, let it create the database. It will spew out a load of logging
+info and may take a minute or two and the game should then start.
+
+you can then play the game, or run the test suite using
+./tests.lhs
+
+== Windows
+
+These instructions are a bit sketchy at the moment
 You can get the prerequisites for windows from the following web sites:
 
-ghc
-http://www.haskell.org/ghc/download.html
+Haskell platform (ghc and cabal-install) (see below before downloading)
+http://hackage.haskell.org/platform/
 
 postgresql
 http://www.enterprisedb.com/products/pgdownload.do#windows
@@ -93,30 +130,84 @@ http://www.enterprisedb.com/products/pgdownload.do#windows
 gtk2hs
 http://www.haskell.org/gtk2hs/download/
 
-cabal-install exe
-http://www.haskell.org/cabal/download.html
+bazaar
+http://bazaar-vcs.org/Download
 
 [Warning: currently, install on windows takes ~100MB downloads and
 another ~750MB of disk space when installed!]
 
-Install them, you can accept the defaults during the installation on
-all of these.
-
-Get the cabal.exe linked from here:
-
-You can stick it in the ghc bin folder, which is probably
-C:\ghc\ghc-6.10.1\bin
+Install them, you can accept the defaults for bzr during installation.
+For postgresql, you'll need to enter a password for the superuser on
+the postgresql installer, remember this password. Don't run the stack
+builder for postgresql, if you do just quit it without installing
+anything extra. Getting the Haskell Platform and gtk2hs is a proper
+chore. First you need to get matching versions (gtk2hs is very fussy
+and at the time of writing the latest version (0.10.1) needed ghc
+6.10.3 but the latest haskell platform has ghc 6.10.4. Two versions
+that work together are gtk2hs 0.10.1 and haskell platform 2009.2.0.1
+which you can download from the older releases section on the haskell
+platform download webpage. Another issue gtk2hs has is that it doesn't
+like spaces in the path to ghc, so you have to install the haskell
+platform without spaces in the path. I just changed C:\Program
+Files\Haskell Platform\2009.2.0.1 to
+C:\ProgramFiles\HaskellPlatform\2009.2.0.1 (i.e. removed the two
+spaces). You have to install the haskell platform before gtk2hs. You
+can install bzr and postgresql in any order.
 
 The pg installer doesn't seem to put the pg bin folder in the path,
 which cabal/HDBC-postgresql needs. Do this in
 controlpanel/system/environment, the folder you want to add to the
-path is probably C:\Program Files\PostgreSQL\8.3\bin
+path is probably C:\Program Files\PostgreSQL\8.4\bin
 
-For linux, I recommend using the package manager included with your
-system to install all of the prerequisites (this might be apt-get or
-rpm).  Not sure what do to on Mac os x, but if you can get the
-prerequisites installed, there's not reason why the game shouldn't run
-fine.
+
+Get a command prompt up by going to the start menu/run and running 'cmd'.
+run
+bzr branch lp:chaos2010
+to get the latest source
+change to this folder and run cabal install to get all the libs
+compiled and installed:
+cd chaos2010
+cabal update
+cabal install
+(this will take a while as it downloads and installs a bunch of packages)
+
+I got loads of problems at this stage. If a package fails to compile
+with errors along the lines of no instance found for ... then try
+older versions for those packages. E.g. convertible 1.0.5 failed so
+first I ran
+cabal install convertible-1.0.1
+(by trial and error this was the most recent which worked)
+Then running cabal install again gave a similar error for hdbc 2.1.1, but
+cabal install hdbc-2.1.0
+worked, I then ran
+cabal install
+
+and got a new error: couldn't find pg_config. This is because the
+postgresql installer doesn't put the postgresql bin folder in the
+path. I added
+C:\Program Files\PostgreSQL\8.4\bin
+to the path in control panel, restarted cmd and reran
+cabal install
+it came up with an error compiling the chaos 2010 code so at least now
+the haskell packages needed are all installed... ignoring this error
+didn't seem to cause any problems later.
+
+Add a user to postgresql using:
+createuser -P -U postgres --superuser chaos2010
+
+Enter the password that the new user for chaos2010 will use twice,
+then enter the password for the postgresql main superuser that you
+entered during the postgresql install
+
+Then run the game using
+cd ~/wd/chaos2010
+runhaskell chaos.lhs
+enter the user name chaos2010 and the password you entered into the
+createuser command above
+After a load of database initialisation scrolls past, the game should start.
+
+Coming soon: simple binary install for windows. Binary installs for
+other platforms are a long way off.
 
 ================================================================================
 
@@ -148,4 +239,27 @@ following in order:
 
 == controls
 
+================================================================================
 
+= Admin
+
+The project web site is
+https://launchpad.net/chaos2010
+
+You can download source/binaries from:
+https://launchpad.net/chaos2010/+download
+
+The file 'development_guide' gives a quick intro to the source code if
+you are interested in that sort of thing. (Online version:
+http://bazaar.launchpad.net/~jakewheat/chaos2010/trunk/annotate/head%3A/development_guide
+)
+
+You can get the latest version of the source code by installing bzr
+and using:
+bzr branch lp:chaos2010
+
+You can browse the source code online here:
+http://bazaar.launchpad.net/~jakewheat/chaos2010/trunk/files
+
+Trunk details and changelog:
+https://code.launchpad.net/~jakewheat/chaos2010/trunk

@@ -62,7 +62,7 @@ create a treeview with one column for the text
 now get the data for the tree - module trees from the database and
 filetrees from the source files
 
->   moduleTrees <- getModuleTree
+>   moduleTrees <- return [] --getModuleTree
 >
 >   fileTrees <- getSourceFiles >>= mapM (\f -> do
 >                        ft <- parseFile f

@@ -381,64 +381,39 @@ select set_relvar_type('cursor_position', 'data');
 cursor movement
 */
 
+create function safe_move_cursor(px int, py int) returns void as $$
+begin
+  update cursor_position
+    set x = min(max(x + px, 0), (select width from board_size) - 1),
+        y = min(max(y + py, 0), (select height from board_size) - 1);
+end;
+$$ language plpgsql volatile;
+
 create function action_move_cursor(direction text) returns void as $$
 begin
-  if direction = 'up' then
-    if (select y from cursor_position) > 0 then
-      update cursor_position set y = y - 1;
-    end if;
-  elseif direction = 'down' then
-    if (select y from cursor_position) <
-       ((select height from board_size) - 1) then
-      update cursor_position set y = y + 1;
-    end if;
-  elseif direction = 'left' then
-    if (select x from cursor_position) > 0 then
-      update cursor_position set x = x - 1;
-    end if;
-  elseif direction = 'right' then
-    if (select x from cursor_position) <
-       ((select width from board_size) - 1) then
-      update cursor_position set x = x + 1;
-    end if;
-  elseif direction = 'up-left' then
-    if (select y from cursor_position) > 0 then
-      update cursor_position set y = y - 1;
-    end if;
-    if (select x from cursor_position) > 0 then
-      update cursor_position set x = x - 1;
-    end if;
-  elseif direction = 'up-right' then
-    if (select y from cursor_position) > 0 then
-      update cursor_position set y = y - 1;
-    end if;
-    if (select x from cursor_position) <
-       ((select width from board_size) - 1) then
-      update cursor_position set x = x + 1;
-    end if;
-  elseif direction = 'down-left' then
-    if (select y from cursor_position) <
-       ((select height from board_size) - 1) then
-      update cursor_position set y = y + 1;
-    end if;
-    if (select x from cursor_position) > 0 then
-      update cursor_position set x = x - 1;
-    end if;
-  elseif direction = 'down-right' then
-    if (select y from cursor_position) <
-       ((select height from board_size) - 1) then
-      update cursor_position set y = y + 1;
-    end if;
-    if (select x from cursor_position) <
-       ((select width from board_size) - 1) then
-      update cursor_position set x = x + 1;
-    end if;
+  case direction
+  when 'up' then
+    perform safe_move_cursor(0, -1);
+  when 'down' then
+    perform safe_move_cursor(0, 1);
+  when 'left' then
+    perform safe_move_cursor(-1, 0);
+  when 'right' then
+    perform safe_move_cursor(1, 0);
+  when 'up-left' then
+    perform safe_move_cursor(-1, -1);
+  when 'up-right' then
+    perform safe_move_cursor(1, -1);
+  when 'down-left' then
+    perform safe_move_cursor(-1, 1);
+  when 'down-right' then
+    perform safe_move_cursor(1, 1);
   else
     raise exception
       'asked to move cursor in direction % which isn''t valid',
       direction;
-  end if;
-end
+  end case;
+end;
 $$ language plpgsql volatile;
 
 /*
@@ -487,7 +462,9 @@ and the highlights for the currently available actions
 wizard sprites: look in the action history to find the most recent upgrade
 */
 create view wizard_sprites as
-  select distinct on (wizard_name) o, wizard_name,
+  select wizard_name,sprite,colour from
+  (select row_number() over(partition by wizard_name order by o desc) as rn,
+    wizard_name,
     case when shadow_form then sprite || '_shadow'
          else sprite
     end as sprite, w.colour from
@@ -503,8 +480,7 @@ create view wizard_sprites as
       and history_name = 'spell_succeeded'
       ) as a
   natural inner join wizard_display_info as w
-  natural inner join wizards
-  order by wizard_name, o desc;
+  natural inner join wizards) as w where rn = 1;
 
 /*
 
@@ -585,27 +561,29 @@ needs some more thought.
 
 */
 create view board_sprites1_view as
-  select x,y,ptype,allegiance,tag,
-    sprite,colour,sp,start_tick, animation_speed,
-    case when not move_phase is null then true
-      else false
-    end as selected
-    from piece_sprite
-  natural inner join pieces_on_top
-  natural inner join piece_starting_ticks
+  select x,y,ptype,allegiance,tag,sprite,colour,sp,
+    start_tick, animation_speed, selected from
+    (select x,y,ptype,allegiance,tag,
+      sprite,colour,sp,start_tick,
+      case when not move_phase is null then true
+        else false
+      end as selected
+      from piece_sprite
+    natural inner join pieces_on_top
+    natural inner join piece_starting_ticks
+    natural inner join sprites
+    natural left outer join selected_piece
+    union
+    select x,y, '', '', -1, sprite, 'white', 5,0,false
+      from board_highlights) as a
   natural inner join sprites
-  natural left outer join selected_piece
-union
-select x,y, '', '', -1, sprite, 'white', 5,0, animation_speed,false
-  from board_highlights
-  natural inner join sprites
-order by sp;
+  order by sp;
 
 create table board_sprites1_cache as
   select * from board_sprites1_view;
 select set_relvar_type('board_sprites1_cache', 'data');
 
-create or replace function update_board_sprites_cache() returns void as $$
+create function update_board_sprites_cache() returns void as $$
 begin
   if get_running_effects() then
     return;
@@ -789,7 +767,7 @@ begin
 end;
 $$ language plpgsql volatile;
 
-create or replace function action_update_effects_ticks(pticks int) returns void as $$
+create function action_update_effects_ticks(pticks int) returns void as $$
 declare
   wasEffects boolean := false;
   nextQp int;
@@ -1455,7 +1433,7 @@ select create_client_action_wrapper('spell_book_show_all_update_on',
 select create_client_action_wrapper('spell_book_show_all_update_off',
        $$spell_book_show_all_update(false)$$);
 
-create or replace function action_key_pressed(pkeycode text) returns void as $$
+create function action_key_pressed(pkeycode text) returns void as $$
 declare
   a text;
   cursor_move boolean := false;
