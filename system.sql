@@ -56,7 +56,8 @@ create table system_implementation_objects (
                    'trigger',
                    'database_constraint'))
 );
-insert into system_implementation_objects (object_name, object_type)
+insert into
+             system_implementation_objects (object_name, object_type)
   values ('system_implementation_objects', 'base_relvar');
 
 create view base_relvars as
@@ -561,6 +562,8 @@ begin
   --preserve the suffix
   if length(cn) > 54 then
     --wtf kind of syntax is this?!
+    --don't know if it's clear evidence that the sql designers were
+    --heavy drug users, or if I think it's great, or both
     return substring(cn from 0 for (54 - length(suffix))) || suffix;
   else
     return cn;

@@ -323,11 +323,11 @@ IO version, this allows you to pass a callback which performs io.
 
 ==== convert row:
 
-It might be old fashioned but I prefer accessing database results by
+It might be unfashionable but I prefer accessing database results by
 the column name. (This relies on only using sql queries where all the
 columns are named and named uniquely.) This takes the column list
-returned from getColumnNames and the sqlvalue lists and returns
-a Map String String, so you run it once for each tuple.
+returned from getColumnNames and the sqlvalue lists and returns a Map
+String String, so you run it once for each tuple.
 
 > convertRow :: [String] -> [SqlValue] -> SqlRow
 > convertRow cn r = M.fromList $ map

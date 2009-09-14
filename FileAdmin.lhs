@@ -3,8 +3,7 @@
 Copyright 2009 Jake Wheat
 
 Some development utilities, some code to help check the sprite pngs on
-disk match the sprite table in the database, and dos-unix line ending
-conversion.
+disk match the sprite table in the database.
 
 > module FileAdmin (checkSprites
 >                   ) where

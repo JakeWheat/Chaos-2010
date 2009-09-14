@@ -1,3 +1,14 @@
+= milestone pre-alpha
+
+make binary zip for windows, no install:
+
+comes with zipped postgresql, automatically starts postgresql when
+run, stops it when program exited.
+
+finish basic profiling system
+
+finish playing guide
+
 = milestone alpha 0.1
 
 line of sight

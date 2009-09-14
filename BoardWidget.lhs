@@ -5,10 +5,7 @@ Copyright 2009 Jake Wheat
 The board widget uses cairo to draw a board based around a grid
 (15x10) with sprites in the squares. Each sprite is animated (at
 different speeds), and basic effects are also provided to give cues
-whn actions occur. Sound effects accompany these visual
-effects. (These effects were going to be left till later but I think
-it's too difficult to follow what is going on in a game without some
-sort of display like this).
+whn actions occur. Sound effects accompany these visual effects.
 
 The way the board widget works is currently shaped by the following
 constraints:
@@ -477,6 +474,10 @@ work out which frame to show for each sprite, and cue the effects
 ---------------
 
 = new effects design notes
+
+The plan is to try to make the game a lot easier to follow and a lot
+more accessible, as well as more fun, by going to town on these
+effects.
 
 some ideas on how the effects should look when properly polished:
 

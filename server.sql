@@ -1835,12 +1835,13 @@ the pieces to move only has entries for
 
 create view selectable_pieces as
   select * from
-    (select row_number() over (partition by (x,y) order by sp) as rn, *
+    (select row_number() over (partition by (x,y) order by sp
+                               rows between unbounded preceding
+                               and unbounded following) as rn, *
        from selectable_pieces_with_priorities
        natural inner join pieces_to_move
        where not exists(select 1 from selected_piece)
     ) as s where rn = 1;
-
 
 --  select distinct on (x,y) * from selectable_pieces_with_priorities
 --  natural inner join pieces_to_move

@@ -1,11 +1,9 @@
 = Installation instructions:
 
 Don't try to install at the moment unless you know what you are
-doing. If the instructions for ubuntu or windows below don't make
-sense to you then please express interest on the mailing list and wait
-for more humane installation methods, which is likely to be soon for
-windows but not for any other platform). These instructions install
-the latest development source then run the game from these sources.
+doing. Even then, I recommend you don't bother, because it's really
+difficult to get everything working together. You probably stand the
+best chance on debian unstable.
 
 Overview for experienced users: install postgresql 8.4 and add a
 superuser login for the program to use. Install ghc 6.10 (either the
@@ -15,9 +13,6 @@ installed. (You may have problems with sdl-mixer if your system
 doesn't have a dev package for it (probably everything but linux),
 you'll have to edit the source to disable the sounds, they are already
 disabled on windows).
-
-Please report any success or problems installing this program on the
-mailing list.
 
 == Ubuntu 9.10
 
