@@ -1,82 +1,17 @@
-= milestone pre-alpha
+todo:
+initial goal: tidy up code which is a massive mess:
 
-make binary zip for windows, no install:
+split chaos2010 into many files
+run tests from chaos2010 exe
+fix arguments, setup, only look at cabal installations and forget exe for now
 
-comes with zipped postgresql, automatically starts postgresql when
-run, stops it when program exited.
+transition all ui code to be more declarative
+use new hssqlppp + hlist wrappers + th for database access
+split out any development utilities
+split out development time dbms utilities into separate package or put in hssqlppp
 
-finish basic profiling system
+review and rework sql code: use hssqlppp extensions instead of
+dynamically generating pgsql from pgsql
+change test code to be much more declarative
 
-finish playing guide
-
-= milestone alpha 0.1
-
-line of sight
-turmoil
-make ai todo list
-replace game start sound
-variable ai continue speeds dependent on last action
-diagonal moves
-fix history window bug - not showing history when starting new game
-sound effects: spread, recede, receive, disappear, select, unselect
-pause, change speed when ai is going
-make sure board is displayed after effects are run, before next action
-
-windows installation:
-exe for download, includes script to install postgresql
-
-instructions for installation on debian from source
-
-
-================================================================================
-
-= milestone beta 0.2
-
-speed things up
-listen/notify if feasible
-basic installation help
-mouse controls?
-
-credits/thanks
-background reading
-installation instructions:
-complete instructions for installation and run from source for:
-  ubuntu
-  windows
-plus if possible:
-  debian
-  fedora
-  mac os x
-investigate scripting installation as much as possible
-automate setting conf, loading database, unix2dos when running chaos.lhs
-platforms need ghc6.10, gtk2hs0.10 which includes windows but current release
-  versions of debian, fedora and ubuntu don't have this yet
-more tests?
-
-================================================================================
-
-= milestone beta 0.3
-
-check out binary distribution
-fix problems from beta 0.2
-
-================================================================================
-
-= milestone beta 0.4
-
-possibles:
-  improved installation
-  basic save/load feature to dump and restore db to file
-  switch to hide information - spell choice and imag/real
-  in game manual and tutorials, what can I do now, why can't I do __ questions
-    (goes with better constraint/error messages)
-  visual and sound effects
-  redesign ui - more spellbook and info widgets than board
-  improved ai, multiple ais
-  more tests
-  multiple games without dump/restore, game manager
-  sprite manager, or maybe load from zip file
-  audit trail ish
-  error reporting system
-  decide whether this gets the program to 1.0 or not - 1.0 should be
-    the first version that normal people can easily install and play
+review all code and docs for other todos to tidy

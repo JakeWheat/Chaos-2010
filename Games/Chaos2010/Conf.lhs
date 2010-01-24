@@ -3,7 +3,7 @@ Copyright 2009 Jake Wheat
 
 Short code to read the config file and expose values as a record.
 
-> module Conf (getConfig, getConfigFilePath, Conf (..)) where
+> module Games.Chaos2010.Conf (getConfig, getConfigFilePath, Conf (..)) where
 
 > import Fez.Data.Conf
 > import Data.Map as M
@@ -12,7 +12,7 @@ Short code to read the config file and expose values as a record.
 > import System.Directory
 > import System.FilePath
 
-> import Utils
+> import Games.Chaos2010.Utils
 
 
 > data Conf = Conf { tempDbName :: String,

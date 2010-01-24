@@ -1,4 +1,4 @@
-> module Logging (
+> module Games.Chaos2010.Misc.Logging (
 >                 setupLogging
 >                ,pLog
 >                ,logTime

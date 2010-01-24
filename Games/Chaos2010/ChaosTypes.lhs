@@ -1,5 +1,5 @@
 
-> module ChaosTypes (ColourList, SpriteMap) where
+> module Games.Chaos2010.ChaosTypes (ColourList, SpriteMap) where
 
 > import Graphics.UI.Gtk
 > import qualified Data.Map as M

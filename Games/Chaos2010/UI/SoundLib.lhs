@@ -1,49 +1,28 @@
 > {-# OPTIONS  -cpp #-}
 
-> module SoundLib (initPlayer, play, SoundPlayer) where
-
-Disable sounds on windows since I can't get the haskell SDL library
-compiled on windows.
-
-#if !defined(mingw32_HOST_OS) && !defined(__MINGW32__) 
+> module Games.Chaos2010.UI.SoundLib (initPlayer, play, SoundPlayer) where
 
 > import Graphics.UI.SDL.Mixer.Types
 > import Graphics.UI.SDL.Mixer.General
 > import Graphics.UI.SDL.Mixer.Channels
 > import Graphics.UI.SDL.Mixer.Samples
 
-#endif
-
 > import Control.Concurrent
 > import System.FilePath
 > import Data.List
 > import Data.Maybe
 > import Control.Monad
-> import Paths_chaos
+> import Paths_Chaos2010
 
-> import Utils
-> import Logging
+> import Games.Chaos2010.Utils
+> import qualified Games.Chaos2010.Misc.Logging as Logging
 
 > import qualified Data.Map as M
 
-#if defined(mingw32_HOST_OS) || defined(__MINGW32__) 
-
-> type SoundPlayer = ()
-
-#else
-
 > type SoundPlayer = M.Map String Graphics.UI.SDL.Mixer.Types.Chunk
-
-#endif
 
 > initPlayer :: IO SoundPlayer
 > initPlayer = lg "initPlayer" "" $ do
-
-#if defined(mingw32_HOST_OS) || defined(__MINGW32__) 
-
->   return ()
-
-#else
 
 >  catch (do
 >          openAudio 44100 AudioS16Sys 2 4096
@@ -60,17 +39,9 @@ compiled on windows.
 >           putStrLn $ "error initialising sound: " ++ show e
 >           return $ M.fromList $ [])
 
-#endif
-
 
 > play :: SoundPlayer -> String -> IO()
 > play player soundName = do
-
-#if defined(mingw32_HOST_OS) || defined(__MINGW32__) 
-
->   return ()
-
-#else
 
 >   let w = M.lookup soundName player
 >   case w of
@@ -85,8 +56,6 @@ compiled on windows.
 >                    putStrLn $ "tried to play non-existant sound: " ++ soundName
 >                  return ()
 >   return ()
-
-#endif
 
 > lg :: String -> String -> IO c -> IO c
 > lg l = Logging.pLog ("chaos.SoundLib." ++ l)

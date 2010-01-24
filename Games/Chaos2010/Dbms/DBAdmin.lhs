@@ -9,7 +9,7 @@ switch - switch the temp database over
 setup - used to setup the database for an end user install
 
 
-> module DBAdmin (reset, switchOverTempDb, setup,
+> module Games.Chaos2010.Dbms.DBAdmin (reset, switchOverTempDb, setup,
 >                 checkLoginAndDb, createDb, CheckDbEnum(..),
 >                 getCount, installDbTo) where
 
@@ -18,9 +18,9 @@ setup - used to setup the database for an end user install
 > import System.Exit
 > import Data.List
 
-> import Conf
-> import Utils
-> import Paths_chaos
+> import Games.Chaos2010.Conf as Conf
+> import Games.Chaos2010.Utils
+> import Paths_Chaos2010
 
 the way the database reset works is to load the scripts into a
 database called chaos1, then if this succeeds, delete database chaos

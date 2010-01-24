@@ -90,7 +90,7 @@ cued using the number of ticks since this saved time to the current
 time (this is used by the sprite animation and the effects).
 
 
-> module BoardWidget (boardWidgetNew) where
+> module Games.Chaos2010.UI.BoardWidget (boardWidgetNew) where
 
 > import Graphics.UI.Gtk
 > import Graphics.Rendering.Cairo
@@ -104,12 +104,12 @@ time (this is used by the sprite animation and the effects).
 
  > import Control.Concurrent
 
-> import ChaosDB
-> import Utils
-> import qualified Logging
-> import SoundLib
-> import ChaosTypes
-> import ThreadingUtils
+> import Games.Chaos2010.Dbms.ChaosDB
+> import Games.Chaos2010.Utils
+> import qualified Games.Chaos2010.Misc.Logging as Logging
+> import Games.Chaos2010.UI.SoundLib
+> import Games.Chaos2010.ChaosTypes
+> import Games.Chaos2010.Misc.ThreadingUtils
 
 ================================================================================
 

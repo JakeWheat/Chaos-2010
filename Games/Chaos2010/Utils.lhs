@@ -5,7 +5,7 @@ A bunch of utility functions, basic functional stuff, monad stuff,
 file system stuff. Probably they are all in the standard library but I
 didn't find them.
 
-> module Utils (applyMany,
+> module Games.Chaos2010.Utils (applyMany,
 >               findAllFiles,
 >               time,
 >               --timeName,

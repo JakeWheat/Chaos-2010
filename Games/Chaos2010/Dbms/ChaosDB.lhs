@@ -9,7 +9,7 @@ program. This has just been bodged together to get things working, so
 the api design is probably a bit crap.
 
 
-> module ChaosDB (
+> module Games.Chaos2010.Dbms.ChaosDB (
 
 reexported HDBC stuff:
 
@@ -64,9 +64,9 @@ and updates directly
 > import Data.Maybe
 > import Control.Exception
 
-> import Utils hiding (run)
-> import qualified Logging
-> import ThreadingUtils
+> import Games.Chaos2010.Utils hiding (run)
+> import qualified Games.Chaos2010.Misc.Logging as Logging
+> import Games.Chaos2010.Misc.ThreadingUtils
 
 
 > type Connection = (Pg.Connection,Pg.Connection,IO() -> IO())

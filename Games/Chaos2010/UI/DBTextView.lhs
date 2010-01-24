@@ -9,15 +9,15 @@ selects. The whole description is pure, and we just convert the whole
 list of selects to the List MyTextView.Item in one go. See chaos.lhs
 for examples of how it's used
 
-> module DBTextView where
+> module Games.Chaos2010.UI.DBTextView where
 
 > import Control.Monad
 > import Data.Maybe
 > import qualified Data.Map as M
 
-> import ChaosDB
-> import qualified MyTextView as T
-> import qualified Logging
+> import Games.Chaos2010.Dbms.ChaosDB
+> import qualified Games.Chaos2010.UI.MyTextView as T
+> import qualified Games.Chaos2010.Misc.Logging as Logging
 
 These are the elements that you create that eventually end up in the
 textbuffer. For stuff which doesn't depend on the database, there is

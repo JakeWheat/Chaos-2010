@@ -1,6 +1,6 @@
 > {-# OPTIONS  -cpp #-}
 
-> module Paths_chaos where
+> module Paths_Chaos2010 where
 
 #if !defined(CABAL)
 

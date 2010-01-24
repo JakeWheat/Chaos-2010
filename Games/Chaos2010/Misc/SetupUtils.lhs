@@ -4,14 +4,14 @@ Copyright 2009 Jake Wheat
 Purpose of this function is to script some of the game setup for a
 first time player.
 
-> module SetupUtils where
+> module Games.Chaos2010.Misc.SetupUtils where
 
 > import System.Directory
 > import Control.Monad
 > import System.Exit
 
-> import Conf
-> import DBAdmin
+> import Games.Chaos2010.Conf as Conf
+> import Games.Chaos2010.Dbms.DBAdmin
 
 
 > checkSetup :: IO Conf

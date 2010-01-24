@@ -5,7 +5,7 @@ Copyright 2009 Jake Wheat
 Some development utilities, some code to help check the sprite pngs on
 disk match the sprite table in the database.
 
-> module FileAdmin (checkSprites
+> module Games.Chaos2010.Misc.FileAdmin (checkSprites
 >                   ) where
 
 > import Data.List
@@ -13,9 +13,9 @@ disk match the sprite table in the database.
 > import Text.Regex.Posix
 > import System.FilePath
 
-> import qualified Conf as Conf
-> import ChaosDB
-> import Utils
+> import qualified Games.Chaos2010.Conf as Conf
+> import Games.Chaos2010.Dbms.ChaosDB
+> import Games.Chaos2010.Utils
 
 
 function to check all the sprite files are present and all the

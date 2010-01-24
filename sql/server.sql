@@ -379,7 +379,7 @@ create view spells_with_num_shots as
 
 /*
 === data
-
+some spells are missing?
 */
 copy spells_mr (spell_name, base_chance, alignment, spell_category, description,
   activate, target, range, num, ptype, valid_square_category) from stdin;
@@ -654,12 +654,12 @@ create type piece_key as (
 --         $1.tag = $2.tag;
 --$$ language sql stable;
 
--- create operator = (
---     leftarg = piece_key,
---     rightarg = piece_key,
---     procedure = piece_key_equals,
---     commutator = =
--- );
+--create operator = (
+--    leftarg = piece_key,
+--    rightarg = piece_key,
+--    procedure = piece_key_equals,
+--    commutator = =
+--);
 
 create type pos as (
   x int,
@@ -668,7 +668,7 @@ create type pos as (
 
 -- create function pos_equals(pos, pos) returns boolean as $$
 --   select $1.x = $2.x and
---          $1.y = $2.y;
+--           $1.y = $2.y;
 -- $$ language sql stable;
 
 -- create operator = (
@@ -2618,7 +2618,7 @@ begin
     perform action_cast_failed();
     return false;
   end if;
-  select into r ptype, allegiance, tag, imaginary
+  select into r ptype, allegiance, tag
     from pieces_on_top_view where (x,y) = (px,py);
 
   perform add_history_spell_succeeded();
@@ -4302,7 +4302,7 @@ begin
   else
     raise exception
     'argument must be one of all_pieces, upgraded_wizards, overlapping, got %',
-    flavours;
+    flavour;
   end if;
 end
 $$ language plpgsql volatile;

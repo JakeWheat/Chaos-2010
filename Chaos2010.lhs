@@ -98,21 +98,21 @@ move
 > import System.Environment
 > import Control.Concurrent
 
-> import ChaosDB
-> import qualified DBAdmin as DBAdmin
-> import GtkUtils
-> import qualified Conf as Conf
-> import Utils
-> import FileAdmin
-> import MyTextView
-> import qualified DBTextView as D
-> import qualified Logging
-> import SoundLib
-> import BoardWidget
-> import ChaosTypes
-> import ThreadingUtils
-> import Paths_chaos
-> import SetupUtils
+> import Games.Chaos2010.Dbms.ChaosDB
+> import qualified Games.Chaos2010.Dbms.DBAdmin as DBAdmin
+> import Games.Chaos2010.UI.GtkUtils
+> import qualified Games.Chaos2010.Conf as Conf
+> import Games.Chaos2010.Utils
+> import Games.Chaos2010.Misc.FileAdmin
+> import Games.Chaos2010.UI.MyTextView as MyTextView
+> import qualified Games.Chaos2010.UI.DBTextView as D
+> import qualified Games.Chaos2010.Misc.Logging as Logging
+> import Games.Chaos2010.UI.SoundLib
+> import Games.Chaos2010.UI.BoardWidget
+> import Games.Chaos2010.ChaosTypes
+> import Games.Chaos2010.Misc.ThreadingUtils
+> import Paths_Chaos2010
+> import Games.Chaos2010.Misc.SetupUtils as SetupUtils
 
 ================================================================================
 

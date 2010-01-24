@@ -8,14 +8,14 @@ of shortcuts for adding stuff to the a textbuffer, and then a higher
 level description of the contents of a buffer to allow creating
 textbuffer contents using pure/ non-imperative code.
 
-> module MyTextView where
+> module Games.Chaos2010.UI.MyTextView where
 
 > import Graphics.UI.Gtk
 > import Control.Monad
 > import Data.Maybe
 
-> import Utils
-> import qualified Logging
+> import Games.Chaos2010.Utils
+> import qualified Games.Chaos2010.Misc.Logging as Logging
 
 == text view utils
 

@@ -1,5 +1,5 @@
 
-> module ThreadingUtils where
+> module Games.Chaos2010.Misc.ThreadingUtils where
 
 > import Control.Concurrent
 > import Data.IORef
