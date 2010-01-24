@@ -285,6 +285,31 @@ Executable chaos2010
                      SDL-mixer
 
   Other-Modules:     Paths_Chaos2010
+                     Games.Chaos2010.Conf
+                     Games.Chaos2010.Utils
+                     Games.Chaos2010.UI.GtkUtils
+                     Games.Chaos2010.UI.SetupUI
+                     Games.Chaos2010.UI.NewGameWidget
+                     Games.Chaos2010.UI.ActionHistoryWidget
+                     Games.Chaos2010.UI.BoardWidget
+                     Games.Chaos2010.UI.SpellBookWidget
+                     Games.Chaos2010.UI.DBTextView
+                     Games.Chaos2010.UI.InfoWidget
+                     Games.Chaos2010.UI.ChaosTextView
+                     Games.Chaos2010.UI.Widgets
+                     Games.Chaos2010.UI.UIThreadingUtils
+                     Games.Chaos2010.UI.SoundLib
+                     Games.Chaos2010.UI.MyTextView
+                     Games.Chaos2010.Dbms.DBAdmin
+                     Games.Chaos2010.Dbms.ChaosDB
+                     Games.Chaos2010.Tests.Tests
+                     Games.Chaos2010.Misc.SetupUtils
+                     Games.Chaos2010.Misc.FileAdmin
+                     Games.Chaos2010.Misc.ThreadingUtils
+                     Games.Chaos2010.Misc.Logging
+                     Games.Chaos2010.ChaosTypes
+
+
 
 -- Executable tests
 --   Main-is:           tests.lhs
