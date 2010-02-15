@@ -2,7 +2,7 @@ Copyright 2010 Jake Wheat
 
 Module to load the ui and start it using gtk
 
-> module Games.Chaos2010.GtkUI.NewGUI where
+> module Games.Chaos2010.GtkUI.GtkGUI where
 
 > import Graphics.UI.Gtk
 > import Database.HaskellDB

@@ -8,7 +8,7 @@
 
 > --import Games.Chaos2010.Database.Pieces_mr
 
-> import Games.Chaos2010.GtkUI.NewGUI
+> import Games.Chaos2010.GtkUI.GtkGUI
 
 > main :: IO ()
 > main =

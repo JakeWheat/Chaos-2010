@@ -1,6 +1,6 @@
 Copyright 2010 Jake Wheat
 
-> module Games.Chaos2010.UI.NewInfoWidget where
+> module Games.Chaos2010.UI.InfoWidget where
 
 > import Games.Chaos2010.UI.UITypes
 
