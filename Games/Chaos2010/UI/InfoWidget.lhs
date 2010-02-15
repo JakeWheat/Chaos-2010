@@ -1,13 +1,13 @@
 Copyright 2010 Jake Wheat
 
 > module Games.Chaos2010.UI.InfoWidget (infoWidget) where
-
+>
 > import Games.Chaos2010.UI.UITypes
 > import Control.Applicative
 > import Database.HaskellDB
 > import Database.HaskellDB.Database
 > import Control.Monad as M
-
+>
 > import Games.Chaos2010.Database.Turn_number_table
 > import Games.Chaos2010.Database.World_alignment_table
 > import Games.Chaos2010.Database.Turn_phase_table
@@ -16,6 +16,9 @@ Copyright 2010 Jake Wheat
 > import Games.Chaos2010.Database.Allegiance_colours as Ac
 > import Games.Chaos2010.Database.Wizard_sprites
 > import qualified Games.Chaos2010.Database.Current_wizard_selected_spell_details as Cwssd
+>
+> import Games.Chaos2010.UI.HdbUtils
+>
 >
 >
 > infoWidget :: DBText
@@ -54,7 +57,7 @@ Copyright 2010 Jake Wheat
 >                       .*. emptyRecord)
 >           (\r -> [Text $ "\nWizard up: "
 >                  ,TaggedText [mv $ r # Ac.colour] (r # current_wizard)
->                  ,Text $ mv (r # sprite)]) -- todo: should be a sprite
+>                  ,Image $ mv (r # sprite)]) -- todo: should be a sprite
 >        {-,q (do
 >        ,D.SelectValueIf "select count from\n\
 >                         \    (select count(*) from pieces_to_move) as a\n\
@@ -65,26 +68,14 @@ Copyright 2010 Jake Wheat
 >       ]
 >   where
 >     q t r = qdb db t r
-
-> qdb :: (GetRec er vr) =>
->        Database -> Query (Rel (Record er)) -> (Record vr -> b) -> IO [b]
-> qdb db t r = query db t >>= return . map r
-
-> jn :: Expr (Maybe String) -> Expr String
-> jn = fromNull (constant "")
-
-> mv :: Maybe String -> String
-> mv = maybe "" id
-
-
-
+>
 > spellInfo :: Database -> IO [MyTextItem]
 > spellInfo db =
 >   concat . concat <$> M.sequence [
 >         q (table Cwssd.current_wizard_selected_spell_details)
 >           (\r -> [Text $ "\nChosen spell: " ++ mv (r # Cwssd.spell_name)
 >                   ++ "\t"
->                  ,Text $ mv (r # Cwssd.sprite) -- should be sprite
+>                  ,Image $ mv (r # Cwssd.sprite) -- should be sprite
 >                  ,Text $ "\n(" ++ mv (r # Cwssd.spell_category) ++ ", "
 >                        ++ mv (r # Cwssd.alignment_string) ++ ", copies "
 >                        ++ show (r # Cwssd.count) ++ ")\n"
@@ -116,9 +107,9 @@ check the fields and field names
 
 > cursorInfo :: Database -> IO [MyTextItem]
 > cursorInfo db = return [Text "cursor info\n"]
-
+>
 > cursorPieces :: Database -> IO [MyTextItem]
 > cursorPieces db = return [Text "cursor pieces\n"]
-
+>
 > selectedPieceInfo :: Database -> IO [MyTextItem]
 > selectedPieceInfo db = return [Text "selected piece info\n"]

@@ -1,8 +1,8 @@
 #! /usr/bin/env runghc
 
 > import Database.HaskellDB.HDBC.PostgreSQL
-> import Control.Concurrent.Chan
-> import Control.Concurrent
+> import Control.Concurrent.Chan.Strict
+> import Control.Concurrent hiding (newChan)
 > import Database.HDBC.PostgreSQL
 > import Database.HDBC
 > import Control.Exception

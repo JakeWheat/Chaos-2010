@@ -39,10 +39,8 @@ coloured background)
 >                     textTagForeground := "black"]
 >     textTagTableAdd tagTable inverseTag
 >     return ()
-
->
 >   return tv
-
+>
 > colours :: [(String, Color)]
 > colours = [("grid", Color 32767 32767 32767)
 >           ,("background", Color 0 0 32767)
@@ -57,7 +55,7 @@ coloured background)
 >           ,("orange", Color 65535 41215 0)
 >           ,("grey", Color 32767 32767 32767)
 >           ,("white", Color 65535 65535 65535)]
-
+>
 > colourToHex :: Color -> String
 > colourToHex (Color red green blue) =
 >           "#" ++ intToHex red ++ intToHex green ++ intToHex blue
@@ -68,8 +66,7 @@ coloured background)
 >                      then '0' : h
 >                      else h
 >             div256 i = truncate (fromIntegral i / 256::Double)
-
-
+>
 > render :: TextView -> [MyTextItem] -> IO()
 > render tv is = do
 >   tb <- textViewGetBuffer tv
@@ -81,7 +78,7 @@ coloured background)
 >                si <- textBufferGetStartIter tb
 >                ei <- textBufferGetEndIter tb
 >                textBufferDelete tb si ei
-
+>
 > renderItem :: TextBuffer -> MyTextItem -> IO()
 > renderItem tb (Text t) = do
 >   textBufferInsertAtCursor tb t
@@ -89,8 +86,10 @@ coloured background)
 > renderItem tb (TaggedText ts t) = do
 >   textBufferInsertAtCursorWithTags tb ts t
 >   return ()
+> renderItem tb (Image t) = do
+>   textBufferInsertAtCursor tb t -- todo: fix
+>   return ()
 > renderItem _ _ = return ()
-
 
 
  > data MyTextItem = Text String
@@ -118,7 +117,7 @@ coloured background)
 >     when (isJust tag) $ do
 >       textBufferApplyTag tb (fromJust tag) startIter iter1)
 >   return ()
-
+>
 > textBufferGetInsertIter :: TextBuffer -> IO TextIter
 > textBufferGetInsertIter tb = do
 > --  buf <- textViewGetBuffer tv

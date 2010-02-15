@@ -7,9 +7,9 @@ Some utils for gtk, mainly to add scrollviews and windows to widgets.
 >                  wrapInVerticalScroller,
 >                  wrapInWindow,
 >                  getParentWidget) where
-
+>
 > import Graphics.UI.Gtk
-
+>
 > wrapInFullScroller :: WidgetClass a => a -> IO VBox
 > wrapInFullScroller w = do
 >   vbox2 <- vBoxNew False 0
@@ -19,7 +19,7 @@ Some utils for gtk, mainly to add scrollviews and windows to widgets.
 >   boxPackStart vbox2 scroller PackGrow 0
 >   scrolledWindowAddWithViewport scroller w
 >   return vbox2
-
+>
 > wrapInVerticalScroller :: WidgetClass a => a -> IO VBox
 > wrapInVerticalScroller w = do
 >   vbox2 <- vBoxNew False 0
@@ -29,14 +29,14 @@ Some utils for gtk, mainly to add scrollviews and windows to widgets.
 >   boxPackStart vbox2 scroller PackGrow 0
 >   scrolledWindowAddWithViewport scroller w
 >   return vbox2
-
+>
 > wrapInWindow :: WidgetClass w => String -> w -> IO Window
 > wrapInWindow title widget = do
 >   win <- windowNew
 >   windowSetTitle win title
 >   containerAdd win widget
 >   return win
-
+>
 > getParentWidget :: WidgetClass a => a -> IO Widget
 > getParentWidget wid = do
 >     p <- widgetGetParent wid

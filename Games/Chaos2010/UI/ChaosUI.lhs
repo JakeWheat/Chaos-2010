@@ -6,7 +6,7 @@ list of windows.
 > {-# LANGUAGE TupleSections #-}
 > module Games.Chaos2010.UI.ChaosUI where
 
-> import Control.Concurrent.Chan
+> import Control.Concurrent.Chan.Strict
 > import Database.HaskellDB
 > import Control.Applicative
 > import Database.HDBC.PostgreSQL
@@ -38,17 +38,21 @@ list of windows.
 >                ,("Action History", actionHistoryWidget)]
 
 > chaosServer :: Database -> Connection -> (Chan String) -> (Chan (String,[MyTextItem])) -> IO ()
-> chaosServer db conn inChan outChan =
+> chaosServer db conn inChan outChan = do
+>   allUpdates db >>= mapM_ (writeChan outChan)
 >   let loop = do
 >         k <- readChan inChan
 >         putStrLn $ "key press: " ++ k
 >         callSP conn "select action_key_pressed(?);" [k]
+>         mapM_ (\(n,DBText r) -> do
+>                  x <- r db
+>                  writeChan outChan (n,x)) chaosRenders
 >         u <- allUpdates db
 >         putStrLn "done em"
 >         mapM_ (writeChan outChan) u
 >         putStrLn "chan rote"
 >         loop
->   in loop
+>   loop
 
 > callSP :: IConnection conn => conn -> String -> [String] -> IO ()
 > callSP conn sql args = do
@@ -58,15 +62,3 @@ list of windows.
 > allUpdates :: Database -> IO [(String, [MyTextItem])]
 > allUpdates db =
 >   mapM (\(n,DBText r) -> (n,) <$> r db) chaosRenders
-
->{- handleKeyPress k = do
-
->                dbAction conn "key_pressed" [key]
->                when (key == "F12") refreshAll
-
->                when (key `elem` ["Up","KP_Up","Left","KP_Left","Right",
->                                  "KP_Right","Down","KP_Down","KP_Home",
->                                  "KP_Page_Up","KP_Page_Down","KP_End"])
->                     refreshBoard-}
-
-
