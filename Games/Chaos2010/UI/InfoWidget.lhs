@@ -15,6 +15,10 @@ Copyright 2010 Jake Wheat
 > import Games.Chaos2010.Database.Current_wizard_table
 > import Games.Chaos2010.Database.Allegiance_colours as Ac
 > import Games.Chaos2010.Database.Wizard_sprites
+> import Games.Chaos2010.Database.Cursor_position
+> import qualified Games.Chaos2010.Database.Cursor_piece_details as Cpd
+> import qualified Games.Chaos2010.Database.Selected_piece_details as Spd
+>
 > import qualified Games.Chaos2010.Database.Current_wizard_selected_spell_details as Cwssd
 >
 > import Games.Chaos2010.UI.HdbUtils
@@ -106,10 +110,92 @@ check the fields and field names
 
 
 > cursorInfo :: Database -> IO [MyTextItem]
-> cursorInfo db = return [Text "cursor info\n"]
+> cursorInfo db =
+>   concat <$> q (do
+>          t1 <- table cursor_position
+>          project $ copy x t1
+>                  .*. copy y t1
+>                  .*. emptyRecord)
+>          (\r -> [Text $ "\n\
+>                         \---------\n\
+>                         \\ncursor: " ++ show (r # x) ++ ", " ++ show (r # y)])
+>   where
+>     q t r = qdb db t r
+
 >
 > cursorPieces :: Database -> IO [MyTextItem]
-> cursorPieces db = return [Text "cursor pieces\n"]
+> cursorPieces db =
+>   concat <$> q (do
+>          t1 <- table Cpd.cursor_piece_details
+>          order [asc t1 Cpd.sp]
+>          project $ copyAll t1)
+>          (\r -> (Text "\n\
+>                       \-------\n" : pieceInfo r))
+>   where
+>     q t r = qdb db t r
 >
 > selectedPieceInfo :: Database -> IO [MyTextItem]
-> selectedPieceInfo db = return [Text "selected piece info\n"]
+> selectedPieceInfo db =
+>   concat <$> q (table Spd.selected_piece_details)
+>          (\r -> (Text "\n\n\
+>                        \--------\n\
+>                        \\nSelected piece:" : pieceInfo r))
+>   where
+>     q t r = qdb db t r
+
+
+> pieceInfo r = []
+>   {-[Text "\n"
+>   ,Image r # Cpd.sprite ++
+>    (case () of
+>             _ | r # ptype == "wizard" ->
+>                 [TaggedText [r # colour] $ r # allegiance]
+>               | r # dead ->
+>                 [TaggedText ["grey"] $ "dead " ++ r # ptype ++ "-" ++ t # tag]
+>               | otherwise -> [
+>                   Text $ r # ptype  ++ "-" ++ r # tag ++ "("
+>                  ,TaggedText [r # colour] $ r # allegiance
+>                  ,Text ")"])]-} {- ++
+
+boolean stats are treated differently:
+Don't display bool stats if they are false,
+for all the stats which are true, display a csv list of their names
+when multiplayer/ computer controlled:
+TODO: hide imaginary? or make it optional:
+if you are playing against the computer or other players over the network,
+you might want to be able to see which of your monsters are imaginary
+if you are playing with multiple players at one computer, you definitely
+don't want to be able to see which monsters are imaginary (as with the
+original chaos), cos then everyone can cheat. You should never be able
+to see imaginary of monsters that aren't yours.
+
+>        [let booleanStats = [flying
+>                            ,undead
+>                            ,ridable
+>                            ,imaginary
+>                            ,shadow_form
+>                            ,magic_sword
+>                            ,magic_knife
+>                            ,magic_shield
+>                            ,magic_wings
+>                            ,magic_armour
+>                            ,magic_bow
+>                            ,computer_controlled]
+>             pieceBoolStats = filter (\s -> r # s) booleanStats
+>         in Text $ '\n' : intercalate ", " pieceBoolStats
+>        ] ++
+
+>        let atts = [remaining_walk
+>                   ,move_phase
+>                   ,attack_strength
+>                   ,physical_defense
+>                   ,speed
+>                   ,agility
+>                   ,ranged_weapon_type
+>                   ,range
+>                   ,ranged_attack_strength
+>                   ,magic_defense
+>                   ,place]
+>            vals = zip atts $ map (\f -> r # f) atts
+>            vals' = filter (\(_,f2) -> f2 /= "") vals
+>        in map (\(f1,f2) -> Text $ "\n" ++ f1 ++ ": " ++ f2) vals' -}
