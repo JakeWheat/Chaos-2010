@@ -9,3 +9,5 @@ figure out how to do effects
 get tests running again, use haskelldb?
 get back the tupleif, onne tuple and onne tuple-onne attr shortcuts
   with error handling
+move the callbacks into the abstract widgets, with routing and stuff
+use a monad to generate ids proprely

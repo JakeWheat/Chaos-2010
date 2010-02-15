@@ -60,38 +60,3 @@ new game widget:
 >                      ,"upgraded_wizards"
 >                      ,"overlapping"]
 >                      (\lb -> Button lb lb))]
-
-
-add the buttons at the bottom of the panel to start the game and
-reset the panel
-
-> {-              ,D.Items $ [MyTextView.Button "start game" $
->                             forkIt $ dbAction conn
->                                      "client_new_game_using_\
->                                      \new_game_widget_state" []
->                             --temp:
->                             --win <- getParentWidget tv
->                             --widgetHideAll win
->                          ,MyTextView.Button "reset this window" $ forkIt $ do
->                             dbAction conn "reset_new_game_widget_state" []
->                             refresh
->                          ,Text "\n"
->                          ] ++
-
-add some temporary buttons to start custom games for testing purposes
-
->                           for ["all_pieces"
->                               ,"upgraded_wizards"
->                               ,"overlapping"
->                               ] (\l -> MyTextView.Button l $ forkIt $ do
->                                   dbAction conn
->                                            "client_new_game_using_\
->                                            \new_game_widget_state" []
->                                   dbAction conn "setup_test_board" [l])
->                                   -- need to call refresh all here somehow
->               ]
->       sprite s = let (pb,_,_) = safeMLookup ("show sprite " ++ s) s spriteMap
->                  in Pixbuf $ head pb-}
-
-TODO: make this into a game manager which handles managing multiple
-games and deleting ones you don't want, as well as starting new games

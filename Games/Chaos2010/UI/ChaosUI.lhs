@@ -4,7 +4,7 @@ The top level description of the entire user interface, which is a
 list of windows.
 
 > {-# LANGUAGE TupleSections #-}
-> module Games.Chaos2010.UI.ChaosUI where
+> module Games.Chaos2010.UI.ChaosUI (chaosUI, chaosServer) where
 
 > import Control.Concurrent.Chan.Strict
 > import Database.HaskellDB
@@ -44,14 +44,11 @@ list of windows.
 >   allUpdates >>= mapM_ (writeChan outChan)
 >   let loop = do
 >         e <- readChan inChan
->         case e of
->           Key k -> do
->                    putStrLn $ "key press: " ++ k
->                    callSP conn "select action_key_pressed(?);" [k]
->                    mapM_ (\(n,DBText r) -> do
->                                            x <- r db
->                                            writeChan outChan (n,x)) chaosRenders
->           x -> putStrLn $ show x
+>         handleEvent db conn e
+>         mapM_ (\(n,DBText r) -> do
+>                                 x <- r db
+>                                 writeChan outChan (n,x)) chaosRenders
+
 >         loop
 >   loop
 >   where
@@ -74,3 +71,28 @@ list of windows.
 > callSP conn sql args = do
 >   _ <- run conn sql $ map toSql args
 >   commit conn
+
+> handleEvent :: Database -> Connection -> Event -> IO ()
+> handleEvent db conn e =
+>   case e of
+>     Key k -> do
+>              putStrLn $ "key press: " ++ k
+>              callSP conn "select action_key_pressed(?);" [k]
+>     ButtonClick bid -> do
+>       case bid of
+>         "startGame" -> callSP conn
+>            "select action_client_new_game_using_new_game_widget_state();" []
+>         "resetNewGameWindow" -> callSP conn
+>            "select action_reset_new_game_widget_state();" []
+>         "all_pieces" -> setupTestBoard bid
+>         "upgraded_wizards" -> setupTestBoard bid
+>         "overlapping" -> setupTestBoard bid
+>         n -> putStrLn $ "WARNING: unrecognised button id: " ++ n
+>     ToggleButtonGroupClick gid bid -> putStrLn $ show e
+>   where
+>     setupTestBoard t =
+>       callSP conn "select action_setup_test_board(?);" [t]
+
+
+                                            "update new_game_widget_state\n\
+                                             \set state =? where line =?"
