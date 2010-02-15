@@ -24,14 +24,13 @@ something, it queues it in gtk using idleAdd
 
 >
 > startGUI :: Chan U.Event -> Chan (String,[U.MyTextItem]) -> [U.Window] -> IO()
-> startGUI kpChan guChan wins = do
+> startGUI evChan guChan wins = do
 >   _ <- unsafeInitGUIForThreadedRTS
 >   sp <- loadSprites
->   r <- mapM (\w@(U.Window title _ _ _ _) -> (title,) <$> createWindow sp keyPressed w) wins
+>   r <- mapM (\w@(U.Window title _ _ _ _) ->
+>              (title,) <$> createWindow sp (sendEvent evChan) w) wins
 >   _ <- forkIO $ readUpdates r guChan
 >   mainGUI
->   where
->     keyPressed k = writeChan kpChan $ U.Key k
 >
 > readUpdates :: [(String, ([U.MyTextItem] -> IO()))] -> Chan (String,[U.MyTextItem]) -> IO ()
 > readUpdates mp guChan =
@@ -48,9 +47,9 @@ something, it queues it in gtk using idleAdd
 >              loop
 >   in loop
 >
-> createWindow :: SpriteMap -> (String -> IO()) -> U.Window -> IO ([U.MyTextItem] -> IO())
+> createWindow :: SpriteMap -> (U.Event -> IO ()) -> U.Window -> IO ([U.MyTextItem] -> IO())
 > createWindow sp cb (U.Window title x y w h) = do
->   (tv, r) <- myTextViewNew sp
+>   (tv, r) <- myTextViewNew sp cb
 >   ww <- wrapInFullScroller tv >>= wrapInWindow title
 >   widgetShowAll ww
 >   windowMove ww x y
@@ -59,12 +58,16 @@ something, it queues it in gtk using idleAdd
 >   _ <- onDestroy ww mainQuit
 >   return r
 >
-> handleKeyPress :: (String -> IO ()) -> Event -> IO Bool
+> handleKeyPress :: (U.Event -> IO ()) -> Event -> IO Bool
 > handleKeyPress cb e = do
 >   _ <- case e of
->               Key { eventKeyName = key } -> cb key
+>               Key { eventKeyName = key } -> cb $ U.Key key
 >               _ -> error "key press handler got non key event"
 >   return False
+
+> sendEvent :: Chan U.Event -> U.Event -> IO ()
+> sendEvent ch e =
+>     writeChan ch e
 
 
 > loadSprites :: IO SpriteMap

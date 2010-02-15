@@ -65,7 +65,7 @@ red 10-20
 >            project $ copyAll t1)
 >           (\r -> [Text "\n"
 >                  ,TaggedText [mv $ r # colour] $ mv (r # key) ++ " - "
->                  ,Image $ "mini-" ++ (mv $ r # sprite) ++ ".0"
+>                  ,Image $ "mini-" ++ (mv $ r # sprite)
 >                  ,TaggedText [mv $ r # colour]
 >                              $ " " ++ mv (r # spell_name)
 >                                ++ " " ++ smn (r # chance) ++ "%"

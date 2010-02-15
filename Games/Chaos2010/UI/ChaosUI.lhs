@@ -19,6 +19,7 @@ list of windows.
 > import Games.Chaos2010.UI.NewGameWidget
 > import Games.Chaos2010.UI.BoardWidget
 > import Games.Chaos2010.UI.ActionHistoryWidget
+> import Games.Chaos2010.Database.New_game_widget_state
 
 > chaosUI :: [Window]
 > chaosUI = [Window "Info" 0 371 579 213
@@ -39,6 +40,7 @@ list of windows.
 
 > chaosServer :: Database -> Connection -> (Chan Event) -> (Chan (String,[MyTextItem])) -> IO ()
 > chaosServer db conn inChan outChan = do
+>   checkNewGameRelvar db conn
 >   allUpdates >>= mapM_ (writeChan outChan)
 >   let loop = do
 >         e <- readChan inChan
@@ -56,6 +58,17 @@ list of windows.
 >     allUpdates =
 >         mapM (\(n,DBText r) -> (n,) <$> r db) chaosRenders
 
+> checkNewGameRelvar :: Database -> Connection -> IO ()
+> checkNewGameRelvar db conn = do
+>   r <- query db c
+>   forM_ r $ \r ->
+>     when (r # line == 0) $
+>       callSP conn "select action_reset_new_game_widget_state();" []
+>   where
+>     c = do
+>         t1 <- table new_game_widget_state
+>         project $ line .=. count(t1 .!. line)
+>                 .*. emptyRecord
 
 > callSP :: IConnection conn => conn -> String -> [String] -> IO ()
 > callSP conn sql args = do

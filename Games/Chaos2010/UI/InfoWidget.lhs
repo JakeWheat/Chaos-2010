@@ -60,7 +60,7 @@ Copyright 2010 Jake Wheat
 >                       .*. emptyRecord)
 >           (\r -> [Text $ "\nWizard up: "
 >                  ,TaggedText [mv $ r # Ac.colour] (r # current_wizard)
->                  ,Image $ mv (r # sprite)]) -- todo: should be a sprite
+>                  ,Image $ "medium-" ++ mv (r # sprite)]) -- todo: should be a sprite
 >        {-,q (do
 >        ,D.SelectValueIf "select count from\n\
 >                         \    (select count(*) from pieces_to_move) as a\n\
@@ -78,7 +78,7 @@ Copyright 2010 Jake Wheat
 >         q (table Cwssd.current_wizard_selected_spell_details)
 >           (\r -> [Text $ "\nChosen spell: " ++ mv (r # Cwssd.spell_name)
 >                   ++ "\t"
->                  ,Image $ mv (r # Cwssd.sprite) -- should be sprite
+>                  ,Image $ "medium-" ++ mv (r # Cwssd.sprite) -- should be sprite
 >                  ,Text $ "\n(" ++ mv (r # Cwssd.spell_category) ++ ", "
 >                        ++ mv (r # Cwssd.alignment_string) ++ ", copies "
 >                        ++ show (r # Cwssd.count) ++ ")\n"

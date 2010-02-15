@@ -8,11 +8,11 @@ Copyright 2010 Jake Wheat
 > import Numeric
 > import Data.Maybe
 
-> import Games.Chaos2010.UI.UITypes
+> import Games.Chaos2010.UI.UITypes as U
 > import Games.Chaos2010.GtkUI.Types
 
-> myTextViewNew :: SpriteMap -> IO (TextView, [MyTextItem] -> IO())
-> myTextViewNew sp = do
+> myTextViewNew :: SpriteMap -> (U.Event -> IO()) -> IO (TextView, [MyTextItem] -> IO())
+> myTextViewNew sp cb = do
 >   tv <- textViewNew
 >   tb <- textViewGetBuffer tv
 >   textBufferInsertAtCursor tb "loading..."
@@ -39,7 +39,7 @@ coloured background)
 >                     textTagForeground := "black"]
 >     textTagTableAdd tagTable inverseTag
 >     return ()
->   return (tv, render sp tv)
+>   return (tv, render sp cb tv)
 >
 > colours :: [(String, Color)]
 > colours = [("grid", Color 32767 32767 32767)
@@ -67,11 +67,11 @@ coloured background)
 >                      else h
 >             div256 i = truncate (fromIntegral i / 256::Double)
 >
-> render :: SpriteMap -> TextView -> [MyTextItem] -> IO()
-> render sp tv is = do
+> render :: SpriteMap ->  (U.Event -> IO()) -> TextView -> [MyTextItem] -> IO()
+> render sp cb tv is = do
 >   tb <- textViewGetBuffer tv
 >   clear tb
->   mapM_ (renderItem sp tb) is
+>   mapM_ (renderItem sp cb tv tb) is
 >   return ()
 >   where
 >     clear tb = do
@@ -79,19 +79,72 @@ coloured background)
 >                ei <- textBufferGetEndIter tb
 >                textBufferDelete tb si ei
 >
-> renderItem :: SpriteMap -> TextBuffer -> MyTextItem -> IO()
-> renderItem _ tb (Text t) = do
+> renderItem :: SpriteMap -> (U.Event -> IO()) -> TextView -> TextBuffer -> MyTextItem -> IO()
+> renderItem _ _ _ tb (Text t) = do
 >   textBufferInsertAtCursor tb t
 >   return ()
-> renderItem _ tb (TaggedText ts t) = do
+> renderItem _ _ _ tb (TaggedText ts t) = do
 >   textBufferInsertAtCursorWithTags tb ts t
 >   return ()
-> renderItem sp tb (Image t) = do
->   let spr = lookup t sp
+> renderItem sp _ _ tb (Image t) = do
+>   let spr = lookup (t ++ ".0") sp
 >   case spr of
 >     Nothing -> putStrLn $ "WARNING: pixbuf not found: " ++ t
 >     Just p -> textBufferInsertPixbufAtCursor tb p
-> renderItem _ _ _ = return ()
+> renderItem _ cb tv _ (ToggleButtonGroup items gid s) =
+>   unless (null items) $ do
+>   --create the first button and then all the
+>   --others so we can make them into a radio
+>   --button group
+>   b1 <- radioButtonNewWithLabel $ snd $ head items
+>   bts <- mapM (radioButtonNewWithLabelFromWidget b1) $ map snd $ tail items
+>   -- run through the buttons, set the active
+>   -- button, insert them into the text buffer
+>   -- and add the callbacks
+>   let bs = b1 : bts
+>   mapM_ doButton $ zip bs items
+>   return ()
+>   where
+>     doButton (b,(n,bid)) = do
+>       when (n == s) $ toggleButtonSetActive b True
+>       toggleButtonSetMode b False
+>       textViewInsertWidgetAtCursor tv b
+>       onToggled b $ do
+>         a <- toggleButtonGetActive b
+>         when a $ cb $ ToggleButtonGroupClick gid bid
+>
+> renderItem _ cb tv _ (Button n bid) = do
+>   but <- buttonNewWithLabel n
+>   _ <- onClicked but $ cb (ButtonClick bid)
+>   textViewInsertWidgetAtCursor tv but
+
+ >            | ButtonClick String EventID
+ >            | ToggleButtonClick EventID EventID
+
+> {-                     ToggleButtonGroup ls s c ->
+>                        unless (null ls) $ do
+>                        --create the first button and then all the
+>                        --others so we can make them into a radio
+>                        --button group
+>                        b1 <- radioButtonNewWithLabel $ head ls
+>                        bts <- mapM (radioButtonNewWithLabelFromWidget b1) $
+>                                    tail ls
+>                        -- run through the buttons, set the active
+>                        -- button, insert them into the text buffer
+>                        -- and add the callbacks
+>                        let bs = b1 : bts
+>                        mapM_ (\(l,b) -> do
+>                                when (s == l) $ toggleButtonSetActive b True
+>                                toggleButtonSetMode b False
+>                                textViewInsertWidgetAtCursor tv b
+>                                onToggled b $
+>                                  whenA (toggleButtonGetActive b) $ c l
+>                               ) $ zip ls bs
+>                        return ()
+>                      Button l c -> do
+>                        but <- buttonNewWithLabel l
+>                        onClicked but c
+>                        textViewInsertWidgetAtCursor tv but-}
 
 
 > textBufferInsertPixbufAtCursor :: TextBuffer -> Pixbuf -> IO ()
@@ -133,3 +186,11 @@ coloured background)
 >   case mark of
 >     Just m -> textBufferGetIterAtMark tb m
 >     Nothing -> error "couldn't find insert mark in buffer"
+
+> textViewInsertWidgetAtCursor :: WidgetClass a => TextView -> a -> IO ()
+> textViewInsertWidgetAtCursor tv w = do
+>   tb <- textViewGetBuffer tv
+>   iter <- textBufferGetInsertIter tb
+>   anc <- textBufferCreateChildAnchor tb iter
+>   textViewAddChildAtAnchor tv w anc
+>   widgetShowAll w

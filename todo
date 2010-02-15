@@ -7,3 +7,5 @@ make renders more abstract so can analyze and optimise updates
 get notify hooked up
 figure out how to do effects
 get tests running again, use haskelldb?
+get back the tupleif, onne tuple and onne tuple-onne attr shortcuts
+  with error handling

@@ -11,15 +11,15 @@ data types for the abstract ui
 >                 | TaggedText [String] String
 >                 | Image String
 >                 --  ToggleButton String Bool ToggleButtonCallback
->                 | ToggleButtonGroup [(EventID,String)] String EventID
+>                 | ToggleButtonGroup [(EventID,String)] EventID EventID --gid,currently selected
 >                 | Button String EventID
 >                   deriving (Eq,Show)
 
 > type EventID = String
 
 > data Event = Key String
->            | ButtonClick String EventID
->            | ToggleButtonClick EventID EventID
+>            | ButtonClick EventID
+>            | ToggleButtonGroupClick EventID EventID
 >              deriving (Eq,Show)
 >
 >
@@ -31,10 +31,10 @@ data types for the abstract ui
 >     rnf (Text s) = rnf s `seq` ()
 >     rnf (TaggedText tg t) = rnf tg `seq` rnf t `seq` ()
 >     rnf (Image i) = rnf i `seq` ()
->     rnf (ToggleButtonGroup m s e) = rnf m `seq` rnf s `seq` rnf e `seq` ()
+>     rnf (ToggleButtonGroup m e s) = rnf m `seq` rnf e `seq` rnf s `seq` ()
 >     rnf (Button s e) = rnf s `seq` rnf e `seq` ()
 
 > instance NFData Event where
->     rnf (Key s) = s `seq` ()
->     rnf (ButtonClick s e) = s `seq` e `seq` ()
->     rnf (ToggleButtonClick e e1) = e `seq` e1 `seq` ()
+>     rnf (Key s) = rnf s `seq` ()
+>     rnf (ButtonClick e) = rnf e `seq` ()
+>     rnf (ToggleButtonGroupClick e e1) = rnf e `seq` rnf e1 `seq` ()
