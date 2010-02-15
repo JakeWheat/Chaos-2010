@@ -8,7 +8,7 @@ data types for the abstract ui
 
 
 > data MyTextItem = Text String
->                 | TaggedText String [String]
+>                 | TaggedText [String] String
 >                 | Image String
 >                 | ToggleButton String Bool ToggleButtonCallback
 >                 | ToggleButtonGroup [String] String ToggleGroupCallback

@@ -21,7 +21,7 @@ Module to load the ui and start it using gtk
 
 > createWindow :: Database -> U.Window -> IO ()
 > createWindow db (U.Window title x y w h r) = do
->   tv <- textViewNew
+>   tv <- myTextViewNew
 >   renderTo db tv r
 >   wi <- wrapInFullScroller tv >>= wrapInWindow title
 >   widgetShowAll wi

@@ -5,9 +5,17 @@ Copyright 2010 Jake Wheat
 > import Games.Chaos2010.UI.UITypes
 > import Control.Applicative
 > import Database.HaskellDB
+> import Control.Monad as M
 
 > import Games.Chaos2010.Database.Turn_number_table
-
+> import Games.Chaos2010.Database.World_alignment_table
+> import Games.Chaos2010.Database.Turn_phase_table
+> import Games.Chaos2010.Database.Prompt
+> import Games.Chaos2010.Database.Current_wizard_table
+> import Games.Chaos2010.Database.Allegiance_colours as Ac
+> import Games.Chaos2010.Database.Wizard_sprites
+>
+>
 > infoWidget :: DBText
 > infoWidget =
 >   DBText (\db -> concat <$> mapM (\r -> r db) bits)
@@ -19,46 +27,45 @@ Copyright 2010 Jake Wheat
 >            ,selectedPieceInfo]
 >
 > turnPhaseInfo :: Database -> IO [MyTextItem]
-> turnPhaseInfo db = do
->   res <- query db $ table turn_number_table
->   return $ flip map res $ \r ->
->       Text $ "Turn " ++ show (r # turn_number)
-
-
-> {-        D.SelectValueIf "select * from turn_number_table" [] $
->           \tn -> [Text $ "Turn " ++ tn ++ ", "]
-
->        ,D.SelectValueIf "select format_alignment(world_alignment)\n\
->                         \    as alignment\n\
->                         \  from world_alignment_table" [] $
->           \wa -> [Text $ "world alignment " ++ wa ++ ", "]
-
->        ,D.SelectValueIf "select turn_phase from turn_phase_table" [] $
->           \tp -> [Text $ "turn_phase " ++ tp ++ "\n"]
->        ,D.SelectTuples "select help from prompt" [] $
->           \tp -> [Text $ lk "help" tp ++ "\n"]
->        --,D.Items [MyTextView.Button "continue" $ dbAction conn "next_phase" []]
->        ,D.SelectTupleIf "select current_wizard,colour,allegiance,sprite \n\
->                         \  from current_wizard_table\n\
->                         \  inner join allegiance_colours\n\
->                         \  on current_wizard = allegiance\n\
->                         \  natural inner join wizard_sprites;" [] $
->             \wi -> [
->                     Text "\nWizard up: "
->                    ,TaggedText (lk "current_wizard" wi)
->                                [lk "colour" wi]
->                    ,sprite $ lk "sprite" wi
->                    ]
-
+> turnPhaseInfo db =
+>   concat . concat <$> M.sequence [
+>         q (table turn_number_table)
+>           (\r -> [Text $ "Turn " ++ show (r # turn_number)])
+>        ,q (table world_alignment_table) --todo: should be format_alignment(world_alignment)
+>           (\r -> [Text $ ", world alignment " ++ show (r # world_alignment)])
+>        ,q (table turn_phase_table)
+>           (\r -> [Text $ ", turn phase  " ++ show (r # turn_phase)])
+>        ,q (table prompt)
+>           (\r -> [Text $ "\n" ++ mv (r # help)])
+>        ,q (do
+>             cwt <- table current_wizard_table
+>             ac <- table allegiance_colours
+>             ws <- table wizard_sprites
+>             restrict ((cwt .!. current_wizard) .==.
+>                       jn (ac .!. allegiance))
+>             restrict ((cwt .!. current_wizard) .==.
+>                       jn (ws .!. wizard_name))
+>             project $ copy current_wizard cwt
+>                       .*. copy Ac.colour ac
+>                       .*. copy allegiance ac
+>                       .*. copy sprite ws
+>                       .*. emptyRecord)
+>           (\r -> [Text $ "\nWizard up: "
+>                  ,TaggedText [mv $ r # Ac.colour] (r # current_wizard)
+>                  ,Text $ mv (r # sprite)]) -- todo: should be a sprite
+>        {-,q (do
 >        ,D.SelectValueIf "select count from\n\
 >                         \    (select count(*) from pieces_to_move) as a\n\
 >                         \cross join turn_phase_table\n\
 >                         \where turn_phase='move';" [] $
 >                         \ptm -> [Text $ "\nPieces left to move: " ++ ptm]
->        ] -}
-
-
-
+>           (\r -> [])-}
+>       ]
+>   where
+>     jn = fromNull (constant "")
+>     mv = maybe "" id
+>     q t r = query db t >>=
+>             return . map r
 
 
 > spellInfo :: Database -> IO [MyTextItem]
