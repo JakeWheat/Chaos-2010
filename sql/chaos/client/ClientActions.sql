@@ -138,9 +138,10 @@ loop, got rid of that, got it down to about 0.1 sec but this is for an
 unmatched keypress, need to be faster.
 
 */
-  if get_running_effects() then
+  raise notice 'key pressed: %', pkeycode;
+  /*if get_running_effects() then
     return;
-  end if;
+  end if;*/
 
   if exists(select 1 from valid_activate_actions
             where action='ai_continue')

@@ -1,17 +1,4 @@
-todo:
-initial goal: tidy up code which is a massive mess:
-
-split chaos2010 into many files
-run tests from chaos2010 exe
-fix arguments, setup, only look at cabal installations and forget exe for now
-
-transition all ui code to be more declarative
-use new hssqlppp + hlist wrappers + th for database access
-split out any development utilities
-split out development time dbms utilities into separate package or put in hssqlppp
-
-review and rework sql code: use hssqlppp extensions instead of
-dynamically generating pgsql from pgsql
-change test code to be much more declarative
-
-review all code and docs for other todos to tidy
+figure out why key pressed not doing owt
+get rnf working on gui updates
+get substantial part of other text widgets displaying
+get board widget displaying sprites

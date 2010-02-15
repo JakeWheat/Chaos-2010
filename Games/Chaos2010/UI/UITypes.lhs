@@ -20,4 +20,4 @@ data types for the abstract ui
 
 
 > data DBText = DBText (Database -> IO [MyTextItem])
-> data Window = Window String Int Int Int Int DBText
+> data Window = Window String Int Int Int Int

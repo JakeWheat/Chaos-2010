@@ -5,6 +5,7 @@ Copyright 2010 Jake Wheat
 > import Games.Chaos2010.UI.UITypes
 > import Control.Applicative
 > import Database.HaskellDB
+> import Database.HaskellDB.Database
 > import Control.Monad as M
 
 > import Games.Chaos2010.Database.Turn_number_table
@@ -14,6 +15,7 @@ Copyright 2010 Jake Wheat
 > import Games.Chaos2010.Database.Current_wizard_table
 > import Games.Chaos2010.Database.Allegiance_colours as Ac
 > import Games.Chaos2010.Database.Wizard_sprites
+> import qualified Games.Chaos2010.Database.Current_wizard_selected_spell_details as Cwssd
 >
 >
 > infoWidget :: DBText
@@ -62,14 +64,55 @@ Copyright 2010 Jake Wheat
 >           (\r -> [])-}
 >       ]
 >   where
->     jn = fromNull (constant "")
->     mv = maybe "" id
->     q t r = query db t >>=
->             return . map r
+>     q t r = qdb db t r
+
+> qdb :: (GetRec er vr) =>
+>        Database -> Query (Rel (Record er)) -> (Record vr -> b) -> IO [b]
+> qdb db t r = query db t >>= return . map r
+
+> jn :: Expr (Maybe String) -> Expr String
+> jn = fromNull (constant "")
+
+> mv :: Maybe String -> String
+> mv = maybe "" id
+
 
 
 > spellInfo :: Database -> IO [MyTextItem]
-> spellInfo db = return [Text "spell info\n"]
+> spellInfo db =
+>   concat . concat <$> M.sequence [
+>         q (table Cwssd.current_wizard_selected_spell_details)
+>           (\r -> [Text $ "\nChosen spell: " ++ mv (r # Cwssd.spell_name)
+>                   ++ "\t"
+>                  ,Text $ mv (r # Cwssd.sprite) -- should be sprite
+>                  ,Text $ "\n(" ++ mv (r # Cwssd.spell_category) ++ ", "
+>                        ++ mv (r # Cwssd.alignment_string) ++ ", copies "
+>                        ++ show (r # Cwssd.count) ++ ")\n"
+>                        ++ mv (r # Cwssd.description)
+>                        ++ "\nchance " ++ show (r # Cwssd.chance) ++ "% "
+>                        ++ " (base " ++ show (r # Cwssd.base_chance) ++"%)"
+>                  ])
+>        ]
+>   where
+>     q t r = qdb db t r
+
+draw the extra spell casting info:
+i think this code has got a bit stale and needs looking at again to
+check the fields and field names
+
+>  {-            ,let fields = flip filter [("#pieces", "num")
+>                                        ,("parts", "parts")
+>                                        ,("range", "range")
+>                                        ]
+>                                 (\(_,f) -> not (lk f sd == "" ||
+>                                                 read (lk f sd) < (2::Int)))
+>               in Text $ '\n' : intercalate ", "
+>                                  (for fields
+>                                       (\(n,f) ->
+>                                        n ++ ": " ++ lk f sd))
+>              ]
+>        ] -}
+
 
 > cursorInfo :: Database -> IO [MyTextItem]
 > cursorInfo db = return [Text "cursor info\n"]
