@@ -19,14 +19,14 @@ something, it queues it in gtk using idleAdd
 >
 > import Games.Chaos2010.GtkUI.GtkUtils
 > import Games.Chaos2010.GtkUI.TextWidget
+> import Games.Chaos2010.GtkUI.Types
 > import qualified Games.Chaos2010.UI.UITypes as U
 
-> type SpriteMap = [(String, Pixbuf)]
 >
 > startGUI :: Chan U.Event -> Chan (String,[U.MyTextItem]) -> [U.Window] -> IO()
 > startGUI kpChan guChan wins = do
->   sp <- loadSprites
 >   _ <- unsafeInitGUIForThreadedRTS
+>   sp <- loadSprites
 >   r <- mapM (\w@(U.Window title _ _ _ _) -> (title,) <$> createWindow sp keyPressed w) wins
 >   _ <- forkIO $ readUpdates r guChan
 >   mainGUI
@@ -50,14 +50,14 @@ something, it queues it in gtk using idleAdd
 >
 > createWindow :: SpriteMap -> (String -> IO()) -> U.Window -> IO ([U.MyTextItem] -> IO())
 > createWindow sp cb (U.Window title x y w h) = do
->   tv <- myTextViewNew
+>   (tv, r) <- myTextViewNew sp
 >   ww <- wrapInFullScroller tv >>= wrapInWindow title
 >   widgetShowAll ww
 >   windowMove ww x y
 >   windowResize ww w h
 >   _ <- onKeyPress ww $ handleKeyPress cb
 >   _ <- onDestroy ww mainQuit
->   return $ render tv
+>   return r
 >
 > handleKeyPress :: (String -> IO ()) -> Event -> IO Bool
 > handleKeyPress cb e = do
@@ -71,23 +71,14 @@ something, it queues it in gtk using idleAdd
 > loadSprites = do
 >   pngNames <- find always (extension ==? ".png") "data/sprites"
 >   let spriteNames = map (dropExtension . snd . splitFileName) pngNames
->   --mapM_ putStrLn spriteNames
-
->   --spriteNames <- selectSingleColumn conn "select sprite from sprites" []
->   {-let spriteFilenames = for spriteNames
->         (\sp ->
->           let spritefiles = (filter
->                 (\l -> takeFileName l =~ ("^" ++ sp ++ "\\.[0-9]\\.png"))
->                 maybeSpriteFiles)
->           in if null spritefiles
->                then error $ "no sprite files for: " ++ sp
->                else sort spritefiles)-}
 >   spritePixbufs <- mapM pixbufNewFromFile pngNames
 >   --create the mini pixbufs
 >   miniSpritePixbufs <- mapM  (\p -> pixbufScaleSimple p 16 16 InterpHyper) spritePixbufs
 >   --create the normal sized pixbufs
 >   mediumSpritePixbufs <- mapM (\p -> pixbufScaleSimple p 32 32 InterpHyper) spritePixbufs
 >   return $ zip spriteNames spritePixbufs
+>            ++ zip (map ("mini-" ++) spriteNames) miniSpritePixbufs
+>            ++ zip (map ("medium-" ++) spriteNames) mediumSpritePixbufs
 
  >   return $ M.fromList $
  >            zip spriteNames $

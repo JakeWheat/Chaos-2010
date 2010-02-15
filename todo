@@ -1,4 +1,9 @@
-figure out why key pressed not doing owt
-get rnf working on gui updates
-get substantial part of other text widgets displaying
+get start new game working
 get board widget displaying sprites
+get them animating
+get all ai battles going
+fix action history to be append
+make renders more abstract so can analyze and optimise updates
+get notify hooked up
+figure out how to do effects
+get tests running again, use haskelldb?

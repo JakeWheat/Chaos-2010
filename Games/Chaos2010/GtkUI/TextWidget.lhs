@@ -1,8 +1,7 @@
 Copyright 2010 Jake Wheat
 
 > module Games.Chaos2010.GtkUI.TextWidget
->     (myTextViewNew
->     ,render) where
+>     (myTextViewNew) where
 
 > import Graphics.UI.Gtk
 > import Control.Monad
@@ -10,9 +9,10 @@ Copyright 2010 Jake Wheat
 > import Data.Maybe
 
 > import Games.Chaos2010.UI.UITypes
+> import Games.Chaos2010.GtkUI.Types
 
-> myTextViewNew :: IO TextView
-> myTextViewNew = do
+> myTextViewNew :: SpriteMap -> IO (TextView, [MyTextItem] -> IO())
+> myTextViewNew sp = do
 >   tv <- textViewNew
 >   tb <- textViewGetBuffer tv
 >   textBufferInsertAtCursor tb "loading..."
@@ -39,7 +39,7 @@ coloured background)
 >                     textTagForeground := "black"]
 >     textTagTableAdd tagTable inverseTag
 >     return ()
->   return tv
+>   return (tv, render sp tv)
 >
 > colours :: [(String, Color)]
 > colours = [("grid", Color 32767 32767 32767)
@@ -67,11 +67,11 @@ coloured background)
 >                      else h
 >             div256 i = truncate (fromIntegral i / 256::Double)
 >
-> render :: TextView -> [MyTextItem] -> IO()
-> render tv is = do
+> render :: SpriteMap -> TextView -> [MyTextItem] -> IO()
+> render sp tv is = do
 >   tb <- textViewGetBuffer tv
 >   clear tb
->   mapM_ (renderItem tb) is
+>   mapM_ (renderItem sp tb) is
 >   return ()
 >   where
 >     clear tb = do
@@ -79,17 +79,25 @@ coloured background)
 >                ei <- textBufferGetEndIter tb
 >                textBufferDelete tb si ei
 >
-> renderItem :: TextBuffer -> MyTextItem -> IO()
-> renderItem tb (Text t) = do
+> renderItem :: SpriteMap -> TextBuffer -> MyTextItem -> IO()
+> renderItem _ tb (Text t) = do
 >   textBufferInsertAtCursor tb t
 >   return ()
-> renderItem tb (TaggedText ts t) = do
+> renderItem _ tb (TaggedText ts t) = do
 >   textBufferInsertAtCursorWithTags tb ts t
 >   return ()
-> renderItem tb (Image t) = do
->   textBufferInsertAtCursor tb t -- todo: fix
->   return ()
-> renderItem _ _ = return ()
+> renderItem sp tb (Image t) = do
+>   let spr = lookup t sp
+>   case spr of
+>     Nothing -> putStrLn $ "WARNING: pixbuf not found: " ++ t
+>     Just p -> textBufferInsertPixbufAtCursor tb p
+> renderItem _ _ _ = return ()
+
+
+> textBufferInsertPixbufAtCursor :: TextBuffer -> Pixbuf -> IO ()
+> textBufferInsertPixbufAtCursor tb pb = do
+>   iter <- textBufferGetInsertIter tb
+>   textBufferInsertPixbuf tb iter pb
 
 
  > data MyTextItem = Text String
