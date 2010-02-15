@@ -3,13 +3,12 @@ Copyright 2009 Jake Wheat
 
 Some utils for gtk, mainly to add scrollviews and windows to widgets.
 
-> module Games.Chaos2010.UI.GtkUtils (wrapInFullScroller,
+> module Games.Chaos2010.GtkUI.GtkUtils (wrapInFullScroller,
 >                  wrapInVerticalScroller,
 >                  wrapInWindow,
 >                  getParentWidget) where
 
 > import Graphics.UI.Gtk
-> import Control.Monad
 
 > wrapInFullScroller :: WidgetClass a => a -> IO VBox
 > wrapInFullScroller w = do
