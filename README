@@ -26,16 +26,7 @@ monsters. Different spells have different likelihoods of success.
 Each monster has different strengths, some can fly, some can attack
 from a distance.
 
-================================================================================
-
-= Important
-
-This is a pre-alpha version. You can just about play it but there are
-some minor things missing (e.g. the ui doesn't automatically update
-properly, there is no line of sight calculation, and the computer
-controlled opponents are a bit crap).
-
-It is next to impossible to install.
+It isn't easy to install.
 
 You can try the original in an emulator:
 http://www.worldofspectrum.org/infoseekid.cgi?id=0000894
@@ -45,8 +36,28 @@ Or to play a slick remake that runs in windows:
 http://chaosgroove.wordpress.com/
 which is better than this version.
 
-See the INSTALL file for installation instructions, online is at
-http://bazaar.launchpad.net/~jakewheat/chaos2010/trunk/annotate/head%3A/INSTALL
+Rough installation instructions:
+
+If this looks like gobbledygook to you then I wouldn't recommend
+trying.
+
+Install haskell platform, postgresql.
+
+createdb chaos
+
+cabal unpack hssqlppp
+
+You might have problems where hdbc-postgresql can't find the headers
+and libs for postgresql, on windows, you can probably add something like
+C:\Program-Files\PostgreSQL\8.4\bin
+to the path.
+
+ghc --make -threaded -XDeriveDataTypeable -iexamples:src  examples/HsSqlSystem.lhs && time examples/HsSqlSystem resetchaos >chaos1.sql && examples/HsSqlSystem clear --database=chaos && psql chaos -q --set ON_ERROR_STOP=on --file=chaos1.sql
+
+install gtk2hs
+
+cabal configure
+cabal build
 
 ================================================================================
 
@@ -55,23 +66,5 @@ http://bazaar.launchpad.net/~jakewheat/chaos2010/trunk/annotate/head%3A/INSTALL
 The project web site is
 https://launchpad.net/chaos2010
 
-You can download source/binaries from:
-https://launchpad.net/chaos2010/+download
-
-Mailing list:
-TODO
-
-The file 'development_guide' gives a quick intro to the source code if
-you are interested in that sort of thing. (Online version:
-http://bazaar.launchpad.net/~jakewheat/chaos2010/trunk/annotate/head%3A/development_guide
-)
-
-You can get the latest version of the source code by installing bzr
-and using:
-bzr branch lp:chaos2010
-
-You can browse the source code online here:
-http://bazaar.launchpad.net/~jakewheat/chaos2010/trunk/files
-
-Trunk details and changelog:
-https://code.launchpad.net/~jakewheat/chaos2010/trunk
+Contact
+jakewheatmail@gmail.com

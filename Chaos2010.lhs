@@ -18,8 +18,7 @@
 >    guiUpdateChan <- newChan
 >    _ <- forkIO $ chaosServer db conn keyPressChan guiUpdateChan
 >    startGUI keyPressChan guiUpdateChan chaosUI
-
-
+>
 > withConn :: String -> (Connection -> IO c) -> IO c
 > withConn cs f = bracket (connectPostgreSQL cs)
 >                         disconnect
