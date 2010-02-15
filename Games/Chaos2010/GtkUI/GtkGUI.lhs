@@ -14,19 +14,24 @@ something, it queues it in gtk using idleAdd
 > import Control.Concurrent.Chan.Strict
 > import Control.Concurrent (forkIO)
 > import Control.Applicative
+> import System.FilePath.Find
+> import System.FilePath
 >
 > import Games.Chaos2010.GtkUI.GtkUtils
 > import Games.Chaos2010.GtkUI.TextWidget
 > import qualified Games.Chaos2010.UI.UITypes as U
+
+> type SpriteMap = [(String, Pixbuf)]
 >
-> startGUI :: Chan String -> Chan (String,[U.MyTextItem]) -> [U.Window] -> IO()
+> startGUI :: Chan U.Event -> Chan (String,[U.MyTextItem]) -> [U.Window] -> IO()
 > startGUI kpChan guChan wins = do
+>   sp <- loadSprites
 >   _ <- unsafeInitGUIForThreadedRTS
->   r <- mapM (\w@(U.Window title _ _ _ _) -> (title,) <$> createWindow keyPressed w) wins
+>   r <- mapM (\w@(U.Window title _ _ _ _) -> (title,) <$> createWindow sp keyPressed w) wins
 >   _ <- forkIO $ readUpdates r guChan
 >   mainGUI
 >   where
->     keyPressed k = writeChan kpChan k
+>     keyPressed k = writeChan kpChan $ U.Key k
 >
 > readUpdates :: [(String, ([U.MyTextItem] -> IO()))] -> Chan (String,[U.MyTextItem]) -> IO ()
 > readUpdates mp guChan =
@@ -43,8 +48,8 @@ something, it queues it in gtk using idleAdd
 >              loop
 >   in loop
 >
-> createWindow :: (String -> IO()) -> U.Window -> IO ([U.MyTextItem] -> IO())
-> createWindow cb (U.Window title x y w h) = do
+> createWindow :: SpriteMap -> (String -> IO()) -> U.Window -> IO ([U.MyTextItem] -> IO())
+> createWindow sp cb (U.Window title x y w h) = do
 >   tv <- myTextViewNew
 >   ww <- wrapInFullScroller tv >>= wrapInWindow title
 >   widgetShowAll ww
@@ -60,3 +65,30 @@ something, it queues it in gtk using idleAdd
 >               Key { eventKeyName = key } -> cb key
 >               _ -> error "key press handler got non key event"
 >   return False
+
+
+> loadSprites :: IO SpriteMap
+> loadSprites = do
+>   pngNames <- find always (extension ==? ".png") "data/sprites"
+>   let spriteNames = map (dropExtension . snd . splitFileName) pngNames
+>   --mapM_ putStrLn spriteNames
+
+>   --spriteNames <- selectSingleColumn conn "select sprite from sprites" []
+>   {-let spriteFilenames = for spriteNames
+>         (\sp ->
+>           let spritefiles = (filter
+>                 (\l -> takeFileName l =~ ("^" ++ sp ++ "\\.[0-9]\\.png"))
+>                 maybeSpriteFiles)
+>           in if null spritefiles
+>                then error $ "no sprite files for: " ++ sp
+>                else sort spritefiles)-}
+>   spritePixbufs <- mapM pixbufNewFromFile pngNames
+>   --create the mini pixbufs
+>   miniSpritePixbufs <- mapM  (\p -> pixbufScaleSimple p 16 16 InterpHyper) spritePixbufs
+>   --create the normal sized pixbufs
+>   mediumSpritePixbufs <- mapM (\p -> pixbufScaleSimple p 32 32 InterpHyper) spritePixbufs
+>   return $ zip spriteNames spritePixbufs
+
+ >   return $ M.fromList $
+ >            zip spriteNames $
+ >            zip3 mediumSpritePixbufs miniSpritePixbufs spriteSurfaces

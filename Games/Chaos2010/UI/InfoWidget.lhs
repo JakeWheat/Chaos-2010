@@ -5,7 +5,6 @@ Copyright 2010 Jake Wheat
 > import Games.Chaos2010.UI.UITypes
 > import Control.Applicative
 > import Database.HaskellDB
-> import Database.HaskellDB.Database
 > import Control.Monad as M
 >
 > import Games.Chaos2010.Database.Turn_number_table

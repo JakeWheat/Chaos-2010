@@ -37,28 +37,27 @@ list of windows.
 >                ,("Board", boardWidget)
 >                ,("Action History", actionHistoryWidget)]
 
-> chaosServer :: Database -> Connection -> (Chan String) -> (Chan (String,[MyTextItem])) -> IO ()
+> chaosServer :: Database -> Connection -> (Chan Event) -> (Chan (String,[MyTextItem])) -> IO ()
 > chaosServer db conn inChan outChan = do
->   allUpdates db >>= mapM_ (writeChan outChan)
+>   allUpdates >>= mapM_ (writeChan outChan)
 >   let loop = do
->         k <- readChan inChan
->         putStrLn $ "key press: " ++ k
->         callSP conn "select action_key_pressed(?);" [k]
->         mapM_ (\(n,DBText r) -> do
->                  x <- r db
->                  writeChan outChan (n,x)) chaosRenders
->         u <- allUpdates db
->         putStrLn "done em"
->         mapM_ (writeChan outChan) u
->         putStrLn "chan rote"
+>         e <- readChan inChan
+>         case e of
+>           Key k -> do
+>                    putStrLn $ "key press: " ++ k
+>                    callSP conn "select action_key_pressed(?);" [k]
+>                    mapM_ (\(n,DBText r) -> do
+>                                            x <- r db
+>                                            writeChan outChan (n,x)) chaosRenders
+>           x -> putStrLn $ show x
 >         loop
 >   loop
+>   where
+>     allUpdates =
+>         mapM (\(n,DBText r) -> (n,) <$> r db) chaosRenders
+
 
 > callSP :: IConnection conn => conn -> String -> [String] -> IO ()
 > callSP conn sql args = do
 >   _ <- run conn sql $ map toSql args
 >   commit conn
-
-> allUpdates :: Database -> IO [(String, [MyTextItem])]
-> allUpdates db =
->   mapM (\(n,DBText r) -> (n,) <$> r db) chaosRenders
