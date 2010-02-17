@@ -16,5 +16,7 @@
 > smn :: Maybe Int -> String
 > smn = show . maybe 0 id
 
+> mn :: Maybe Int -> Int
+> mn = maybe 0 id
 
 

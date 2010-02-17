@@ -38,9 +38,18 @@ which is better than this version.
 
 Rough installation instructions:
 
-
 If this looks like gobbledygook to you then I wouldn't recommend
 trying.
+
+Difficult bits: uses ghc 6.12
+
+to install you will need:
+devel version of gtk2hs for 6.12
+hacked version of hlist for 6.12
+hacked version of hdbc-postgresql for 6.12
+devel version of haskelldb which uses hlists
+
+instructions for an alternative universe:
 
 Install haskell platform, postgresql.
 

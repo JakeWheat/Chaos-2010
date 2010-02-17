@@ -10,7 +10,6 @@ data types for the abstract ui
 > data MyTextItem = Text String
 >                 | TaggedText [String] String
 >                 | Image String
->                 --  ToggleButton String Bool ToggleButtonCallback
 >                 | ToggleButtonGroup [(EventID,String)] EventID EventID --gid,currently selected
 >                 | Button String EventID
 >                   deriving (Eq,Show)
@@ -21,9 +20,32 @@ data types for the abstract ui
 >            | ButtonClick EventID
 >            | ToggleButtonGroupClick EventID EventID
 >              deriving (Eq,Show)
+
+> data SpriteGrid = SpriteGrid Int Int [(Int,Int,String)]
+
 >
 >
 > data DBText = DBText (Database -> IO [MyTextItem])
+
+dbtext: don't like this because it's a function, want something more
+declarative.
+
+perhaps:
+data Text = ConstText [MyTextItem]
+          | DBText (query ast) (ui ast)
+          | ... other data sources?
+in the ui ast we just have data references e.g. something like
+data Field = SField String
+           | MBoolField (Maybe Bool)
+           | et.
+
+we can treat these as the wrapped data type, e.g. append an SField
+String as if it was a string
+
+the we have a processor which does:
+Text -> (Database - >IO [MyTextItem])
+and the field accesses are typechecked at this point
+
 > data Window = Window String Int Int Int Int
 >               deriving (Eq,Show)
 

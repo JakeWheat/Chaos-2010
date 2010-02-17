@@ -10,4 +10,7 @@ get tests running again, use haskelldb?
 get back the tupleif, onne tuple and onne tuple-onne attr shortcuts
   with error handling
 move the callbacks into the abstract widgets, with routing and stuff
-use a monad to generate ids proprely
+
+rewrite tests from scratch, make the bits into utils, reuse the ascii
+  art stuff to redo the setup test board in the sql code, start adding
+  tests for each constraint - want to give hssqlppp a bit of exercise

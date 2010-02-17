@@ -20,6 +20,7 @@ something, it queues it in gtk using idleAdd
 > import Games.Chaos2010.GtkUI.GtkUtils
 > import Games.Chaos2010.GtkUI.TextWidget
 > import Games.Chaos2010.GtkUI.Types
+> import Games.Chaos2010.BoardWidget.BoardWindow
 > import qualified Games.Chaos2010.UI.UITypes as U
 
 >
@@ -30,6 +31,7 @@ something, it queues it in gtk using idleAdd
 >   r <- mapM (\w@(U.Window title _ _ _ _) ->
 >              (title,) <$> createWindow sp (sendEvent evChan) w) wins
 >   _ <- forkIO $ readUpdates r guChan
+>   _ <- forkIO $ startBoardWindow "Board" 0 0 480 320 evChan
 >   mainGUI
 >
 > readUpdates :: [(String, ([U.MyTextItem] -> IO()))] -> Chan (String,[U.MyTextItem]) -> IO ()
