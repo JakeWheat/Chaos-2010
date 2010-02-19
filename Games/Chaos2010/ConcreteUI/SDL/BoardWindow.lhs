@@ -13,6 +13,7 @@
 > import qualified Graphics.UI.SDL.Image as Img
 
 > import Control.Concurrent.Chan.Strict
+> import Control.Concurrent(threadDelay)
 > --import Control.Monad
 > import Data.Maybe
 > import System.FilePath
@@ -33,16 +34,23 @@
 >   runHandler sg spr
 >   where
 >     runHandler sg spr = do
+>       --putStrLn "runhandler"
 >       screen <- getVideoSurface
 >       sg1 <- readNewGrid sg
 >       renderGrid spr sg1 screen
 >       SDL.flip screen
->       e <- waitEvent
+>       processEvents
+>       --delay 1000
+>       threadDelay $ 1000 * 100
+>       runHandler sg spr
+>     processEvents = do
+>       e <- pollEvent
+>       --putStrLn $ "got " ++ show e
 >       case e of
 >              KeyDown (Keysym k _ _) | Just a <- lookup k sdlGtkKeyMap ->  writeChan evChan $ U.Key a
 >                                     | otherwise -> putStrLn $ "ignored: " ++ show k
->              _ -> return ()
->       runHandler sg spr
+>              NoEvent -> return ()
+>              _ -> processEvents
 >     readNewGrid :: IORef U.SpriteGrid -> IO U.SpriteGrid
 >     readNewGrid sg = do
 >       mt <- isEmptyChan upChan
@@ -51,7 +59,7 @@
 >         else do
 >           u <- readChan upChan
 >           case u of
->             (_,U.WUSpriteGrid r) -> writeIORef sg r >> return r
+>             (_,U.WUSpriteGrid r) -> putStrLn "updating board" >> writeIORef sg r >> return r
 >             _ -> readIORef sg
 
 > sdlGtkKeyMap :: [(SDLKey, String)]

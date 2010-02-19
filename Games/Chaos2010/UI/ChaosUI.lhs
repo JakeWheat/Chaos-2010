@@ -46,15 +46,12 @@ list of windows.
 >   return ()
 >   checkNewGameRelvar db conn
 >   allUpdates >>= mapM_ (writeChan outChan)
->   {-let loop = do
+>   let loop = do
 >         e <- readChan inChan
 >         handleEvent db conn e
->         mapM_ (\(n,DBText r) -> do
->                                 x <- r db
->                                 writeChan outChan (n,x)) chaosRenders
-
+>         allUpdates >>= mapM_ (writeChan outChan)
 >         loop
->   loop-}
+>   loop
 >   where
 >     allUpdates =
 >         mapM (\(n,u) -> (n,) <$> u db) chaosRenders
