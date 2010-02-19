@@ -1,77 +1,76 @@
 
-> module Games.Chaos2010.BoardWidget.BoardWindow (startBoardWindow) where
+> {-# LANGUAGE ScopedTypeVariables, PatternGuards #-}
+> module Games.Chaos2010.ConcreteUI.SDL.BoardWindow (startBoardWindow) where
 
 > import Graphics.UI.SDL as SDL hiding (flip, Event)
 > import qualified Graphics.UI.SDL as SDL
 > import Graphics.UI.SDL.Rotozoomer
-> import qualified Graphics.UI.SDL.TTF.General as TTFGeneral
-> import Graphics.UI.SDL.TTF.Management
-> import Graphics.UI.SDL.TTF.Types
-> import Graphics.UI.SDL.TTF.Render
-> import qualified Graphics.UI.SDL.Events as E
+> --import qualified Graphics.UI.SDL.TTF.General as TTFGeneral
+> --import Graphics.UI.SDL.TTF.Management
+> --import Graphics.UI.SDL.TTF.Types
+> --import Graphics.UI.SDL.TTF.Render
+> --import qualified Graphics.UI.SDL.Events as E
 > import qualified Graphics.UI.SDL.Image as Img
 
 > import Control.Concurrent.Chan.Strict
-> import Control.Monad
+> --import Control.Monad
 > import Data.Maybe
 > import System.FilePath
-> import System.Directory
+> --import System.Directory
 > import System.FilePath.Find
+> import Data.IORef
 
 > import qualified Games.Chaos2010.UI.UITypes as U
 
-> startBoardWindow :: String -> Int -> Int -> Int -> Int -> Chan U.Event -> IO ()
-> startBoardWindow title x y w h evChan = do
+> startBoardWindow :: String -> Int -> Int -> Int -> Int
+>                  -> Chan U.Event -> Chan (String,U.WindowUpdate) -> IO ()
+> startBoardWindow title x y w h evChan upChan = do
 >   SDL.init [InitEverything]
 >   spr <- loadSprites
->   setVideoMode w h 32 []
->   enableKeyRepeat 70 70
->   runHandler spr
+>   _ <- setVideoMode w h 32 []
+>   _ <- enableKeyRepeat 70 70
+>   (sg::IORef U.SpriteGrid) <- newIORef $ U.SpriteGrid 15 10 []
+>   runHandler sg spr
 >   where
->     runHandler spr = do
+>     runHandler sg spr = do
 >       screen <- getVideoSurface
->       renderGrid spr tmp screen
+>       sg1 <- readNewGrid sg
+>       renderGrid spr sg1 screen
 >       SDL.flip screen
 >       e <- waitEvent
->       when (e /= Quit) $
->           let w e = do
->                 putStrLn $ "sdl: " ++ show e
->                 writeChan evChan e
->           in case e of
->                           KeyDown (Keysym SDLK_UP _ _ ) -> w $ U.Key "up"
->                           KeyDown (Keysym SDLK_DOWN _ _ ) -> w $ U.Key "down"
->                           KeyDown (Keysym SDLK_RIGHT _ _ ) -> w $ U.Key "right"
->                           KeyDown (Keysym SDLK_LEFT _ _ ) -> w $ U.Key "left"
->                           KeyDown (Keysym SDLK_HOME _ _ ) -> w $ U.Key "home"
->                           KeyDown (Keysym SDLK_END _ _ ) -> w $ U.Key "end"
->                           KeyDown (Keysym x _ _) ->  putStrLn $ show x
->                           _ -> return ()
->       runHandler spr
-
-> tmp = U.SpriteGrid 15 10 [(0,0,"wizard0")
->                        ,(7,0,"wizard1")
->                        ,(14,0,"wizard2")
->                        ,(0,4,"wizard3")
->                        ,(14,4,"wizard4")
->                        ,(0,9,"wizard5")
->                        ,(7,9,"wizard6")
->                        ,(14,9,"wizard7")]
+>       case e of
+>              KeyDown (Keysym k _ _) | Just a <- lookup k sdlGtkKeyMap ->  writeChan evChan $ U.Key a
+>                                     | otherwise -> putStrLn $ "ignored: " ++ show k
+>              _ -> return ()
+>       runHandler sg spr
+>     readNewGrid :: IORef U.SpriteGrid -> IO U.SpriteGrid
+>     readNewGrid sg = do
+>       mt <- isEmptyChan upChan
+>       if mt
+>         then readIORef sg
+>         else do
+>           u <- readChan upChan
+>           case u of
+>             (_,U.WUSpriteGrid r) -> writeIORef sg r >> return r
+>             _ -> readIORef sg
 
 > sdlGtkKeyMap :: [(SDLKey, String)]
-> sdlGtkKeyMap = [(SDLK_UP, "up")]
-
+> sdlGtkKeyMap = [(SDLK_UP, "up")
+>                ,(SDLK_DOWN, "down")
+>                ,(SDLK_LEFT, "left")
+>                ,(SDLK_RIGHT, "right")]
 
 > renderGrid :: SprLookup -> U.SpriteGrid -> Surface -> IO()
-> renderGrid sprs (U.SpriteGrid w h is) surf = do
+> renderGrid sprs (U.SpriteGrid ww wh is) surf = do
 >   let swidth = surfaceGetWidth surf
 >   let sheight = surfaceGetHeight surf
->   let sg1 = drawIns swidth sheight w h is
->   fillRect surf Nothing (Pixel 0)
+>   let sg1 = drawIns swidth sheight ww wh is
+>   _ <- fillRect surf Nothing (Pixel 0)
 >   mapM_ renderI sg1
 >   where
 >     renderI :: DrawingInstruction -> IO ()
 >     renderI (Sprite x y w h s) = let image = fromMaybe unknownSprite $ lookup s sprs
->                                  in blitZoom image x y w h surf
+>                                    in blitZoom image x y w h surf
 >     --renderI (VLine x) = fillRect surf (Just $ Rect (dtoi x) 0 1 sheight) (Pixel 255) >> return ()
 >     --renderI (HLine y) = fillRect surf (Just $ Rect 0 (dtoi y) swidth 1) (Pixel 255) >> return ()
 >     --renderI (Text t) = do
@@ -106,7 +105,7 @@
 > blitZoom src x y width height tgt = do
 >   s1 <- zoom src (width / fromIntegral (surfaceGetWidth src))
 >                  (height / fromIntegral (surfaceGetHeight src)) True
->   blitSurface s1 Nothing tgt $ Just $ Rect (dtoi x) (dtoi y) 0 0
+>   _ <- blitSurface s1 Nothing tgt $ Just $ Rect (dtoi x) (dtoi y) 0 0
 >   return ()
 
 > translate :: Translation -> [DrawingInstruction] -> [DrawingInstruction]

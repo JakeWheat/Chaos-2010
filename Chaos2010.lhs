@@ -7,7 +7,7 @@
 > import Database.HDBC
 > import Control.Exception
 >
-> import Games.Chaos2010.GtkUI.GtkGUI
+> import Games.Chaos2010.ConcreteUI.CUI
 > import Games.Chaos2010.UI.ChaosUI
 >
 > main :: IO ()
@@ -18,6 +18,7 @@
 >    guiUpdateChan <- newChan
 >    _ <- forkIO $ chaosServer db conn keyPressChan guiUpdateChan
 >    startGUI keyPressChan guiUpdateChan chaosUI
+>    return ()
 >
 > withConn :: String -> (Connection -> IO c) -> IO c
 > withConn cs f = bracket (connectPostgreSQL cs)

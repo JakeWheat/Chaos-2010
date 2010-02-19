@@ -5,8 +5,6 @@ An updated version of Chaos, a turn based spectrum game from 1985.
 See wikipedia for information about the original game:
 http://en.wikipedia.org/wiki/Chaos_(video_game)
 
-===============================================================================
-
 = Game overview
 
 Two to eight wizards battle each other. None, some or all can be
@@ -26,6 +24,8 @@ monsters. Different spells have different likelihoods of success.
 Each monster has different strengths, some can fly, some can attack
 from a distance.
 
+= Install
+
 It isn't easy to install.
 
 You can try the original in an emulator:
@@ -34,6 +34,7 @@ http://www.worldofspectrum.org/emulators.html
 
 Or to play a slick remake that runs in windows:
 http://chaosgroove.wordpress.com/
+
 which is better than this version.
 
 Rough installation instructions:
@@ -46,7 +47,6 @@ Difficult bits: uses ghc 6.12
 to install you will need:
 devel version of gtk2hs for 6.12
 hacked version of hlist for 6.12
-hacked version of hdbc-postgresql for 6.12
 devel version of haskelldb which uses hlists
 
 instructions for an alternative universe:

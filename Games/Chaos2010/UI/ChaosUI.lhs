@@ -18,27 +18,35 @@ list of windows.
 > import Games.Chaos2010.UI.SpellBookWidget
 > import Games.Chaos2010.UI.NewGameWidget
 > import Games.Chaos2010.UI.ActionHistoryWidget
+> import Games.Chaos2010.UI.BoardWidget
 > import Games.Chaos2010.Database.New_game_widget_state
 
 > chaosUI :: [Window]
-> chaosUI = [Window "Info" 0 371 579 213
->           ,Window "Spell Book" 587 28 268 556
->           ,Window "New Game" 514 27 500 500
->           --,Window "Board" 99 28 480 320
->           ,Window "Action History" 843 28 429 556]
+> chaosUI = [Window "Info" WText 0 371 579 213
+>           ,Window "Spell Book" WText 587 28 268 556
+>           ,Window "New Game" WText 514 27 500 500
+>           ,Window "Board" WSpriteGrid 99 28 480 320
+>           ,Window "Action History" WText 843 28 429 556]
 
-> chaosRenders :: [(String, DBText)]
-> chaosRenders = [("Info", infoWidget)
->                ,("Spell Book", spellBookWidget)
->                ,("New Game", newGameWidget)
->                --,("Board", boardWidget)
->                ,("Action History", actionHistoryWidget)]
+> chaosRenders :: [(String, Database -> IO WindowUpdate)]
+> chaosRenders = [("Info", unwrapDBText infoWidget)
+>                ,("Spell Book", unwrapDBText spellBookWidget)
+>                ,("New Game", unwrapDBText newGameWidget)
+>                ,("Board", unwrapSG boardWidget)
+>                ,("Action History", unwrapDBText actionHistoryWidget)]
 
-> chaosServer :: Database -> Connection -> (Chan Event) -> (Chan (String,[MyTextItem])) -> IO ()
+> unwrapDBText :: DBText -> Database -> IO WindowUpdate
+> unwrapDBText (DBText u) = fmap WUText . u
+
+> unwrapSG :: DBSpriteGrid -> Database -> IO WindowUpdate
+> unwrapSG (DBSpriteGrid u) = fmap WUSpriteGrid . u
+
+> chaosServer :: Database -> Connection -> (Chan Event) -> (Chan (String,WindowUpdate)) -> IO ()
 > chaosServer db conn inChan outChan = do
+>   return ()
 >   checkNewGameRelvar db conn
 >   allUpdates >>= mapM_ (writeChan outChan)
->   let loop = do
+>   {-let loop = do
 >         e <- readChan inChan
 >         handleEvent db conn e
 >         mapM_ (\(n,DBText r) -> do
@@ -46,10 +54,11 @@ list of windows.
 >                                 writeChan outChan (n,x)) chaosRenders
 
 >         loop
->   loop
+>   loop-}
 >   where
 >     allUpdates =
->         mapM (\(n,DBText r) -> (n,) <$> r db) chaosRenders
+>         mapM (\(n,u) -> (n,) <$> u db) chaosRenders
+
 
 > checkNewGameRelvar :: Database -> Connection -> IO ()
 > checkNewGameRelvar db conn = do

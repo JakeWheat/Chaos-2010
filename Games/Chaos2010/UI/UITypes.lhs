@@ -23,6 +23,7 @@ data types for the abstract ui
 
 > data SpriteGrid = SpriteGrid Int Int [(Int,Int,String)]
 
+> data DBSpriteGrid = DBSpriteGrid (Database -> IO SpriteGrid)
 >
 >
 > data DBText = DBText (Database -> IO [MyTextItem])
@@ -46,8 +47,20 @@ the we have a processor which does:
 Text -> (Database - >IO [MyTextItem])
 and the field accesses are typechecked at this point
 
-> data Window = Window String Int Int Int Int
+> data Window = Window String WidgetType Int Int Int Int
 >               deriving (Eq,Show)
+
+> data WidgetType = WText
+>                 | WSpriteGrid
+>                   deriving (Eq,Show)
+
+> data WindowUpdate = WUText [MyTextItem]
+>                   | WUSpriteGrid SpriteGrid
+
+> instance NFData WindowUpdate where
+>     rnf (WUText is) = rnf is `seq` ()
+>     rnf (WUSpriteGrid sg) = rnf sg `seq` ()
+
 
 > instance NFData MyTextItem where
 >     rnf (Text s) = rnf s `seq` ()
@@ -60,3 +73,6 @@ and the field accesses are typechecked at this point
 >     rnf (Key s) = rnf s `seq` ()
 >     rnf (ButtonClick e) = rnf e `seq` ()
 >     rnf (ToggleButtonGroupClick e e1) = rnf e `seq` rnf e1 `seq` ()
+
+> instance NFData SpriteGrid where
+>     rnf (SpriteGrid x y l) = rnf x `seq` rnf y `seq` rnf l `seq` ()

@@ -1,6 +1,6 @@
 Copyright 2010 Jake Wheat
 
-> module Games.Chaos2010.GtkUI.TextWidget
+> module Games.Chaos2010.ConcreteUI.Gtk.TextWidget
 >     (myTextViewNew) where
 
 > import Graphics.UI.Gtk
@@ -9,7 +9,7 @@ Copyright 2010 Jake Wheat
 > import Data.Maybe
 
 > import Games.Chaos2010.UI.UITypes as U
-> import Games.Chaos2010.GtkUI.Types
+> import Games.Chaos2010.ConcreteUI.Gtk.Types
 
 > myTextViewNew :: SpriteMap -> (U.Event -> IO()) -> IO (TextView, [MyTextItem] -> IO())
 > myTextViewNew sp cb = do

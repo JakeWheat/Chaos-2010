@@ -1,5 +1,5 @@
 
-> module Games.Chaos2010.UI.BoardUI where
+> module Games.Chaos2010.UI.BoardWidget where
 
 > import Control.Applicative
 > import Database.HaskellDB
@@ -10,11 +10,11 @@
 >
 > import Games.Chaos2010.Database.Board_sprites1_view
 
-> board :: SpriteGridReader
-> board = SpriteGridReader $ \db ->
+> boardWidget :: DBSpriteGrid
+> boardWidget = DBSpriteGrid $ \db ->
 >   do
 >     t <- query db readPieces
->     return $ flip map t (\r -> (mn $ r # x, mn $ r # y, mv $ r # sprite))
+>     return $ SpriteGrid 15 10 $ flip map t (\r -> (mn $ r # x, mn $ r # y, mv $ r # sprite))
 >   where
 >     readPieces = do
 >       t1 <- table board_sprites1_view
@@ -22,6 +22,3 @@
 >                  .*. copy y t1
 >                  .*. copy sprite t1
 >                  .*. emptyRecord
-
-> data SpriteGridReader = SpriteGridReader (Database -> IO SpriteGrid)
-

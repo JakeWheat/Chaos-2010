@@ -7,7 +7,7 @@ which waits on the incoming gui update channel. When it gets
 something, it queues it in gtk using idleAdd
 
 > {-# LANGUAGE TupleSections #-}
-> module Games.Chaos2010.GtkUI.GtkGUI where
+> module Games.Chaos2010.ConcreteUI.Gtk.GtkGUI (startGtk) where
 >
 > import Graphics.UI.Gtk
 > import Graphics.UI.Gtk.Gdk.Events
@@ -17,40 +17,41 @@ something, it queues it in gtk using idleAdd
 > import System.FilePath.Find
 > import System.FilePath
 >
-> import Games.Chaos2010.GtkUI.GtkUtils
-> import Games.Chaos2010.GtkUI.TextWidget
-> import Games.Chaos2010.GtkUI.Types
-> import Games.Chaos2010.BoardWidget.BoardWindow
+> import Games.Chaos2010.ConcreteUI.Gtk.GtkUtils
+> import Games.Chaos2010.ConcreteUI.Gtk.TextWidget
+> import Games.Chaos2010.ConcreteUI.Gtk.Types
 > import qualified Games.Chaos2010.UI.UITypes as U
 
 >
-> startGUI :: Chan U.Event -> Chan (String,[U.MyTextItem]) -> [U.Window] -> IO()
-> startGUI evChan guChan wins = do
+> startGtk :: Chan U.Event -> Chan (String,U.WindowUpdate) -> [U.Window] -> IO()
+> startGtk evChan guChan wins = do
 >   _ <- unsafeInitGUIForThreadedRTS
 >   sp <- loadSprites
->   r <- mapM (\w@(U.Window title _ _ _ _) ->
+>   r <- mapM (\w@(U.Window title _ _ _ _ _) ->
 >              (title,) <$> createWindow sp (sendEvent evChan) w) wins
 >   _ <- forkIO $ readUpdates r guChan
->   _ <- forkIO $ startBoardWindow "Board" 0 0 480 320 evChan
 >   mainGUI
 >
-> readUpdates :: [(String, ([U.MyTextItem] -> IO()))] -> Chan (String,[U.MyTextItem]) -> IO ()
+> readUpdates :: [(String, ([U.MyTextItem] -> IO()))] -> Chan (String,U.WindowUpdate) -> IO ()
 > readUpdates mp guChan =
 >   let loop = do
->              (w,u) <- readChan guChan
->              case lookup w mp of
->                  Nothing -> return ()
->                  Just r1 -> do
->                    _ <- flip idleAdd priorityDefaultIdle $ do
->                                 putStrLn ("Update " ++ w)
->                                 r1 u
->                                 return False
->                    return ()
+>              x <- readChan guChan
+>              case x of
+>                (w,U.WUText u) ->
+>                  case lookup w mp of
+>                    Just r1 -> do
+>                        _ <- flip idleAdd priorityDefaultIdle $ do
+>                                     putStrLn ("Update " ++ w)
+>                                     r1 u
+>                                     return False
+>                        return ()
+>                    _ -> return ()
+>                _ -> return ()
 >              loop
 >   in loop
 >
 > createWindow :: SpriteMap -> (U.Event -> IO ()) -> U.Window -> IO ([U.MyTextItem] -> IO())
-> createWindow sp cb (U.Window title x y w h) = do
+> createWindow sp cb (U.Window title _ x y w h) = do
 >   (tv, r) <- myTextViewNew sp cb
 >   ww <- wrapInFullScroller tv >>= wrapInWindow title
 >   widgetShowAll ww
