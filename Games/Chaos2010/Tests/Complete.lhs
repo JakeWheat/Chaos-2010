@@ -4,26 +4,17 @@
 
 > import Test.HUnit
 > import Test.Framework
-> import Test.Framework.Providers.HUnit
-> import Data.List
-> import Control.Monad
-> import Data.Maybe
-> import Test.HUnit
-> import Test.Framework
-> import Test.Framework.Providers.HUnit
-> import Control.Exception
 
-> import Database.HaskellDB.HDBC.PostgreSQL
 > import Database.HaskellDB
 > import Database.HDBC
-
+> import Database.HaskellDB.Database
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.Database.Action_history_mr
 > import Games.Chaos2010.Database.Client_valid_activate_actions
 > import Games.Chaos2010.Database.Client_valid_target_actions
 
->
+> complete :: IConnection conn => Database -> conn -> Test.Framework.Test
 > complete db conn = testGroup "complete" $
 >                   map (\xx -> xx db conn)
 >                       [testWizardWin
@@ -73,6 +64,12 @@ and target action views are empty.
 >                     (table client_valid_activate_actions)
 >                     0
 
+> assertCount :: Database.HaskellDB.Database.GetRec er vr =>
+>                String
+>             -> Database
+>             -> Query (Rel (Record er))
+>             -> Int
+>             -> IO ()
 > assertCount m db t1 c = do
 >     rel <- query db t1
 >                 --t1 <- table t

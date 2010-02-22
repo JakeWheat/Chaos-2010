@@ -3,25 +3,16 @@
 
 > import Test.HUnit
 > import Test.Framework
-> import Test.Framework.Providers.HUnit
-> import Data.List
 > import Control.Monad
-> import Data.Maybe
-> import Test.HUnit
-> import Test.Framework
-> import Test.Framework.Providers.HUnit
-> import Control.Exception
 
 > import Database.HaskellDB
 > import Database.HDBC
-> import Database.HaskellDB
 
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.Database.Cursor_position
-> import Games.Chaos2010.UI.HdbUtils
 
->
+> basics :: IConnection conn => Database -> conn -> Test.Framework.Test
 > basics db conn = testGroup "basics" [
 >                   --testDatabaseStuff conn
 >                   testCursorMovement db conn
@@ -123,9 +114,9 @@ the cursor to a given position, also check the moveto code
 >   startNewGame conn
 >   --reset the cursor position
 >   runSql conn "update cursor_position set x=0,y=0;" []
->   let moveAndCheck m x y = do
+>   let moveAndCheck m xp yp = do
 >         sendKeyPress conn $ cursorShorthand m
->         assertCursorPosition db x y
+>         assertCursorPosition db xp yp
 >   --move to our starting position then move in a circle
 
 >   moveAndCheck "dr" 1 1
@@ -139,9 +130,9 @@ the cursor to a given position, also check the moveto code
 >   moveAndCheck "dl" 2 1
 >   moveAndCheck "d" 2 2
 >   --now test the move cursor to straight up, left, down, right,
->   let moveToAndCheck x y = do
->           moveCursorToK db conn x y
->           assertCursorPosition db x y
+>   let moveToAndCheck xp yp = do
+>           moveCursorToK db conn xp yp
+>           assertCursorPosition db xp yp
 >   moveToAndCheck 5 5
 >   moveToAndCheck 5 1
 >   moveToAndCheck 5 6
@@ -197,12 +188,12 @@ get the current cursor position from the database
 move the cursor to x,y, using key presses
 
 > moveCursorToK :: IConnection conn => Database -> conn -> Int -> Int -> IO ()
-> moveCursorToK db conn x y = do
+> moveCursorToK db conn xp yp = do
 >     --diagonals first then straight moves
 >     (cx,cy) <- queryCursorPosition db
 >     -- putStrLn $ "move " ++ (show (cx,cy)) ++ " to " ++ (show (x,y))
->     unless ((cx,cy) == (x,y)) $ do
->         let (dx,dy) = (x - cx, y - cy)
+>     unless ((cx,cy) == (xp,yp)) $ do
+>         let (dx,dy) = (xp - cx, yp - cy)
 >             diagonalMoves = minimum [abs dx, abs dy]
 >             diagonalDirection = case True of
 >                                 _ | dx == 0 && dy == 0 -> "ul"
@@ -217,12 +208,12 @@ move the cursor to x,y, using key presses
 >         sequence_ (replicate diagonalMoves
 >                    (sendKeyPress conn $ cursorShorthand diagonalDirection))
 >         (ncx,ncy) <- queryCursorPosition db
->         unless ((cx,cy) == (x,y)) $ do
+>         unless ((cx,cy) == (xp,yp)) $ do
 >           let (dir,amount) = case True of
->                            _ | ncx < x -> ("r", x - ncx)
->                              | ncx > x -> ("l", ncx - x)
->                              | ncy < y -> ("d", y - ncy)
->                              | ncy > y -> ("u", ncy - y)
+>                            _ | ncx < xp -> ("r", xp - ncx)
+>                              | ncx > xp -> ("l", ncx - xp)
+>                              | ncy < yp -> ("d", yp - ncy)
+>                              | ncy > yp -> ("u", ncy - yp)
 >                              | otherwise -> ("u", 0)
 >           sequence_ (replicate amount
 >                        (sendKeyPress conn $ cursorShorthand dir))
@@ -231,7 +222,7 @@ move the cursor to x,y, using key presses
 >                      -> Int
 >                      -> Int
 >                      -> IO ()
-> assertCursorPosition db x y = do
+> assertCursorPosition db xp yp = do
 >   cp <- queryCursorPosition db
->   assertEqual "cursor position" cp (x, y)
+>   assertEqual "cursor position" cp (xp, yp)
 

@@ -41,7 +41,6 @@
 > import qualified Games.Chaos2010.Database.Pieces_to_move as Ptm
 > import Games.Chaos2010.Database.Turn_phase_table
 > import Games.Chaos2010.Database.Current_wizard_table
-> import Games.Chaos2010.UI.HdbUtils
 
 > tctor :: IConnection conn => String
 >       -> (conn -> IO ())
@@ -374,12 +373,16 @@ understand
 >   newGame conn
 >   resetCurrentEffects conn
 
+> resetNewGameWidgetState :: IConnection conn => conn -> IO ()
 > resetNewGameWidgetState conn = callSp conn "action_reset_new_game_widget_state" []
 
-> setAllHuman conn = run conn "update new_game_widget_state set state='human';" []
+> setAllHuman :: IConnection conn => conn -> IO ()
+> setAllHuman conn = runSql conn "update new_game_widget_state set state='human';" []
 
+> newGame :: IConnection conn => conn -> IO ()
 > newGame conn = callSp conn "action_client_new_game_using_new_game_widget_state" []
 
+> resetCurrentEffects :: IConnection conn => conn -> IO ()
 > resetCurrentEffects conn = callSp conn "action_reset_current_effects" []
 
 > callSp :: IConnection conn => conn -> String -> [String] -> IO ()

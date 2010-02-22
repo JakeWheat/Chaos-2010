@@ -2,7 +2,6 @@
 > module Games.Chaos2010.Tests.AllTests (allTests) where
 >
 > import Test.Framework
-> import Test.Framework.Providers.HUnit
 
 > import Database.HaskellDB
 > import Database.HDBC

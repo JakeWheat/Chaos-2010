@@ -3,16 +3,7 @@
 
 > import Test.HUnit
 > import Test.Framework
-> import Test.Framework.Providers.HUnit
-> import Data.List
-> import Control.Monad
-> import Data.Maybe
-> import Test.HUnit
-> import Test.Framework
-> import Test.Framework.Providers.HUnit
-> import Control.Exception
 
-> import Database.HaskellDB.HDBC.PostgreSQL
 > import Database.HaskellDB
 > import Database.HDBC
 
@@ -20,6 +11,7 @@
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.Database.Pieces_mr
 >
+> moveMisc :: IConnection conn => Database -> conn -> Test.Framework.Test
 > moveMisc db conn = testGroup "moveMisc" $
 >                   map (\xx -> xx db conn)
 >                          [testAttackWizard

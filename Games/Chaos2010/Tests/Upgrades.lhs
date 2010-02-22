@@ -1,29 +1,21 @@
 
+
+> {-# LANGUAGE FlexibleContexts #-}
 > module Games.Chaos2010.Tests.Upgrades (upgrades) where
 
 > import Test.HUnit
 > import Test.Framework
-> import Test.Framework.Providers.HUnit
-> import Data.List
-> --import qualified Data.Char as DC
-> import Control.Monad
-> import Data.Maybe
-> import Test.HUnit
-> import Test.Framework
-> import Test.Framework.Providers.HUnit
-> import Control.Exception
 
-> import Database.HaskellDB.HDBC.PostgreSQL
 > import Database.HaskellDB hiding (insert)
 > import Database.HDBC
 
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
-> import Games.Chaos2010.Database.Pieces_mr
+> import Games.Chaos2010.Database.Pieces_mr as P
 
->
+> upgrades :: IConnection conn => Database -> conn -> Test.Framework.Test
 > upgrades db conn = testGroup "upgrades" $
->                   map (\x -> x db conn)
+>                   map (\xx -> xx db conn)
 >                   [testCastShield
 >                   ,testCastArmour
 >                   ,testCastKnife
@@ -72,12 +64,28 @@
 >                 addStat agility 2 .
 >                 setStat speed 3
 
+> setStat :: (HUpdateAtHNat n (LVPair t (Maybe a)) t2 l'
+>            ,HFind t ls n
+>            ,RecordLabels t2 ls) =>
+>            t -> a -> Record t2 -> Record l'
 > setStat f v r = (f .=. Just v) .@. r
 
+> addStat :: (HasField l t2 (f a),
+>             Num a,
+>             Functor f,
+>             HUpdateAtHNat n (LVPair l (f a)) t2 l',
+>             HFind l ls n,
+>             RecordLabels t2 ls) =>
+>             l -> a -> Record t2 -> Record l'
 > addStat f v r = let v1 = r # f
 >                 in (f .=. (fmap (+v) v1)) .@. r
 
-
+> {-doUpgradeTest :: IConnection conn =>
+>                  conn
+>               -> Database
+>               -> String
+>               -> (Pieces_mr -> Pieces_mr)
+>               -> IO ()-}
 > doUpgradeTest conn db spell attrChange = do
 >   newGameReadyToCast db conn spell
 >   oldStats <- getStats
@@ -98,6 +106,8 @@
 >                   \6      7      8",
 >                   wizardPiecesList)
 >   where
+>     --getStats :: IO Pieces_mr_tuple
+>     --getStats :: IO Pieces_mr
 >     getStats = do
 >       rel <- query db $ do
 >         t1 <- table pieces_mr
@@ -113,4 +123,3 @@ twice, magic knife then magic sword
 
 if there is a way that a wizard can lose an upgrade that needs to be
 tested too
-

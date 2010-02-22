@@ -3,16 +3,7 @@
 
 > import Test.HUnit
 > import Test.Framework
-> import Test.Framework.Providers.HUnit
-> import Data.List
-> import Control.Monad
-> import Data.Maybe
-> import Test.HUnit
-> import Test.Framework
-> import Test.Framework.Providers.HUnit
-> import Control.Exception
 
-> import Database.HaskellDB.HDBC.PostgreSQL
 > import Database.HaskellDB
 > import Database.HDBC
 
@@ -22,7 +13,7 @@
 > import qualified Games.Chaos2010.Database.Monster_pieces as Mp
 > import Games.Chaos2010.UI.HdbUtils
 
->
+> casting :: IConnection conn => Database -> conn -> Test.Framework.Test
 > casting db conn = testGroup "casting" $
 >                   map (\x -> x db conn)
 >                       [testCastGoblin
@@ -579,6 +570,7 @@ cast it and check the resulting board
 >   align <- getWorldAlignment db
 >   assertEqual "world alignment not law after casting law" 1 align
 
+> getWorldAlignment :: Database -> IO Int
 > getWorldAlignment db = do
 >   rel <- query db $ table world_alignment_table
 >   return $ (head rel) # world_alignment
