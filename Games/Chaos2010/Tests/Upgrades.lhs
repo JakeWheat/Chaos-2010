@@ -5,7 +5,6 @@
 > import Test.Framework
 > import Test.Framework.Providers.HUnit
 > import Data.List
-> import qualified Data.Map as M
 > --import qualified Data.Char as DC
 > import Control.Monad
 > import Data.Maybe
@@ -15,11 +14,13 @@
 > import Control.Exception
 
 > import Database.HaskellDB.HDBC.PostgreSQL
-> import Database.HaskellDB
+> import Database.HaskellDB hiding (insert)
 > import Database.HDBC
 
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
+> import Games.Chaos2010.Database.Pieces_mr
+
 >
 > upgrades db conn = testGroup "upgrades" $
 >                   map (\x -> x db conn)
@@ -33,67 +34,57 @@
 
 > testCastShield :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastShield db = tctor "testCastShield" $ \conn ->
->   doUpgradeTest conn db "magic_shield" $
->                 addStat "physical_defense" 2
+>   doUpgradeTest conn db "magic_shield" $ addStat physical_defense 2
+
 
 > testCastArmour :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastArmour db = tctor "testCastArmour" $ \conn ->
 >   doUpgradeTest conn db "magic_armour" $
->                 addStat "physical_defense" 4
+>                 addStat physical_defense 4
 
 > testCastKnife :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastKnife db = tctor "testCastKnife" $ \conn ->
 >   doUpgradeTest conn db "magic_knife" $
->                 addStat "attack_strength" 2
+>                 addStat attack_strength 2
 
 > testCastSword :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastSword db = tctor "testCastSword" $ \conn ->
 >   doUpgradeTest conn db "magic_sword" $
->                 addStat "attack_strength" 4
+>                 addStat attack_strength 4
 
 > testCastBow :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastBow db = tctor "testCastBow" $ \conn ->
 >   doUpgradeTest conn db "magic_bow" $
->                 setStat "ranged_weapon_type" "projectile" .
->                 setStat "range" "6" .
->                 setStat "ranged_attack_strength" "6"
+>                 setStat ranged_weapon_type "projectile" .
+>                 setStat range 6 .
+>                 setStat ranged_attack_strength 6
 
 > testCastWings :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastWings db = tctor "testCastWings" $ \conn ->
 >   doUpgradeTest conn db "magic_wings" $
->                 setStat "speed" "6" .
->                 setStat "flying" "True"
+>                 setStat speed 6 .
+>                 setStat flying True
 
 > testCastShadowForm :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastShadowForm db = tctor "testCastShadowForm" $ \conn ->
 >   doUpgradeTest conn db "shadow_form" $
->                 addStat "physical_defense" 2 .
->                 addStat "agility" 2 .
->                 setStat "speed" "3"
+>                 addStat physical_defense 2 .
+>                 addStat agility 2 .
+>                 setStat speed 3
 
-> addStat :: String -> Int -> SqlRow -> SqlRow
-> addStat att n tup = M.insert att (adds $ fromJust $ M.lookup att tup) tup
->     where
->       adds s = show $ (read s ::Int) + n
+> setStat f v r = (f .=. Just v) .@. r
 
-> setStat :: String -> String -> SqlRow -> SqlRow
-> setStat = M.insert
+> addStat f v r = let v1 = r # f
+>                 in (f .=. (fmap (+v) v1)) .@. r
 
-> doUpgradeTest :: IConnection conn => conn -> Database -> String -> (SqlRow -> SqlRow)
->               -> IO ()
+
 > doUpgradeTest conn db spell attrChange = do
 >   newGameReadyToCast db conn spell
->   undefined {-
->   oldStats <- selectTuple conn "select * from pieces_mr\n\
->                               \  where ptype='wizard'\n\
->                               \    and allegiance='Buddha'" []-}
+>   oldStats <- getStats
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
->   undefined
->   {-newStats <- selectTuple conn "select * from pieces_mr\n\
->                               \  where ptype='wizard'\n\
->                               \    and allegiance='Buddha'" []-}
->   undefined --assertEqual "upgraded stats" (attrChange oldStats) undefined newStats
+>   newStats <- getStats
+>   assertEqual "upgraded stats" (attrChange oldStats) newStats
 >   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -106,6 +97,14 @@
 >                   \               \n\
 >                   \6      7      8",
 >                   wizardPiecesList)
+>   where
+>     getStats = do
+>       rel <- query db $ do
+>         t1 <- table pieces_mr
+>         restrict ((t1 .!. ptype) .==. constJust "wizard")
+>         restrict ((t1 .!. allegiance) .==. constJust "Buddha")
+>         project $ copyAll t1
+>       return $ head rel
 
 
 todo:

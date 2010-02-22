@@ -5,8 +5,6 @@
 > import Test.Framework
 > import Test.Framework.Providers.HUnit
 > import Data.List
-> import qualified Data.Map as M
-> --import qualified Data.Char as DC
 > import Control.Monad
 > import Data.Maybe
 > import Test.HUnit
@@ -20,9 +18,10 @@
 
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
+> import Games.Chaos2010.Database.Pieces_mr
 >
 > moveMisc db conn = testGroup "moveMisc" $
->                   map (\x -> x db conn)
+>                   map (\xx -> xx db conn)
 >                          [testAttackWizard
 >                          ,testFlyAttack
 >                          ,testMountThenMoveMount
@@ -350,20 +349,23 @@ todo: attack when dismounting, dismounting when flying
 >                   \6      7      8",
 >                   (wizardPiecesList ++
 >                   [('G', [makePD "goblin" "Kong Fuzi"])]))
->   undefined
->   {-oldStats <- selectTuple conn "select * from pieces_mr\n\
->                               \  where ptype='wizard'\n\
->                               \    and allegiance='Buddha'"-}
+>   oldStats <- getStats
 >   sendKeyPress conn "Return"
 >   skipToPhase db conn "move"
 >   goSquare conn 0 0
 >   rigActionSuccess conn "attack" False
 >   goSquare conn 1 0
->   undefined
->   {-newStats <- selectTuple conn "select * from pieces_mr\n\
->                               \  where ptype='wizard'\n\
->                               \    and allegiance='Buddha'"
->   assertEqual "attacking loses shadow form" oldStats newStats-}
+>   newStats <- getStats
+>   assertEqual "attacking loses shadow form" oldStats newStats
+>   where
+>     getStats = do
+>       rel <- query db $ do
+>         t1 <- table pieces_mr
+>         restrict ((t1 .!. ptype) .==. constJust "wizard")
+>         restrict ((t1 .!. allegiance) .==. constJust "Buddha")
+>         project $ copyAll t1
+>       return $ head rel
+
 
 
 > testAttackUndeadOnUndead :: IConnection conn => Database -> conn -> Test.Framework.Test
@@ -585,7 +587,7 @@ moved if free'd that turn
 >                   \               \n\
 >                   \6      7      8",pl)
 >   goSquare conn 1 0
->   assertSelectedPiece db "Buddha" "goblin"
+>   assertSelectedPiece db "goblin" "Buddha"
 
 
 check attack when has mount moves wizard

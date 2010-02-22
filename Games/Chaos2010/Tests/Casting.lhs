@@ -5,8 +5,6 @@
 > import Test.Framework
 > import Test.Framework.Providers.HUnit
 > import Data.List
-> import qualified Data.Map as M
-> --import qualified Data.Char as DC
 > import Control.Monad
 > import Data.Maybe
 > import Test.HUnit
@@ -20,6 +18,10 @@
 
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
+> import Games.Chaos2010.Database.World_alignment_table
+> import qualified Games.Chaos2010.Database.Monster_pieces as Mp
+> import Games.Chaos2010.UI.HdbUtils
+
 >
 > casting db conn = testGroup "casting" $
 >                   map (\x -> x db conn)
@@ -574,10 +576,12 @@ cast it and check the resulting board
 >   newGameReadyToCast db conn "law"
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
->   undefined {-
->   align <- selectValue conn "select world_alignment\n\
->                               \from world_alignment_table" []
->   assertEqual "world alignment not law after casting law" "1" align-}
+>   align <- getWorldAlignment db
+>   assertEqual "world alignment not law after casting law" 1 align
+
+> getWorldAlignment db = do
+>   rel <- query db $ table world_alignment_table
+>   return $ (head rel) # world_alignment
 
 > testImaginary :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testImaginary db = tctor "testImaginary" $ \conn -> do
@@ -590,11 +594,14 @@ cast it and check the resulting board
 >                     skipToPhase db conn "cast"
 >                     rigActionSuccess conn "cast" True
 >                     goSquare conn 1 0
->   let sv c = undefined {-do
->              v <- selectValue conn "select imaginary from monster_pieces\n\
->                                    \natural inner join pieces\n\
->                                    \where x= 1 and y = 0" []
->              c ((read v) :: Bool)-}
+>   let sv c = do
+>              rel <- query db $ do
+>                       t1 <- table Mp.monster_pieces
+>                       restrict ((t1 .!. Mp.x) .==. constJust 1)
+>                       restrict ((t1 .!. Mp.y) .==. constJust 0)
+>                       project $ copy Mp.imaginary t1
+>                                   .*. emptyRecord
+>              c $ mb $ (head rel) # Mp.imaginary
 >   setStuffUp1
 >   setStuffUp2
 >   sv (\v -> assertBool "default real for monsters" $ not v)

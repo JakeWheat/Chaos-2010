@@ -4,8 +4,6 @@
 > import Test.Framework
 > import Test.Framework.Providers.HUnit
 > import Data.List
-> import qualified Data.Map as M
-> --import qualified Data.Char as DC
 > import Control.Monad
 > import Data.Maybe
 > import Test.HUnit
@@ -44,10 +42,9 @@ twice, check the turn_phase and current_wizard each time
 >                --so we don't skip the cast phase, make sure
 >                -- each wizard has a spell chosen, use disbelieve
 >                --cos wizards always have this spell available
->                undefined
->                {-whenA1 (readTurnPhase conn)
+>                whenA1 (queryTurnPhase db)
 >                       (=="choose")
->                       (sendKeyPress conn "Q")-}
+>                       (sendKeyPress conn "Q")
 >                sendKeyPress conn "space"))
 
 test next phase with some wizards not choosing spells
@@ -62,13 +59,13 @@ to do all variations is 256 tests
 >     startNewGame conn
 >     --kill wizard
 >     callSp conn "kill_wizard" [wizardNames !! j]
->     let theseWizards = undefined -- dropItemN wizardNames j
+>     let theseWizards = dropItemN wizardNames j
 >     forM_ ["choose","cast","move","choose","cast","move"] (\phase ->
 >       forM_ [0..6] (\i -> do
 >         assertCurrentWizardPhase db (theseWizards !! i) phase
->         undefined {-whenA1 (readTurnPhase conn)
+>         whenA1 (queryTurnPhase db)
 >                (=="choose")
->                (sendKeyPress conn "Q")-}
+>                (sendKeyPress conn "Q")
 >         sendKeyPress conn "space")))
 
 > testNextPhaseTwoWizardsDead :: IConnection conn => Database -> conn -> Test.Framework.Test
@@ -79,17 +76,16 @@ to do all variations is 256 tests
 >       --kill wizards
 >       callSp conn "kill_wizard" [wizardNames !! j]
 >       callSp conn "kill_wizard" [wizardNames !! k]
->       let theseWizards = undefined {-dropItemN (dropItemN wizardNames k) j-}
+>       let theseWizards = dropItemN (dropItemN wizardNames k) j
 >       forM_ ["choose","cast","move","choose","cast","move"] (\phase ->
 >         forM_ [0..5] (\i -> do
 >           assertCurrentWizardPhase db (theseWizards !! i) phase
 >           --so we don't skip the cast phase, make sure
 >           -- each wizard has a spell chosen, use disbelieve
 >           --cos wizards always have this spell available
->           undefined
->           {-whenA1 (readTurnPhase conn)
+>           whenA1 (queryTurnPhase db)
 >                  (=="choose")
->                  (sendKeyPress conn "Q")-}
+>                  (sendKeyPress conn "Q")
 >           sendKeyPress conn "space"))))
 
 
@@ -112,3 +108,12 @@ these are tested in the spell cast and move sections respectively
 >        sendKeyPress conn "space"))-}
 
 
+
+> whenA1 :: IO a -> (a -> Bool) -> IO () -> IO ()
+> whenA1 feed cond f = (cond `liftM` feed) >>= flip when f
+
+> dropItemN :: [a] -> Int -> [a]
+> dropItemN [] _ = []
+> dropItemN (x:xs) i = if i == 0
+>                        then xs
+>                        else x: dropItemN xs (i - 1)

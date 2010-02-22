@@ -5,8 +5,6 @@
 > import Test.Framework
 > import Test.Framework.Providers.HUnit
 > import Data.List
-> import qualified Data.Map as M
-> --import qualified Data.Char as DC
 > import Control.Monad
 > import Data.Maybe
 > import Test.HUnit

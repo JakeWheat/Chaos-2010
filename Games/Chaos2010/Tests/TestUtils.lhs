@@ -6,7 +6,6 @@
 >     ,sendKeyPress
 >     ,callSp
 >     ,assertCurrentWizardPhase
->     ,SqlRow
 >     ,newGameReadyToCast
 >     ,rigActionSuccess
 >     ,startNewGameReadyToAuto
@@ -16,6 +15,7 @@
 >     ,assertSelectedPiece
 >     ,assertMoveSubphase
 >     ,assertPieceDoneSelection
+>     ,queryTurnPhase
 >     ,startNewGameReadyToMoveNoSpread
 >     ,skipToPhase
 >     ,newGameWithBoardReadyToCast
@@ -28,7 +28,6 @@
 > import Test.HUnit
 > import Test.Framework
 > import Test.Framework.Providers.HUnit
-> import qualified Data.Map as M
 > import Control.Monad
 > import Control.Exception
 > import Data.List
@@ -50,7 +49,7 @@
 >       -> Test.Framework.Test
 > tctor l f conn = testCase l $ rollbackOnError conn $ f conn
 
-> type SqlRow = M.Map String String
+ > type SqlRow = M.Map String String
 
 > newGameReadyToCast :: IConnection conn => Database -> conn -> String -> IO ()
 > newGameReadyToCast db conn spellName = do
@@ -313,8 +312,8 @@ keep running next_phase until we get to the cast phase
 > assertSelectedPiece db ptype allegiance = do
 >   rel <- query db $ table Sp.selected_piece
 >   let t = head rel
->   assertEqual "selected piece" (allegiance,ptype)
->               (t # Sp.allegiance, t # Sp.ptype)
+>   assertEqual "selected piece" (ptype,allegiance)
+>               (t # Sp.ptype, t # Sp.allegiance)
 
 > assertCurrentWizardPhase :: Database -> String -> String -> IO()
 > assertCurrentWizardPhase db wiz phase = do
