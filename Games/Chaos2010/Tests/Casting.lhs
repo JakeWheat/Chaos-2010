@@ -16,7 +16,6 @@
 
 > import Database.HaskellDB.HDBC.PostgreSQL
 > import Database.HaskellDB
-> import Database.HDBC.PostgreSQL
 > import Database.HDBC
 
 > import Games.Chaos2010.Tests.BoardUtils
@@ -45,7 +44,7 @@
 
 = spell cast tests
 
-> testCastGoblin :: Database -> Connection -> Test.Framework.Test
+> testCastGoblin :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastGoblin db = tctor "testCastGoblin" $ \conn -> do
 
 setup the game, get to cast phase with the first wizard having
@@ -58,7 +57,7 @@ chosen goblin
 >   --auto next phase works
 >   sendKeyPress conn "space"
 >   sendKeyPress conn $ keyChooseSpell "disbelieve"
->   skipToPhase conn "cast"
+>   skipToPhase db conn "cast"
 
 check the squares we can cast goblin onto
 
@@ -92,11 +91,11 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('G', [makePD "goblin" "Buddha"])]))
 >   --check we are on the next wizard's phase
->   checkCurrentWizardPhase conn "Kong Fuzi" "cast"
+>   assertCurrentWizardPhase db "Kong Fuzi" "cast"
 
-> testFailCastGoblin :: Database -> Connection -> Test.Framework.Test
+> testFailCastGoblin :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testFailCastGoblin db = tctor "testFailCastGoblin" $ \conn -> do
->   newGameReadyToCast conn "goblin"
+>   newGameReadyToCast db conn "goblin"
 >   rigActionSuccess conn "cast" False
 >   goSquare conn 1 0
 >   assertBoardEquals db ("\n\
@@ -112,9 +111,9 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   wizardPiecesList)
 
-> testCastMagicWood :: Database -> Connection -> Test.Framework.Test
+> testCastMagicWood :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastMagicWood db = tctor "testCastMagicWood" $ \conn -> do
->   newGameReadyToCast conn "magic_wood"
+>   newGameReadyToCast db conn "magic_wood"
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
 >   assertBoardEquals db ("\n\
@@ -131,9 +130,9 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('W', [makePD "magic_tree" "Buddha"])]))
 
-> testCastShadowWood :: Database -> Connection -> Test.Framework.Test
+> testCastShadowWood :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastShadowWood db = tctor "testCastShadowWood" $ \conn -> do
->   newGameReadyToCast conn "shadow_wood"
+>   newGameReadyToCast db conn "shadow_wood"
 >   assertValidSquaresEquals db "\n\
 >                          \1XXXXXX2X     3\n\
 >                          \XXXXXXXXX      \n\
@@ -162,9 +161,9 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('W', [makePD "shadow_tree" "Buddha"])]))
 
-> testCastMagicBolt :: Database -> Connection -> Test.Framework.Test
+> testCastMagicBolt :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastMagicBolt db = tctor "testCastMagicBolt" $ \conn -> do
->   newGameReadyToCast conn "magic_bolt"
+>   newGameReadyToCast db conn "magic_bolt"
 >   assertValidSquaresEquals db "\n\
 >                          \1      2      3\n\
 >                          \               \n\
@@ -192,9 +191,9 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   wizardPiecesList)
 
-> testCastMagicBoltResisted :: Database -> Connection -> Test.Framework.Test
+> testCastMagicBoltResisted :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastMagicBoltResisted db = tctor "testCastMagicBoltResisted" $ \conn -> do
->   newGameReadyToCast conn "magic_bolt"
+>   newGameReadyToCast db conn "magic_bolt"
 >   assertValidSquaresEquals db "\n\
 >                          \1      2      3\n\
 >                          \               \n\
@@ -222,9 +221,9 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   wizardPiecesList)
 
-> testCastVengeanceWizard :: Database -> Connection -> Test.Framework.Test
+> testCastVengeanceWizard :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastVengeanceWizard db = tctor "testCastVengeanceWizard" $ \conn -> do
->   newGameWithBoardReadyToCast conn "vengeance"
+>   newGameWithBoardReadyToCast db conn "vengeance"
 >                  ("\n\
 >                   \1G     2      3\n\
 >                   \G              \n\
@@ -265,9 +264,9 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   wizardPiecesList)
 
-> testCastVengeanceMonster :: Database -> Connection -> Test.Framework.Test
+> testCastVengeanceMonster :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastVengeanceMonster db = tctor "testCastVengeanceMonster" $ \conn -> do
->   newGameWithBoardReadyToCast conn "vengeance"
+>   newGameWithBoardReadyToCast db conn "vengeance"
 >                 ("\n\
 >                   \1G     2      3\n\
 >                   \G              \n\
@@ -309,10 +308,10 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('G', [makePD "goblin" "Kong Fuzi"])]))
 
-> testCastVengeanceMonsterResisted :: Database -> Connection -> Test.Framework.Test
+> testCastVengeanceMonsterResisted :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastVengeanceMonsterResisted db =
 >     tctor "testCastVengeanceMonsterResisted" $ \conn -> do
->   newGameWithBoardReadyToCast conn "vengeance"
+>   newGameWithBoardReadyToCast db conn "vengeance"
 >                   ("\n\
 >                   \1G     2      3\n\
 >                   \G              \n\
@@ -354,9 +353,9 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('G', [makePD "goblin" "Kong Fuzi"])]))
 
-> testCastSubversion :: Database -> Connection -> Test.Framework.Test
+> testCastSubversion :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastSubversion db = tctor "testCastSubversion" $ \conn -> do
->   newGameWithBoardReadyToCast conn "subversion"
+>   newGameWithBoardReadyToCast db conn "subversion"
 >                  ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -398,9 +397,9 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('G', [makePD "goblin" "Buddha"])]))
 
-> testCastSubversionResisted :: Database -> Connection -> Test.Framework.Test
+> testCastSubversionResisted :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastSubversionResisted db = tctor "testCastSubversionResisted" $ \conn -> do
->   newGameWithBoardReadyToCast conn "subversion"
+>   newGameWithBoardReadyToCast db conn "subversion"
 >                  ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -442,9 +441,9 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('G', [makePD "goblin" "Kong Fuzi"])]))
 
-> testCastDisbelieveReal :: Database -> Connection -> Test.Framework.Test
+> testCastDisbelieveReal :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastDisbelieveReal db = tctor "testCastDisbelieveReal" $ \conn -> do
->   newGameWithBoardReadyToCast conn "disbelieve"
+>   newGameWithBoardReadyToCast db conn "disbelieve"
 >                 ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -484,9 +483,9 @@ cast it and check the resulting board
 >                   (wizardPiecesList ++
 >                   [('G', [makePD "goblin" "Kong Fuzi"])]))
 
-> testCastDisbelieveImaginary :: Database -> Connection -> Test.Framework.Test
+> testCastDisbelieveImaginary :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastDisbelieveImaginary db = tctor "testCastDisbelieveImaginary" $ \conn -> do
->   newGameWithBoardReadyToCast conn "disbelieve"
+>   newGameWithBoardReadyToCast db conn "disbelieve"
 >                   ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -526,9 +525,9 @@ cast it and check the resulting board
 >                   wizardPiecesList)
 >
 
-> testCastRaiseDead :: Database -> Connection -> Test.Framework.Test
+> testCastRaiseDead :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastRaiseDead db = tctor "testCastRaiseDead" $ \conn -> do
->   newGameWithBoardReadyToCast conn "raise_dead"
+>   newGameWithBoardReadyToCast db conn "raise_dead"
 >                   ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -570,9 +569,9 @@ cast it and check the resulting board
 >                   [('G', [PieceDescription "goblin" "Buddha" Real Undead])]))
 
 
-> testCastLaw :: Database -> Connection -> Test.Framework.Test
+> testCastLaw :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastLaw db = tctor "testCastLaw" $ \conn -> do
->   newGameReadyToCast conn "law"
+>   newGameReadyToCast db conn "law"
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
 >   undefined {-
@@ -580,7 +579,7 @@ cast it and check the resulting board
 >                               \from world_alignment_table" []
 >   assertEqual "world alignment not law after casting law" "1" align-}
 
-> testImaginary :: Database -> Connection -> Test.Framework.Test
+> testImaginary :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testImaginary db = tctor "testImaginary" $ \conn -> do
 
 >   let setStuffUp1 = do
@@ -588,7 +587,7 @@ cast it and check the resulting board
 >                     addSpell conn "goblin"
 >                     sendKeyPress conn $ keyChooseSpell "goblin"
 >   let setStuffUp2 = do
->                     skipToPhase conn "cast"
+>                     skipToPhase db conn "cast"
 >                     rigActionSuccess conn "cast" True
 >                     goSquare conn 1 0
 >   let sv c = undefined {-do

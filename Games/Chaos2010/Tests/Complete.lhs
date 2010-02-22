@@ -16,7 +16,6 @@
 
 > import Database.HaskellDB.HDBC.PostgreSQL
 > import Database.HaskellDB
-> import Database.HDBC.PostgreSQL
 > import Database.HDBC
 
 > import Games.Chaos2010.Tests.BoardUtils
@@ -37,9 +36,9 @@ chaos. We check that the win has been detected by seeing the win
 history item in the history table, and by checking the valid activate
 and target action views are empty.
 
-> testWizardWin :: Database -> Connection -> Test.Framework.Test
+> testWizardWin :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testWizardWin db = tctor "testWizardWin" $ \conn -> do
->   startNewGameReadyToMove conn ("\n\
+>   startNewGameReadyToMove db conn ("\n\
 >                   \1G     2       \n\
 >                   \               \n\
 >                   \               \n\
@@ -57,6 +56,7 @@ and target action views are empty.
 >   rigActionSuccess conn "attack" True
 >   goSquare conn 0 0
 >   sendKeyPress conn "space"
+>   undefined {-
 >   assertRelvarValue "game won history entry"
 >                     conn "select count(1) from action_history_mr\n\
 >                          \where history_name='game_won';" []
@@ -68,15 +68,15 @@ and target action views are empty.
 >   assertRelvarValue "now valid activate actions"
 >                     conn "select count(1)\n\
 >                          \from client_valid_activate_actions;" []
->                     (0::Int)
+>                     (0::Int) -}
 
 
 Draw works similarly to win, except it is detected the instant there
 are no wizards left.
 
-> testGameDraw :: Database -> Connection -> Test.Framework.Test
+> testGameDraw :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testGameDraw db = tctor "testGameDraw" $ \conn -> do
->   startNewGameReadyToMove conn ("\n\
+>   startNewGameReadyToMove db conn ("\n\
 >                   \1G 2           \n\
 >                   \               \n\
 >                   \               \n\
@@ -95,6 +95,7 @@ are no wizards left.
 >   goSquare conn 0 0
 >   --now magically kill the remaining to force the draw
 >   runSql conn "select kill_top_piece_at(?,?);" ["3","0"]
+>   undefined {-
 >   assertRelvarValue "game drawn history entry"
 >                     conn "select count(1) from action_history_mr\n\
 >                          \where history_name='game_drawn';" []
@@ -106,5 +107,5 @@ are no wizards left.
 >   assertRelvarValue "now valid activate actions"
 >                     conn "select count(1)\n\
 >                          \from client_valid_activate_actions;" []
->                     (0::Int)
+>                     (0::Int) -}
 

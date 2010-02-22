@@ -1,61 +1,87 @@
-> module Games.Chaos2010.Tests.TestUtils  where
+> module Games.Chaos2010.Tests.TestUtils
+>     (tctor
+>     ,startNewGame
+>     ,setupBoard
+>     ,runSql
+>     ,sendKeyPress
+>     ,callSp
+>     ,assertCurrentWizardPhase
+>     ,SqlRow
+>     ,newGameReadyToCast
+>     ,rigActionSuccess
+>     ,startNewGameReadyToAuto
+>     --,selectInt
+>     ,startNewGameReadyToMove
+>     ,goSquare
+>     ,assertSelectedPiece
+>     ,assertMoveSubphase
+>     ,assertPieceDoneSelection
+>     ,startNewGameReadyToMoveNoSpread
+>     ,skipToPhase
+>     ,newGameWithBoardReadyToCast
+>     ,assertNoSelectedPiece
+>     --,assertRelvarValue
+>     ,addSpell
+>     ,keyChooseSpell
+>     ) where
 
 > import Test.HUnit
 > import Test.Framework
 > import Test.Framework.Providers.HUnit
-> import Data.List
 > import qualified Data.Map as M
-> --import qualified Data.Char as DC
 > import Control.Monad
-> import Data.Maybe
-> import Test.HUnit
-> import Test.Framework
-> import Test.Framework.Providers.HUnit
 > import Control.Exception
+> import Data.List
 
-> import Database.HaskellDB.HDBC.PostgreSQL
-> import Database.HaskellDB
-> import Database.HDBC.PostgreSQL
 > import Database.HDBC
+> import Database.HaskellDB
 
 > import Games.Chaos2010.Tests.BoardUtils
+> import qualified Games.Chaos2010.Database.Selected_piece as Sp
+> import qualified Games.Chaos2010.Database.Pieces as P
+> import qualified Games.Chaos2010.Database.Pieces_to_move as Ptm
+> import Games.Chaos2010.Database.Turn_phase_table
+> import Games.Chaos2010.Database.Current_wizard_table
+> import Games.Chaos2010.UI.HdbUtils
 
-> tctor :: String
->       -> (Connection -> IO ())
->       -> Connection
+> tctor :: IConnection conn => String
+>       -> (conn -> IO ())
+>       -> conn
 >       -> Test.Framework.Test
 > tctor l f conn = testCase l $ rollbackOnError conn $ f conn
 
 > type SqlRow = M.Map String String
 
-> newGameReadyToCast :: Connection -> String -> IO ()
-> newGameReadyToCast conn spellName = do
+> newGameReadyToCast :: IConnection conn => Database -> conn -> String -> IO ()
+> newGameReadyToCast db conn spellName = do
 >   startNewGame conn
 >   addSpell conn spellName
 >   sendKeyPress conn  $ keyChooseSpell spellName
->   skipToPhase conn "cast"
+>   skipToPhase db conn "cast"
 
-> newGameWithBoardReadyToCast :: Connection
+> newGameWithBoardReadyToCast :: IConnection conn =>
+>                                Database
+>                             -> conn
 >                             -> String
 >                             -> BoardDiagram
 >                             -> IO ()
-> newGameWithBoardReadyToCast conn spellName board = do
+> newGameWithBoardReadyToCast db conn spellName board = do
 >   startNewGame conn
->   setupBoard conn board
+>   setupBoard db conn board
 >   addSpell conn spellName
 >   sendKeyPress conn  $ keyChooseSpell spellName
->   skipToPhase conn "cast"
+>   skipToPhase db conn "cast"
 
-> selectInt :: Connection -> String -> [String] -> IO Int
-> selectInt conn q a = undefined {-do
->     x <- selectValue conn q a
->     return (read x ::Int)-}
+ > selectInt :: IConnection conn => conn -> String -> [String] -> IO Int
+ > selectInt conn q a = undefined {-do
+ >     x <- selectValue conn q a
+ >     return (read x ::Int)-}
 
-> assertRelvarValue :: (Read a,Eq a,Show a) =>
->                      String -> Connection -> String -> [String] -> a -> IO ()
-> assertRelvarValue m conn q args val = undefined {-do
->   v <- selectValue conn q args
->   assertEqual m val (read v)-}
+ > assertRelvarValue :: (Read a,Eq a,Show a,IConnection conn) =>
+ >                      String -> conn -> String -> [String] -> a -> IO ()
+ > assertRelvarValue m conn q args val = undefined {-do
+ >   v <- selectValue conn q args
+ >   assertEqual m val (read v)-}
 
 == check new game relvars
 
@@ -65,24 +91,24 @@ the board in the state the last test left it in
 
 todo: add all relvars which aren't readonly to this
 
-> checkNewGameRelvars :: Connection -> IO ()
-> checkNewGameRelvars conn = do
->   checkRelvar conn "turn_number_table" ["0"]
->   checkRelvar conn "current_wizard_table" ["Buddha"]
->   checkRelvar conn "turn_phase_table" ["choose"]
->   checkRelvar conn "spell_choice_hack_table" ["False"]
-> --todo: action_history
->   mapM_ (\x -> checkRelvar conn x []) ["wizard_spell_choices_mr"
->                                       ,"spell_parts_to_cast_table"
->                                       ,"cast_success_checked_table"
->                                       ,"cast_alignment_table"
->                                       ,"pieces_to_move"
->                                       ,"selected_piece"
->                                       ,"remaining_walk_table"]
+ > checkNewGameRelvars :: IConnection conn => conn -> IO ()
+ > checkNewGameRelvars conn = do
+ >   checkRelvar conn "turn_number_table" ["0"]
+ >   checkRelvar conn "current_wizard_table" ["Buddha"]
+ >   checkRelvar conn "turn_phase_table" ["choose"]
+ >   checkRelvar conn "spell_choice_hack_table" ["False"]
+ > --todo: action_history
+ >   mapM_ (\x -> checkRelvar conn x []) ["wizard_spell_choices_mr"
+ >                                       ,"spell_parts_to_cast_table"
+ >                                       ,"cast_success_checked_table"
+ >                                       ,"cast_alignment_table"
+ >                                       ,"pieces_to_move"
+ >                                       ,"selected_piece"
+ >                                       ,"remaining_walk_table"]
 
-> goSquare :: Connection -> Int -> Int -> IO ()
+> goSquare :: IConnection conn => conn -> Int -> Int -> IO ()
 > goSquare conn x y = do
->   undefined -- moveCursorTo conn x y
+>   runSql conn "update cursor_position set x=?, y=?" [show x,show y]
 >   sendKeyPress conn "Return"
 
 == some helper functions
@@ -91,33 +117,38 @@ something hacked up to check the contents of a relvar in the
 database. Should create a better format for writing relvar literals in
 this test file.
 
-> checkRelvar :: Connection -> String -> [String] -> IO ()
-> checkRelvar conn relvarName value = undefined
->   {-selectTuplesC conn ("select * from " ++ relvarName) []
->                      (\r -> head $ map snd $ M.toList r) >>=
->     assertEqual ("relvar " ++ relvarName) value-}
+ > checkRelvar :: IConnection conn => conn -> String -> [String] -> IO ()
+ > checkRelvar conn relvarName value = undefined
+ >   {-selectTuplesC conn ("select * from " ++ relvarName) []
+ >                      (\r -> head $ map snd $ M.toList r) >>=
+ >     assertEqual ("relvar " ++ relvarName) value-}
 
 shorthands to check data in the database
 
-> checkSelectedPiece :: Connection -> [Char] -> [Char] -> IO ()
-> checkSelectedPiece conn allegiance ptype = undefined {-do
->   v <- selectTuple conn "select * from selected_piece"
->   assertEqual "selected piece" (allegiance,ptype)
->               (lk "allegiance" v, lk "ptype" v)-}
+ > checkSelectedPiece :: Database -> [Char] -> [Char] -> IO ()
+ > checkSelectedPiece db allegiance ptype = do
+ >   rel <- query db $ table Sp.selected_piece
+ >   let t = head rel
+ >   assertEqual "selected piece" (allegiance,ptype)
+ >               (t # Sp.allegiance, t # Sp.ptype)
 
-> checkMoveSubphase :: Connection -> [Char] -> IO ()
-> checkMoveSubphase conn sp = undefined {-do
->   ms <- selectTuple conn "select move_phase from selected_piece"
->   assertEqual "move subphase" sp (lk "move_phase" ms)-}
+> assertMoveSubphase :: Database -> [Char] -> IO ()
+> assertMoveSubphase db sp = do
+>   rel <- query db $ do
+>            t1 <- table Sp.selected_piece
+>            project $ copy Sp.move_phase t1
+>                      .*. emptyRecord
+>   let t = head rel
+>   assertEqual "move subphase" sp (t # Sp.move_phase)
 
-> checkNoSelectedPiece :: Connection -> IO ()
-> checkNoSelectedPiece conn = undefined {-do
->   v <- selectTupleIf conn "select * from selected_piece"
+> assertNoSelectedPiece :: Database -> IO ()
+> assertNoSelectedPiece db = do
+>   rel <- query db $ table Sp.selected_piece
 >   assertBool ("there should be no selected piece, got " ++
->               let r =  fromJust v
->               in lk "ptype" r ++ " - " ++ lk "allegiance" r ++
->                  " " ++ lk "move_phase" r)
->              (isNothing v)-}
+>               let r = head rel
+>               in r # Sp.ptype ++ " - " ++ r # Sp.allegiance ++
+>                  " " ++ r # Sp.move_phase)
+>              (null rel)
 
 ================================================================================
 
@@ -128,51 +159,63 @@ shorthands to check data in the database
 this takes a board description and sets the board to match it used to
 setup a particular game before running some tests
 
-> setupBoard :: Connection -> BoardDiagram -> IO ()
-> setupBoard conn bd = undefined {-do
->   let targetBoard = parseBoardDiagram bd
+> setupBoard :: IConnection conn => Database -> conn -> BoardDiagram -> IO ()
+> setupBoard db conn bd = do
+>   let targetBoard = toBoardDescription bd
 >   --just assume that present wizards are in the usual starting positions
 >   --fix this when needed
 >   let (wizardItems, nonWizardItems) =
->          partition (\(makePD t _ _, _, _) -> t == "wizard")
+>          partition (\(PieceDescription t _ _ _, _, _) -> t == "wizard")
 >          targetBoard
->       isWizPresent name = any (\(makePD _ n _, _, _) ->
+>       isWizPresent name = any (\(PieceDescription _ n _ _, _, _) ->
 >                                n == name) wizardItems
 >   -- remove missing wizards
 >   forM_ [0..7] (\i ->
 >     unless (isWizPresent $ wizardNames !! i) $
 >       callSp conn "kill_wizard" [wizardNames !! i])
 >   -- move present wizards
->   forM_ wizardItems (\(makePD _ name _, x, y) -> do
->     t <- selectTuple conn "select x,y from pieces where ptype='wizard'\n\
+>   forM_ wizardItems (\(PieceDescription _ name _ _, x, y) -> do
+>     {-t <- selectTuple conn "select x,y from pieces where ptype='wizard'\n\
 >                      \and allegiance=?" [name]
->     unless (read (lk "x" t) == x && read (lk "y" t) == y)
+>     unless (read (lk "x" t) == x && read (lk "y" t) == y)-}
 >            (runSql conn "update pieces set x = ?, y = ?\n\
 >                        \where ptype='wizard' and allegiance=?"
 >                    [show x, show y, name]))
 >   -- add extra pieces
->   forM_ nonWizardItems $ \(makePD ptype allegiance tags, x, y) -> do
+>   forM_ nonWizardItems $ \(PieceDescription ptype allegiance im un, x, y) -> do
 >     if allegiance == "dead"
 >       then callSp conn "create_corpse"
 >                   [ptype,
 >                    (show x),
 >                    (show y),
->                    show (PImaginary `elem` tags)]
+>                    show $ im == Imaginary]
 >       else callSp conn "create_piece_internal"
 >                   [ptype,
 >                    allegiance,
 >                    (show x),
 >                    (show y),
->                    show (PImaginary `elem` tags)]
->     when (PUndead `elem` tags) $ do
->       tag <- selectValue conn "select max(tag) from pieces"
->       callSp conn "make_piece_undead" [ptype,allegiance, tag]
->   return () -}
+>                    show $ im == Imaginary]
+>     when (un == Undead) $ do
+>       tag <- maxTag
+>       callSp conn "make_piece_undead" [ptype,allegiance, show tag]
+>   return ()
+>   where
+>     maxTag :: IO Int
+>     maxTag = do
+>       rel <- query db $ do
+>                 tb <- table P.pieces
+>                 order [desc tb P.tag]
+>                 --project $ P.tag .=. max (tb .!. P.tag)
+>                 project $ copy P.tag tb
+>                           .*. emptyRecord
+>       let t = head rel
+>       return (t # P.tag)
+
 
 this overrides the next random test by name e.g. so we can test the
 board after a spell has succeeded and after it has failed
 
-> rigActionSuccess :: Connection -> String -> Bool -> IO ()
+> rigActionSuccess :: IConnection conn => conn -> String -> Bool -> IO ()
 > rigActionSuccess conn override setting = do
 >   dbAction conn "rig_action_success" [override, show setting]
 >   dbAction conn "reset_current_effects" []
@@ -181,7 +224,7 @@ board after a spell has succeeded and after it has failed
 
 = database update helpers
 
-> {-startNewGame :: Connection -> IO ()
+> {-startNewGame :: IConnection conn => conn -> IO ()
 > startNewGame conn = do
 >   dbAction conn "reset_new_game_widget_state"
 >   runSql conn "update new_game_widget_state set state='human'"
@@ -189,7 +232,7 @@ board after a spell has succeeded and after it has failed
 >   dbAction conn "reset_current_effects"
 >   checkNewGameRelvars conn-}
 
-> {-startNewGameAI :: Connection -> IO ()
+> {-startNewGameAI :: IConnection conn => conn -> IO ()
 > startNewGameAI conn = do
 >   dbAction conn "reset_new_game_widget_state"
 >   runSql conn "update new_game_widget_state set state='computer'"
@@ -200,92 +243,95 @@ board after a spell has succeeded and after it has failed
 
 Adds the spell given to the first wizard's spell book
 
-> addSpell :: Connection -> String -> IO ()
+> addSpell :: IConnection conn => conn -> String -> IO ()
 > addSpell conn spellName =
 >   runSql conn "insert into spell_books (spell_name, wizard_name)\n\
 >          \values (?, 'Buddha');" [spellName]
 
 keep running next_phase until we get to the cast phase
 
-> skipToPhase :: Connection -> [Char] -> IO ()
-> skipToPhase conn phase = do
+> skipToPhase :: IConnection conn => Database -> conn -> [Char] -> IO ()
+> skipToPhase db conn phase = do
 >   unless (phase `elem` ["choose","cast","move"])
 >          (error $ "unrecognised phase: " ++ phase)
->   undefined
->   {-whenA1 (readTurnPhase conn)
+>   whenA1 (queryTurnPhase db)
 >          (/= phase) $ do
 >          sendKeyPress conn "space"
->          skipToPhase conn phase-}
+>          skipToPhase db conn phase
 
-> sendKeyPress :: Connection -> String -> IO ()
+> sendKeyPress :: IConnection conn => conn -> String -> IO ()
 > sendKeyPress conn k = do
 >   dbAction conn "key_pressed" [k]
 >   dbAction conn "reset_current_effects" []
 
-> rollbackOnError :: Connection -> IO c -> IO c
+> rollbackOnError :: IConnection conn => conn -> IO c -> IO c
 > rollbackOnError conn =
 >     bracketOnError (return())
 >                    (const $ runSql conn "rollback" []) . const
 
-> startNewGameReadyToMove :: Connection -> BoardDiagram -> IO ()
-> startNewGameReadyToMove conn board = do
+> startNewGameReadyToMove :: IConnection conn => Database -> conn -> BoardDiagram -> IO ()
+> startNewGameReadyToMove db conn board = do
 >   startNewGame conn
->   setupBoard conn board
+>   setupBoard db conn board
 >   rigActionSuccess conn "disappear" False
->   skipToPhase conn "move"
+>   skipToPhase db conn "move"
 
-> startNewGameReadyToMoveNoSpread :: Connection -> BoardDiagram -> IO ()
-> startNewGameReadyToMoveNoSpread conn board = do
+> startNewGameReadyToMoveNoSpread :: IConnection conn => Database -> conn -> BoardDiagram -> IO ()
+> startNewGameReadyToMoveNoSpread db conn board = do
 >   startNewGame conn
 >   runSql conn "update disable_spreading_table\n\
 >               \set disable_spreading = true;" []
->   setupBoard conn board
+>   setupBoard db conn board
 >   rigActionSuccess conn "disappear" False
->   skipToPhase conn "move"
+>   skipToPhase db conn "move"
 
-> startNewGameReadyToAuto :: Connection -> BoardDiagram -> IO ()
-> startNewGameReadyToAuto conn board = do
+> startNewGameReadyToAuto :: IConnection conn => Database -> conn -> BoardDiagram -> IO ()
+> startNewGameReadyToAuto db conn board = do
 >   startNewGame conn
->   setupBoard conn board
+>   setupBoard db conn board
 >   sendKeyPress conn $ keyChooseSpell "disbelieve"
->   skipToPhase conn "cast"
+>   skipToPhase db conn "cast"
 
 
 ================================================================================
 
 = database read shortcuts
 
-> readTurnPhase :: Connection -> IO String
-> readTurnPhase conn = undefined
->   {-selectValue conn "select turn_phase from turn_phase_table"-}
+> queryTurnPhase :: Database -> IO String
+> queryTurnPhase db = do
+>   rel <- query db $ table turn_phase_table
+>   let t = head rel
+>   return (t # turn_phase)
 
-> readCurrentWizard :: Connection -> IO String
-> readCurrentWizard conn = undefined
->   {-selectValue conn
->          "select current_wizard from current_wizard_table"-}
+> queryCurrentWizard :: Database -> IO String
+> queryCurrentWizard db = do
+>   rel <- query db $ table current_wizard_table
+>   let t = head rel
+>   return (t # current_wizard)
 
-> assertSelectedPiece :: Connection -> String -> String -> IO()
-> assertSelectedPiece conn ptype allegiance = undefined {-do
->   t <- selectTuple conn "select ptype, allegiance from selected_piece"
->   assertEqual "selected piece"
->               (ptype,allegiance)
->               (lk "ptype" t, lk "allegiance" t)-}
+> assertSelectedPiece :: Database -> Ptype -> Allegiance -> IO()
+> assertSelectedPiece db ptype allegiance = do
+>   rel <- query db $ table Sp.selected_piece
+>   let t = head rel
+>   assertEqual "selected piece" (allegiance,ptype)
+>               (t # Sp.allegiance, t # Sp.ptype)
 
-> checkCurrentWizardPhase :: Connection -> String -> String -> IO()
-> checkCurrentWizardPhase conn wiz phase = do
->   wiz' <- readCurrentWizard conn
->   phase' <- readTurnPhase conn
+> assertCurrentWizardPhase :: Database -> String -> String -> IO()
+> assertCurrentWizardPhase db wiz phase = do
+>   wiz' <- queryCurrentWizard db
+>   phase' <- queryTurnPhase db
 >   assertEqual "current wizard" wiz wiz'
 >   assertEqual "current phase" phase' phase
 
-> checkPieceDoneSelection :: Connection -> String -> String -> IO ()
-> checkPieceDoneSelection conn ptype allegiance = undefined {-do
->     checkNoSelectedPiece conn
->     v <- selectTuples conn
->                       "select * from pieces_to_move\n\
->                       \where ptype=? and\n\
->                       \  allegiance=?" [ptype,allegiance]
->     assertBool "piece not in ptm" (null v)-}
+> assertPieceDoneSelection :: Database -> String -> String -> IO ()
+> assertPieceDoneSelection db ptype allegiance = do
+>     assertNoSelectedPiece db
+>     rel <- query db $ do
+>              t1 <- table Ptm.pieces_to_move
+>              restrict ((t1 .!. Ptm.ptype) .==. constant ptype)
+>              restrict ((t1 .!. Ptm.allegiance) .==. constant allegiance)
+>              project $ copyAll t1
+>     assertBool "piece not in ptm" (null rel)
 
 ================================================================================
 
@@ -315,29 +361,33 @@ understand
 
 
 > keyChooseSpell :: String -> String
-> keyChooseSpell spellName = undefined {-safeLookup
+> keyChooseSpell spellName = safeLookup
 >                              "get key for spell" spellName
->                              lookupChooseSpellKeys-}
+>                              lookupChooseSpellKeys
 
 
 ===============================================================================
 
-> startNewGame :: Connection -> IO ()
+> startNewGame :: IConnection conn => conn -> IO ()
 > startNewGame conn = do
+>   resetNewGameWidgetState conn
+>   setAllHuman conn
 >   newGame conn
 >   resetCurrentEffects conn
 
-> resetNewGameWidgetState conn = callSp conn "select action_reset_new_game_widget_state();" []
+> resetNewGameWidgetState conn = callSp conn "action_reset_new_game_widget_state" []
 
 > setAllHuman conn = run conn "update new_game_widget_state set state='human';" []
 
-> newGame conn = callSp conn "select action_client_new_game_using_new_game_widget_state" []
+> newGame conn = callSp conn "action_client_new_game_using_new_game_widget_state" []
 
-> resetCurrentEffects conn = callSp conn "select action_reset_current_effects" []
+> resetCurrentEffects conn = callSp conn "action_reset_current_effects" []
 
 > callSp :: IConnection conn => conn -> String -> [String] -> IO ()
-> callSp conn sql args = do
->   _ <- run conn sql $ map toSql args
+> callSp conn spName args = do
+>   let qs = intersperse ',' $ replicate (length args) '?'
+>       sqlString = "select " ++ spName ++ "(" ++ qs ++ ")"
+>   _ <- run conn sqlString $ map toSql args
 >   commit conn
 
 > runSql :: IConnection conn => conn -> String -> [String] -> IO ()
@@ -346,5 +396,7 @@ understand
 >   commit conn
 
 > dbAction :: IConnection conn => conn -> String -> [String] -> IO ()
-> dbAction conn a args = callSp conn ("select action_" ++ a ++ "();") args
+> dbAction conn a args = callSp conn ("action_" ++ a) args
 
+> whenA1 :: IO a -> (a -> Bool) -> IO () -> IO ()
+> whenA1 feed cond f = (cond `liftM` feed) >>= flip when f

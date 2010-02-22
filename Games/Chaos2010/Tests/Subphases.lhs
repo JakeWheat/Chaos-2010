@@ -168,13 +168,13 @@ Because of the way the tests are written, we also test successful and
 unsuccessful attack and ranged attack here, and walk and fly
 variations, so we don't need to test them elsewhere.
 
-> testWalkCancelAttackDone :: Database -> Connection -> Test.Framework.Test
+> testWalkCancelAttackDone :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testWalkCancelAttackDone db = tctor "testWalkCancelAttackDone" $
 >                                   \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "goblin" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1G R   2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -187,8 +187,8 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 >     --select goblin
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "goblin"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "goblin"
+>     assertMoveSubphase db "motion"
 >     goSquare conn 2 0
 >     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
@@ -201,17 +201,17 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     checkMoveSubphase conn "attack"
+>     assertMoveSubphase db "attack"
 >     sendKeyPress conn "End"
->     checkPieceDoneSelection conn "goblin" "Buddha"
+>     assertPieceDoneSelection db "goblin" "Buddha"
 
-> testCancelMotionDone :: Database -> Connection -> Test.Framework.Test
+> testCancelMotionDone :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCancelMotionDone db = tctor "testCancelMotionDone" $
 >                               \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "goblin" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -223,10 +223,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "goblin"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "goblin"
+>     assertMoveSubphase db "motion"
 >     sendKeyPress conn "End"
->     checkPieceDoneSelection conn "goblin" "Buddha"
+>     assertPieceDoneSelection db "goblin" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
@@ -239,13 +239,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 
-> testWalkNoAvailAttackDone :: Database -> Connection -> Test.Framework.Test
+> testWalkNoAvailAttackDone :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testWalkNoAvailAttackDone db = tctor "testWalkNoAvailAttackDone" $
 >                                    \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "goblin" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1G  R  2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -257,10 +257,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "goblin"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "goblin"
+>     assertMoveSubphase db "motion"
 >     goSquare conn 2 0
->     checkPieceDoneSelection conn "goblin" "Buddha"
+>     assertPieceDoneSelection db "goblin" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \               \n\
@@ -273,14 +273,14 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 
-> testWAttackDone :: Database -> Connection -> Test.Framework.Test
+> testWAttackDone :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testWAttackDone db = tctor "testWAttackDone" $ \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "goblin" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"]),
 >                ('E', [makePD "goblin" "Buddha",
 >                       makePD "giant_rat" "dead"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -292,11 +292,11 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "goblin"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "goblin"
+>     assertMoveSubphase db "motion"
 >     rigActionSuccess conn "attack" True
 >     goSquare conn 2 0
->     checkPieceDoneSelection conn "goblin" "Buddha"
+>     assertPieceDoneSelection db "goblin" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1 E    2      3\n\
 >                   \               \n\
@@ -309,12 +309,12 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 
-> testWalk2Done :: Database -> Connection -> Test.Framework.Test
+> testWalk2Done :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testWalk2Done db = tctor "testWalk2Done" $ \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('B', [makePD "bear" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1B   R 2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -326,11 +326,11 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "bear"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "bear"
+>     assertMoveSubphase db "motion"
 >     goSquare conn 2 0
->     checkSelectedPiece conn "Buddha" "bear"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "bear"
+>     assertMoveSubphase db "motion"
 >     assertBoardEquals db ("\n\
 >                   \1 B  R 2      3\n\
 >                   \               \n\
@@ -343,7 +343,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 3 0
->     checkPieceDoneSelection conn "bear" "Buddha"
+>     assertPieceDoneSelection db "bear" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1  B R 2      3\n\
 >                   \               \n\
@@ -356,13 +356,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 
-> testWalk1CancelDone :: Database -> Connection -> Test.Framework.Test
+> testWalk1CancelDone :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testWalk1CancelDone db = tctor "testWalk1CancelDone" $
 >                              \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('B', [makePD "bear" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1B R   2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -374,11 +374,11 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "bear"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "bear"
+>     assertMoveSubphase db "motion"
 >     goSquare conn 2 0
->     checkSelectedPiece conn "Buddha" "bear"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "bear"
+>     assertMoveSubphase db "motion"
 >     assertBoardEquals db ("\n\
 >                   \1 BR   2      3\n\
 >                   \               \n\
@@ -391,9 +391,9 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     sendKeyPress conn "End"
->     checkPieceDoneSelection conn "bear" "Buddha"
+>     assertPieceDoneSelection db "bear" "Buddha"
 
-> testFlyAttackDone :: Database -> Connection -> Test.Framework.Test
+> testFlyAttackDone :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testFlyAttackDone db = tctor "testFlyAttackDone" $
 >                            \conn -> do
 >     let pl = (wizardPiecesList ++
@@ -401,7 +401,7 @@ variations, so we don't need to test them elsewhere.
 >                ('R', [makePD "giant_rat" "Kong Fuzi"]),
 >                ('H', [makePD "eagle" "Buddha",
 >                       makePD "giant_rat" "dead"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1G  R  2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -413,8 +413,8 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "eagle"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "eagle"
+>     assertMoveSubphase db "motion"
 >     goSquare conn 3 0
 >     assertBoardEquals db ("\n\
 >                   \1  GR  2      3\n\
@@ -427,10 +427,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     checkMoveSubphase conn "attack"
+>     assertMoveSubphase db "attack"
 >     rigActionSuccess conn "attack" True
 >     goSquare conn 4 0
->     checkPieceDoneSelection conn "eagle" "Buddha"
+>     assertPieceDoneSelection db "eagle" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1   H  2      3\n\
 >                   \               \n\
@@ -443,12 +443,12 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 
-> testFAttackDone :: Database -> Connection -> Test.Framework.Test
+> testFAttackDone :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testFAttackDone db = tctor "testFAttackDone" $ \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "eagle" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1G  R  2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -460,11 +460,11 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "eagle"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "eagle"
+>     assertMoveSubphase db "motion"
 >     rigActionSuccess conn "attack" False
 >     goSquare conn 4 0
->     checkPieceDoneSelection conn "eagle" "Buddha"
+>     assertPieceDoneSelection db "eagle" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1G  R  2      3\n\
 >                   \               \n\
@@ -477,13 +477,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 
-> testCancelFlyDone :: Database -> Connection -> Test.Framework.Test
+> testCancelFlyDone :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCancelFlyDone db = tctor "testCancelFlyDone" $
 >                            \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "eagle" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -495,10 +495,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "eagle"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "eagle"
+>     assertMoveSubphase db "motion"
 >     sendKeyPress conn "End"
->     checkPieceDoneSelection conn "eagle" "Buddha"
+>     assertPieceDoneSelection db "eagle" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
@@ -511,13 +511,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 
-> testFlyNoAvailAttackDone :: Database -> Connection -> Test.Framework.Test
+> testFlyNoAvailAttackDone :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testFlyNoAvailAttackDone db = tctor "testFlyNoAvailAttackDone" $
 >                                   \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "eagle" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1G    R2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -529,10 +529,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "eagle"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "eagle"
+>     assertMoveSubphase db "motion"
 >     goSquare conn 3 0
->     checkPieceDoneSelection conn "eagle" "Buddha"
+>     assertPieceDoneSelection db "eagle" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1  G  R2      3\n\
 >                   \               \n\
@@ -548,7 +548,7 @@ variations, so we don't need to test them elsewhere.
 
 * piece has motion-attack-ranged, walks 1 square
 
-> testWalkAttackRangedDone :: Database -> Connection -> Test.Framework.Test
+> testWalkAttackRangedDone :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testWalkAttackRangedDone db = tctor "testWalkAttackRangedDone" $
 >                                   \conn -> do
 >     let pl = (wizardPiecesList ++
@@ -557,7 +557,7 @@ variations, so we don't need to test them elsewhere.
 >                ('H', [makePD "elf" "Buddha",
 >                       makePD "giant_rat" "dead"]),
 >                ('r', [makePD "giant_rat" "dead"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1G R   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -569,10 +569,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "elf"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "elf"
+>     assertMoveSubphase db "motion"
 >     goSquare conn 2 0
->     checkMoveSubphase conn "attack"
+>     assertMoveSubphase db "attack"
 >     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
@@ -586,7 +586,7 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "attack" True
 >     goSquare conn 3 0
->     checkMoveSubphase conn "ranged_attack"
+>     assertMoveSubphase db "ranged_attack"
 >     assertBoardEquals db ("\n\
 >                   \1  H   2      3\n\
 >                   \   R           \n\
@@ -611,9 +611,9 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     checkPieceDoneSelection conn "elf" "Buddha"
+>     assertPieceDoneSelection db "elf" "Buddha"
 
-> testWalkAttackCancelDone :: Database -> Connection -> Test.Framework.Test
+> testWalkAttackCancelDone :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testWalkAttackCancelDone db = tctor "testWalkAttackCancelDone" $
 >                                   \conn -> do
 >     let pl = (wizardPiecesList ++
@@ -621,7 +621,7 @@ variations, so we don't need to test them elsewhere.
 >                ('R', [makePD "giant_rat" "Kong Fuzi"]),
 >                ('H', [makePD "elf" "Buddha",
 >                       makePD "giant_rat" "dead"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1G R   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -633,10 +633,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "elf"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "elf"
+>     assertMoveSubphase db "motion"
 >     goSquare conn 2 0
->     checkMoveSubphase conn "attack"
+>     assertMoveSubphase db "attack"
 >     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
@@ -650,7 +650,7 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "attack" True
 >     goSquare conn 3 0
->     checkMoveSubphase conn "ranged_attack"
+>     assertMoveSubphase db "ranged_attack"
 >     assertBoardEquals db ("\n\
 >                   \1  H   2      3\n\
 >                   \   R           \n\
@@ -663,7 +663,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     sendKeyPress conn "End"
->     checkPieceDoneSelection conn "elf" "Buddha"
+>     assertPieceDoneSelection db "elf" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1  H   2      3\n\
 >                   \   R           \n\
@@ -676,13 +676,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 
-> testWalkCancelRangedDone :: Database -> Connection -> Test.Framework.Test
+> testWalkCancelRangedDone :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testWalkCancelRangedDone db = tctor "testWalkCancelRangedDone" $
 >                                   \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "elf" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1G R   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -694,10 +694,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "elf"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "elf"
+>     assertMoveSubphase db "motion"
 >     goSquare conn 2 0
->     checkMoveSubphase conn "attack"
+>     assertMoveSubphase db "attack"
 >     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
@@ -710,7 +710,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     sendKeyPress conn "End"
->     checkMoveSubphase conn "ranged_attack"
+>     assertMoveSubphase db "ranged_attack"
 >     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
@@ -724,7 +724,7 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "ranged_attack" False
 >     goSquare conn 3 1
->     checkPieceDoneSelection conn "elf" "Buddha"
+>     assertPieceDoneSelection db "elf" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
@@ -737,14 +737,14 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 
-> testCancelRangedDone :: Database -> Connection -> Test.Framework.Test
+> testCancelRangedDone :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCancelRangedDone db = tctor "testCancelRangedDone" $
 >                               \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "elf" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"]),
 >                ('r', [makePD "giant_rat" "dead"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -756,10 +756,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 2 0
->     checkSelectedPiece conn "Buddha" "elf"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "elf"
+>     assertMoveSubphase db "motion"
 >     sendKeyPress conn "End"
->     checkMoveSubphase conn "ranged_attack"
+>     assertMoveSubphase db "ranged_attack"
 >     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
@@ -773,7 +773,7 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "ranged_attack" True
 >     goSquare conn 3 1
->     checkPieceDoneSelection conn "elf" "Buddha"
+>     assertPieceDoneSelection db "elf" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   r           \n\
@@ -786,13 +786,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 
-> testWalkNoAvailAttackRangedDone :: Database -> Connection -> Test.Framework.Test
+> testWalkNoAvailAttackRangedDone :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testWalkNoAvailAttackRangedDone db =
 >   tctor "testWalkNoAvailAttackRangedDone" $ \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "elf" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1G  R  2      3\n\
 >                   \    R          \n\
 >                   \               \n\
@@ -804,8 +804,8 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "elf"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "elf"
+>     assertMoveSubphase db "motion"
 >     goSquare conn 2 0
 >     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
@@ -818,7 +818,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     checkMoveSubphase conn "ranged_attack"
+>     assertMoveSubphase db "ranged_attack"
 >     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \    R          \n\
@@ -832,7 +832,7 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "ranged_attack" False
 >     goSquare conn 4 1
->     checkPieceDoneSelection conn "elf" "Buddha"
+>     assertPieceDoneSelection db "elf" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \    R          \n\
@@ -845,13 +845,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 
-> testWalkStraightRangedDone :: Database -> Connection -> Test.Framework.Test
+> testWalkStraightRangedDone :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testWalkStraightRangedDone db =
 >   tctor "testWalkStraightRangedDone" $ \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "elf" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1G  R  2      3\n\
 >                   \   RR          \n\
 >                   \               \n\
@@ -863,8 +863,8 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "elf"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "elf"
+>     assertMoveSubphase db "motion"
 >     goSquare conn 2 0
 >     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
@@ -877,7 +877,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     checkMoveSubphase conn "attack"
+>     assertMoveSubphase db "attack"
 >     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \   RR          \n\
@@ -891,7 +891,7 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "ranged_attack" False
 >     goSquare conn 4 1
->     checkPieceDoneSelection conn "elf" "Buddha"
+>     assertPieceDoneSelection db "elf" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \   RR          \n\
@@ -904,13 +904,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 
-> testStraightRangedDone :: Database -> Connection -> Test.Framework.Test
+> testStraightRangedDone :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testStraightRangedDone db =
 >   tctor "testStraightRangedDone" $ \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "elf" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1G  R  2      3\n\
 >                   \  R R          \n\
 >                   \               \n\
@@ -922,8 +922,8 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "elf"
->     checkMoveSubphase conn "motion"
+>     assertSelectedPiece db "Buddha" "elf"
+>     assertMoveSubphase db "motion"
 >     rigActionSuccess conn "ranged_attack" False
 >     goSquare conn 4 0
 >     assertBoardEquals db ("\n\
@@ -937,7 +937,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     checkPieceDoneSelection conn "elf" "Buddha"
+>     assertPieceDoneSelection db "elf" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1G  R  2      3\n\
 >                   \  R R          \n\
@@ -954,13 +954,13 @@ variations, so we don't need to test them elsewhere.
 
 * piece has attack only
 
-> testAttackDone :: Database -> Connection -> Test.Framework.Test
+> testAttackDone :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testAttackDone db = tctor "testAttackDone" $ \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('W', [makePD "shadow_tree" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"]),
 >                ('r', [makePD "giant_rat" "dead"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1WR    2      3\n\
 >                   \    R          \n\
 >                   \               \n\
@@ -972,8 +972,8 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkSelectedPiece conn "Buddha" "shadow_tree"
->     checkMoveSubphase conn "attack"
+>     assertSelectedPiece db "Buddha" "shadow_tree"
+>     assertMoveSubphase db "attack"
 >     rigActionSuccess conn "attack" True
 >     goSquare conn 2 0
 >     assertBoardEquals db ("\n\
@@ -987,15 +987,15 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     checkPieceDoneSelection conn "shadow_tree" "Buddha"
+>     assertPieceDoneSelection db "shadow_tree" "Buddha"
 
-> testNoAvailAttackDone :: Database -> Connection -> Test.Framework.Test
+> testNoAvailAttackDone :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testNoAvailAttackDone db = tctor "testNoAvailAttackDone" $
 >                                \conn -> do
 >     let pl = (wizardPiecesList ++
 >               [('W', [makePD "shadow_tree" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove conn ("\n\
+>     startNewGameReadyToMove db conn ("\n\
 >                   \1W     2      3\n\
 >                   \    R          \n\
 >                   \               \n\
@@ -1007,5 +1007,5 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     goSquare conn 1 0
->     checkPieceDoneSelection conn "shadow_tree" "Buddha"
+>     assertPieceDoneSelection db "shadow_tree" "Buddha"
 

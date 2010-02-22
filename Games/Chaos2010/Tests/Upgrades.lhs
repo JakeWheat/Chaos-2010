@@ -16,7 +16,6 @@
 
 > import Database.HaskellDB.HDBC.PostgreSQL
 > import Database.HaskellDB
-> import Database.HDBC.PostgreSQL
 > import Database.HDBC
 
 > import Games.Chaos2010.Tests.BoardUtils
@@ -32,40 +31,40 @@
 >                   ,testCastWings
 >                   ,testCastShadowForm]
 
-> testCastShield :: Database -> Connection -> Test.Framework.Test
+> testCastShield :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastShield db = tctor "testCastShield" $ \conn ->
 >   doUpgradeTest conn db "magic_shield" $
 >                 addStat "physical_defense" 2
 
-> testCastArmour :: Database -> Connection -> Test.Framework.Test
+> testCastArmour :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastArmour db = tctor "testCastArmour" $ \conn ->
 >   doUpgradeTest conn db "magic_armour" $
 >                 addStat "physical_defense" 4
 
-> testCastKnife :: Database -> Connection -> Test.Framework.Test
+> testCastKnife :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastKnife db = tctor "testCastKnife" $ \conn ->
 >   doUpgradeTest conn db "magic_knife" $
 >                 addStat "attack_strength" 2
 
-> testCastSword :: Database -> Connection -> Test.Framework.Test
+> testCastSword :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastSword db = tctor "testCastSword" $ \conn ->
 >   doUpgradeTest conn db "magic_sword" $
 >                 addStat "attack_strength" 4
 
-> testCastBow :: Database -> Connection -> Test.Framework.Test
+> testCastBow :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastBow db = tctor "testCastBow" $ \conn ->
 >   doUpgradeTest conn db "magic_bow" $
 >                 setStat "ranged_weapon_type" "projectile" .
 >                 setStat "range" "6" .
 >                 setStat "ranged_attack_strength" "6"
 
-> testCastWings :: Database -> Connection -> Test.Framework.Test
+> testCastWings :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastWings db = tctor "testCastWings" $ \conn ->
 >   doUpgradeTest conn db "magic_wings" $
 >                 setStat "speed" "6" .
 >                 setStat "flying" "True"
 
-> testCastShadowForm :: Database -> Connection -> Test.Framework.Test
+> testCastShadowForm :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastShadowForm db = tctor "testCastShadowForm" $ \conn ->
 >   doUpgradeTest conn db "shadow_form" $
 >                 addStat "physical_defense" 2 .
@@ -80,10 +79,10 @@
 > setStat :: String -> String -> SqlRow -> SqlRow
 > setStat = M.insert
 
-> doUpgradeTest :: Connection -> Database -> String -> (SqlRow -> SqlRow)
+> doUpgradeTest :: IConnection conn => conn -> Database -> String -> (SqlRow -> SqlRow)
 >               -> IO ()
 > doUpgradeTest conn db spell attrChange = do
->   newGameReadyToCast conn spell
+>   newGameReadyToCast db conn spell
 >   undefined {-
 >   oldStats <- selectTuple conn "select * from pieces_mr\n\
 >                               \  where ptype='wizard'\n\

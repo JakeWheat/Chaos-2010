@@ -16,11 +16,11 @@
 
 > import Database.HaskellDB.HDBC.PostgreSQL
 > import Database.HaskellDB
-> import Database.HDBC.PostgreSQL
 > import Database.HDBC
 
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
+> import Games.Chaos2010.Database.Spell_books
 >
 > autonomous db conn = testGroup "autonomous" $
 >                   map (\x -> x db conn)
@@ -44,13 +44,13 @@ test spreading onto square with pieces
 
 castles disappearing
 
-> testCastleDisappear :: Database -> Connection -> Test.Framework.Test
+> testCastleDisappear :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastleDisappear db = tctor "testCastleDisappear" $ \conn -> do
 >   let pl = wizardPiecesList ++
 >            [('O', [makePD "wizard" "Buddha",
 >                    makePD "dark_citadel" "Buddha"]),
 >             ('C', [makePD "dark_citadel" "Buddha"])]
->   startNewGameReadyToAuto conn ("\n\
+>   startNewGameReadyToAuto db conn ("\n\
 >                   \O      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -75,13 +75,13 @@ castles disappearing
 >                   \               \n\
 >                   \6      7      8",pl)
 
-> testCastleStay :: Database -> Connection -> Test.Framework.Test
+> testCastleStay :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastleStay db = tctor "testCastleStay" $ \conn -> do
 >   let pl = wizardPiecesList ++
 >            [('O', [makePD "wizard" "Buddha",
 >                    makePD "dark_citadel" "Buddha"]),
 >             ('C', [makePD "dark_citadel" "Buddha"])]
->   startNewGameReadyToAuto conn ("\n\
+>   startNewGameReadyToAuto db conn ("\n\
 >                   \O      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -107,14 +107,13 @@ castles disappearing
 >                   \6      7      8",pl)
 
 
-> testGetSpell :: Database -> Connection -> Test.Framework.Test
+> testGetSpell :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testGetSpell db = tctor "testGetSpell" $ \conn -> do
 >   let pl = wizardPiecesList ++
 >            [('T', [makePD "wizard" "Buddha",
 >                    makePD "magic_tree" "Buddha"])]
->   numSpells <- selectInt conn
->          "select count(*) from spell_books where wizard_name='Buddha'" []
->   startNewGameReadyToAuto conn ("\n\
+>   numSpells <- countSpells db
+>   startNewGameReadyToAuto db conn ("\n\
 >                   \T      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -138,16 +137,25 @@ castles disappearing
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->   newNumSpells <- selectInt conn
->          "select count(*) from spell_books where wizard_name='Buddha'" []
+>   newNumSpells <- countSpells db
 >   assertEqual "got a new spell" (numSpells + 1) newNumSpells
 
-> testNoGetSpell :: Database -> Connection -> Test.Framework.Test
+> countSpells :: Database -> IO Int
+> countSpells db = do
+>   rel <- query db $ do
+>                 t1 <- table spell_books
+>                 restrict ((t1 .!. wizard_name) .==. constant "Buddha")
+>                 project $ xid .=. count (t1 .!. xid)
+>                         .*. emptyRecord
+>   let t = head rel
+>   return $ t # xid
+
+> testNoGetSpell :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testNoGetSpell db = tctor "testNoGetSpell" $ \conn -> do
 >   let pl = wizardPiecesList ++
 >            [('T', [makePD "wizard" "Buddha",
 >                    makePD "magic_tree" "Buddha"])]
->   startNewGameReadyToAuto conn ("\n\
+>   startNewGameReadyToAuto db conn ("\n\
 >                   \T      2      3\n\
 >                   \               \n\
 >                   \               \n\
