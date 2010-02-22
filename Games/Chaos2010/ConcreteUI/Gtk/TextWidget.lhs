@@ -91,7 +91,7 @@ coloured background)
 >   case spr of
 >     Nothing -> putStrLn $ "WARNING: pixbuf not found: " ++ t
 >     Just p -> textBufferInsertPixbufAtCursor tb p
-> renderItem _ cb tv _ (ToggleButtonGroup items gid s) =
+> renderItem _ cb tv _ (ToggleButtonGroup items s cb1) =
 >   unless (null items) $ do
 >   --create the first button and then all the
 >   --others so we can make them into a radio
@@ -111,11 +111,11 @@ coloured background)
 >       textViewInsertWidgetAtCursor tv b
 >       onToggled b $ do
 >         a <- toggleButtonGetActive b
->         when a $ cb $ ToggleButtonGroupClick gid bid
+>         when a $ cb $ Callback $ cb1 bid
 >
-> renderItem _ cb tv _ (Button n bid) = do
+> renderItem _ cb tv _ (Button n cb1) = do
 >   but <- buttonNewWithLabel n
->   _ <- onClicked but $ cb (ButtonClick bid)
+>   _ <- onClicked but $ cb $ Callback cb1
 >   textViewInsertWidgetAtCursor tv but
 
  >            | ButtonClick String EventID

@@ -31,18 +31,21 @@
 >   _ <- setVideoMode w h 32 []
 >   _ <- enableKeyRepeat 70 70
 >   (sg::IORef U.SpriteGrid) <- newIORef $ U.SpriteGrid 15 10 []
->   runHandler sg spr
+>   startTime <- getTicks
+>   runHandler startTime sg spr
 >   where
->     runHandler sg spr = do
+>     runHandler startTime sg spr = do
 >       --putStrLn "runhandler"
 >       screen <- getVideoSurface
 >       sg1 <- readNewGrid sg
->       renderGrid spr sg1 screen
+>       currentTime <- getTicks
+>       let elapsedTime = fromIntegral (currentTime - startTime)
+>       renderGrid elapsedTime spr sg1 screen
 >       SDL.flip screen
 >       processEvents
 >       --delay 1000
 >       threadDelay $ 1000 * 100
->       runHandler sg spr
+>       runHandler startTime sg spr
 >     processEvents = do
 >       e <- pollEvent
 >       --putStrLn $ "got " ++ show e
@@ -68,8 +71,8 @@
 >                ,(SDLK_LEFT, "left")
 >                ,(SDLK_RIGHT, "right")]
 
-> renderGrid :: SprLookup -> U.SpriteGrid -> Surface -> IO()
-> renderGrid sprs (U.SpriteGrid ww wh is) surf = do
+> renderGrid :: Int -> SprLookup -> U.SpriteGrid -> Surface -> IO()
+> renderGrid et sprs (U.SpriteGrid ww wh is) surf = do
 >   let swidth = surfaceGetWidth surf
 >   let sheight = surfaceGetHeight surf
 >   let sg1 = drawIns swidth sheight ww wh is
@@ -77,27 +80,29 @@
 >   mapM_ renderI sg1
 >   where
 >     renderI :: DrawingInstruction -> IO ()
->     renderI (Sprite x y w h s) = let image = fromMaybe unknownSprite $ lookup s sprs
->                                    in blitZoom image x y w h surf
+>     renderI (Sprite x y w h s) = let images = fromMaybe unknownSprite $ lookup s sprs
+>                                      fr = (et `div` 250) `mod` length images
+>                                      im = images !! fr
+>                                  in blitZoom im x y w h surf
 >     --renderI (VLine x) = fillRect surf (Just $ Rect (dtoi x) 0 1 sheight) (Pixel 255) >> return ()
 >     --renderI (HLine y) = fillRect surf (Just $ Rect 0 (dtoi y) swidth 1) (Pixel 255) >> return ()
 >     --renderI (Text t) = do
 >     --  tr <- renderTextSolid font t $ Color 255 255 255
 >     --  blitSurface tr Nothing surf $ Just $ Rect 0 0 0 0
 >     --  return ()
->     unknownSprite = fromJust $ lookup "unknown.0" sprs
+>     unknownSprite = fromJust $ lookup "unknown" sprs
 >     drawIns :: Int -> Int -> Int -> Int -> [(Int,Int,String)] -> [DrawingInstruction]
 >     drawIns tw th sw sh sp =
 >         let sx = itod tw / itod sw
 >             sy = itod th / itod sh
->             di1 = map (\(x,y,s) -> Sprite (itod x) (itod y) 1 1 (s ++ ".0")) sp
+>             di1 = map (\(x,y,s) -> Sprite (itod x) (itod y) 1 1 s) sp
 >         in translate (Scale sx sy) di1
 
 
 > data DrawingInstruction = Sprite Double Double Double Double String
->                         -- | VLine Double
->                         -- | HLine Double
->                         -- | Text String
+>                         --   | VLine Double
+>                         --   | HLine Double
+>                         --   | Text String
 >                           deriving Show
 
 > data Translation = Move Double Double
@@ -137,7 +142,7 @@
 >              Move _ _ -> y
 >              Scale _ dy -> y * dy
 
-> type SprLookup = [(String,Surface)]
+> type SprLookup = [(String,[Surface])]
 
 > loadSprites :: IO SprLookup
 > loadSprites = do
@@ -145,4 +150,26 @@
 >   let spriteNames = map (dropExtension . snd . splitFileName) pngNames
 >   let sprs = filter (\l -> takeExtension l == ".png") pngNames
 >   ss <- mapM (Img.load) sprs
->   return $ zip spriteNames ss
+>   let spf = zip (map getSpriteId spriteNames) ss
+>       fld :: ((String,Int), Surface) -> [(String,[Surface])] -> [(String,[Surface])]
+>       fld = (\((s,f),p) l -> insertWith (++) s [p] l)
+>   return $ foldr fld [] spf
+
+
+> getSpriteId :: String -> (String,Int)
+> getSpriteId s =
+>     let fn = snd $ splitFileName s
+>         sn = dropExtension fn
+>         f = takeExtension sn
+>     in (sn,read (tail f))
+
+l =~ ("^" ++ sp ++ "\\.[0-9]\\.png"))
+
+> insertWith :: Eq k => (a -> a -> a) -> k -> a -> [(k,a)] -> [(k,a)]
+> insertWith ac k v m =
+>     case lookup k m of
+>       Nothing -> m ++ [(k,v)]
+>       Just v' -> let nv = ac v' v
+>                  in map (\p@(k1,_) -> if k1 == k
+>                                       then (k1,nv)
+>                                       else p) m

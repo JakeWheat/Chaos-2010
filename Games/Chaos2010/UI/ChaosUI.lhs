@@ -28,12 +28,12 @@ list of windows.
 >           ,Window "Board" WSpriteGrid 99 28 480 320
 >           ,Window "Action History" WText 843 28 429 556]
 
-> chaosRenders :: [(String, Database -> IO WindowUpdate)]
-> chaosRenders = [("Info", unwrapDBText infoWidget)
->                ,("Spell Book", unwrapDBText spellBookWidget)
->                ,("New Game", unwrapDBText newGameWidget)
->                ,("Board", unwrapSG boardWidget)
->                ,("Action History", unwrapDBText actionHistoryWidget)]
+> chaosRenders :: Connection -> [(String, Database -> IO WindowUpdate)]
+> chaosRenders conn = [("Info", unwrapDBText infoWidget)
+>                     ,("Spell Book", unwrapDBText spellBookWidget)
+>                     ,("New Game", unwrapDBText $ newGameWidget (callSP conn))
+>                     ,("Board", unwrapSG boardWidget)
+>                     ,("Action History", unwrapDBText actionHistoryWidget)]
 
 > unwrapDBText :: DBText -> Database -> IO WindowUpdate
 > unwrapDBText (DBText u) = fmap WUText . u
@@ -54,7 +54,7 @@ list of windows.
 >   loop
 >   where
 >     allUpdates =
->         mapM (\(n,u) -> (n,) <$> u db) chaosRenders
+>         mapM (\(n,u) -> (n,) <$> u db) $ chaosRenders conn
 
 
 > checkNewGameRelvar :: Database -> Connection -> IO ()
@@ -80,21 +80,4 @@ list of windows.
 >     Key k -> do
 >              putStrLn $ "key press: " ++ k
 >              callSP conn "select action_key_pressed(?);" [k]
->     ButtonClick bid -> do
->       case bid of
->         "startGame" -> callSP conn
->            "select action_client_new_game_using_new_game_widget_state();" []
->         "resetNewGameWindow" -> callSP conn
->            "select action_reset_new_game_widget_state();" []
->         "all_pieces" -> setupTestBoard bid
->         "upgraded_wizards" -> setupTestBoard bid
->         "overlapping" -> setupTestBoard bid
->         n -> putStrLn $ "WARNING: unrecognised button id: " ++ n
->     ToggleButtonGroupClick gid bid -> putStrLn $ show e
->   where
->     setupTestBoard t =
->       callSP conn "select action_setup_test_board(?);" [t]
-
-
-                                            "update new_game_widget_state\n\
-                                             \set state =? where line =?"
+>     Callback c -> c

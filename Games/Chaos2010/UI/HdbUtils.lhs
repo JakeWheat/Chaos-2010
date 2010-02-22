@@ -19,4 +19,5 @@
 > mn :: Maybe Int -> Int
 > mn = maybe 0 id
 
-
+> mb :: Maybe Bool -> Bool
+> mb = maybe False id

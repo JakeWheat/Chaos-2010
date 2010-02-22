@@ -118,13 +118,16 @@ to find a way of testing the database constraints themselves).
 
 > import Database.HaskellDB.HDBC.PostgreSQL
 > import Database.HaskellDB
+> import Database.HDBC.PostgreSQL
+> import Database.HDBC
 
-> import Games.Chaos2010.Dbms.ChaosDB
-> import Games.Chaos2010.Conf
-> import Games.Chaos2010.Utils
-> import qualified Games.Chaos2010.Misc.Logging as Logging
+> import Games.Chaos2010.Tests.BoardUtils
+> --import ChaosDB
+> --import Games.Chaos2010.Conf
+> --import Games.Chaos2010.Utils
+> --import qualified Games.Chaos2010.Misc.Logging as Logging
 > --import Games.Chaos2010.Database
-> import Games.Chaos2010.Database.Pieces_mr
+> --import Games.Chaos2010.Database.Pieces_mr
 
 ================================================================================
 
@@ -133,17 +136,13 @@ to find a way of testing the database constraints themselves).
 Run all the tests.
 
 > main :: IO ()
-> main = time $ do
->   Logging.setupLogging
->   conf <- getConfig
+> main = do -- time $ do
+>   -- Logging.setupLogging
+>   -- conf <- getConfig
 >   postgresqlConnect [("dbname", "chaos")] $ \db -> do
->
->   testHaskellDB db
->
->   withConn ("host=localhost dbname=" ++
->             dbName conf ++ " user=" ++ username conf ++
->             " password=" ++ password conf) $ \conn -> do
-
+>   withConn ("dbname=chaos") $ \conn -> do
+>   resetNewGameWidgetState conn
+>   setAllHuman conn
 >   defaultMain [
 >         testGroup "basics" [
 >                        --testDatabaseStuff conn
@@ -238,6 +237,12 @@ Run all the tests.
 
 >   return ()
 
+> withConn :: String -> (Connection -> IO c) -> IO c
+> withConn cs f = bracket (connectPostgreSQL cs)
+>                         disconnect
+>                         f
+
+
 > tctor :: String
 >       -> (Connection -> IO ())
 >       -> Connection
@@ -249,7 +254,7 @@ postgresql.conf  #track_functions = none # none, pl, all
  select * from pg_stat_user_functions ;
 http://www.depesz.com/index.php/2008/05/15/waiting-for-84-function-stats/
 
-> testHaskellDB :: Database -> IO ()
+> {-testHaskellDB :: Database -> IO ()
 > testHaskellDB db = do
 >   putStrLn "here"
 >   {-let q = do u <- table pieces
@@ -260,7 +265,7 @@ http://www.depesz.com/index.php/2008/05/15/waiting-for-84-function-stats/
 >   return ()
 >   where
 >     --convRow :: Record a -> String
->     convRow r = show $ r # ptype
+>     convRow r = show $ r # ptype-}
 
 undefined
 
@@ -332,28 +337,28 @@ magic tree or castle; add test for these.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",
->                   (wizardPiecesList ++
->                    [('a', [PieceDescription "goblin" "Kong Fuzi" [],
->                            PieceDescription "elf" "dead" []]),
->                     ('b', [PieceDescription "goblin" "dead" [],
->                            PieceDescription "wizard" "Buddha" []]),
->                     ('c', [PieceDescription "pegasus" "Kong Fuzi" [],
->                            PieceDescription "giant" "dead" [],
->                            PieceDescription "wizard" "Kong Fuzi" []]),
->                     ('d', [PieceDescription "gryphon" "Laozi" [],
->                            PieceDescription "wizard" "Laozi" []]),
->                     ('e', [PieceDescription "magic_castle" "Moshe" [],
->                            PieceDescription "wizard" "Moshe" []]),
->                     ('f', [PieceDescription "magic_tree" "Muhammad" [],
->                            PieceDescription "wizard" "Muhammad" []]),
->                     ('g', [PieceDescription "goblin" "dead" [],
->                            PieceDescription "gooey_blob" "Buddha" []]),
->                     ('h', [PieceDescription "goblin" "Kong Fuzi" [],
->                            PieceDescription "gooey_blob" "Buddha" []]),
->                     ('i', [PieceDescription "goblin" "Kong Fuzi" [],
->                            PieceDescription "gooey_blob" "Buddha" [],
->                            PieceDescription "elf" "dead" []])]))
->   checkTopPieces conn ("\n\
+>                   (wizardPiecesList ++ liftPl
+>                    [('a', [("goblin", "Kong Fuzi")
+>                           ,("elf", "dead")])
+>                    ,('b', [("goblin", "dead")
+>                           ,("wizard", "Buddha")])
+>                    ,('c', [("pegasus", "Kong Fuzi")
+>                           ,("giant", "dead")
+>                           ,("wizard", "Kong Fuzi")])
+>                    ,('d', [("gryphon", "Laozi")
+>                           ,("wizard", "Laozi")])
+>                    ,('e', [("magic_castle", "Moshe")
+>                           ,("wizard", "Moshe")])
+>                    ,('f', [("magic_tree", "Muhammad")
+>                           ,("wizard", "Muhammad")])
+>                    ,('g', [("goblin", "dead")
+>                           ,("gooey_blob", "Buddha")])
+>                    ,('h', [("goblin", "Kong Fuzi")
+>                           ,("gooey_blob", "Buddha")])
+>                    ,('i', [("goblin", "Kong Fuzi")
+>                           ,("gooey_blob", "Buddha")
+>                           ,("elf", "dead")])]))
+>   assertTopPiecesEquals db ("\n\
 >                   \b      c      d\n\
 >                   \               \n\
 >                   \ aghi          \n\
@@ -364,16 +369,16 @@ magic tree or castle; add test for these.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",
->                   (wizardPiecesList ++
->                    [('a', [PieceDescription "goblin" "Kong Fuzi" []]),
->                     ('b', [PieceDescription "wizard" "Buddha" []]),
->                     ('c', [PieceDescription "pegasus" "Kong Fuzi" []]),
->                     ('d', [PieceDescription "gryphon" "Laozi" []]),
->                     ('e', [PieceDescription "magic_castle" "Moshe" []]),
->                     ('f', [PieceDescription "magic_tree" "Muhammad" []]),
->                     ('g', [PieceDescription "gooey_blob" "Buddha" []]),
->                     ('h', [PieceDescription "gooey_blob" "Buddha" []]),
->                     ('i', [PieceDescription "gooey_blob" "Buddha" []])]))
+>                   (wizardPiecesList ++ liftPl
+>                    [('a', [("goblin","Kong Fuzi")]),
+>                     ('b', [("wizard","Buddha")]),
+>                     ('c', [("pegasus","Kong Fuzi")]),
+>                     ('d', [("gryphon","Laozi")]),
+>                     ('e', [("magic_castle","Moshe")]),
+>                     ('f', [("magic_tree","Muhammad")]),
+>                     ('g', [("gooey_blob","Buddha")]),
+>                     ('h', [("gooey_blob","Buddha")]),
+>                     ('i', [("gooey_blob","Buddha")])]))
 
 
 == cursor movement
@@ -433,7 +438,7 @@ avoid writing out the full key press names:
 
 
 > cursorShorthand :: String -> String
-> cursorShorthand m = safeLookup "cursor shorthand" m
+> cursorShorthand m = undefined {-safeLookup "cursor shorthand" m
 >                      [("d", "Down"),
 >                       ("l", "Left"),
 >                       ("u", "Up"),
@@ -441,14 +446,15 @@ avoid writing out the full key press names:
 >                       ("dl", "KP_End"),
 >                       ("dr", "KP_Page_Down"),
 >                       ("ul", "KP_Home"),
->                       ("ur", "KP_Page_Up")]
+>                       ("ur", "KP_Page_Up")]-}
 
 get the current cursor position from the database
 
 > readCursorPosition :: Connection -> IO (Int,Int)
 > readCursorPosition conn = do
->   r <- selectTuple conn "select x,y from cursor_position" []
->   return (read $ lk "x" r, read $ lk "y" r)
+>   undefined
+>   --r <- selectTuple conn "select x,y from cursor_position" []
+>   --return (read $ lk "x" r, read $ lk "y" r)
 
 move the cursor to x,y, using key presses
 
@@ -512,9 +518,10 @@ twice, check the turn_phase and current_wizard each time
 >                --so we don't skip the cast phase, make sure
 >                -- each wizard has a spell chosen, use disbelieve
 >                --cos wizards always have this spell available
->                whenA1 (readTurnPhase conn)
+>                undefined
+>                {-whenA1 (readTurnPhase conn)
 >                       (=="choose")
->                       (sendKeyPress conn "Q")
+>                       (sendKeyPress conn "Q")-}
 >                sendKeyPress conn "space"))
 
 test next phase with some wizards not choosing spells
@@ -529,13 +536,13 @@ to do all variations is 256 tests
 >     startNewGame conn
 >     --kill wizard
 >     callSp conn "kill_wizard" [wizardNames !! j]
->     let theseWizards = dropItemN wizardNames j
+>     let theseWizards = undefined -- dropItemN wizardNames j
 >     forM_ ["choose","cast","move","choose","cast","move"] (\phase ->
 >       forM_ [0..6] (\i -> do
 >         checkCurrentWizardPhase conn (theseWizards !! i) phase
->         whenA1 (readTurnPhase conn)
+>         undefined {-whenA1 (readTurnPhase conn)
 >                (=="choose")
->                (sendKeyPress conn "Q")
+>                (sendKeyPress conn "Q")-}
 >         sendKeyPress conn "space")))
 
 > testNextPhaseTwoWizardsDead :: Database -> Connection -> Test.Framework.Test
@@ -546,16 +553,17 @@ to do all variations is 256 tests
 >       --kill wizards
 >       callSp conn "kill_wizard" [wizardNames !! j]
 >       callSp conn "kill_wizard" [wizardNames !! k]
->       let theseWizards = dropItemN (dropItemN wizardNames k) j
+>       let theseWizards = undefined {-dropItemN (dropItemN wizardNames k) j-}
 >       forM_ ["choose","cast","move","choose","cast","move"] (\phase ->
 >         forM_ [0..5] (\i -> do
 >           checkCurrentWizardPhase conn (theseWizards !! i) phase
 >           --so we don't skip the cast phase, make sure
 >           -- each wizard has a spell chosen, use disbelieve
 >           --cos wizards always have this spell available
->           whenA1 (readTurnPhase conn)
+>           undefined
+>           {-whenA1 (readTurnPhase conn)
 >                  (=="choose")
->                  (sendKeyPress conn "Q")
+>                  (sendKeyPress conn "Q")-}
 >           sendKeyPress conn "space"))))
 
 
@@ -569,13 +577,13 @@ casting the last part of a spell moves to the next player automatically
 moving the last creature moves to the next player automatically
 these are tested in the spell cast and move sections respectively
 
-> testNextPhaseAI :: Database -> Connection -> Test.Framework.Test
+> {-testNextPhaseAI :: Database -> Connection -> Test.Framework.Test
 > testNextPhaseAI db = tctor "testNextPhaseAI" $ \conn -> do
 >   startNewGameAI conn
 >   forM_ ["choose","cast","move","choose","cast","move"] (\phase ->
 >     forM_ [0..7] (\i -> do
 >        checkCurrentWizardPhase conn (wizardNames !! i) phase
->        sendKeyPress conn "space"))
+>        sendKeyPress conn "space"))-}
 
 
 ================================================================================
@@ -599,7 +607,7 @@ chosen goblin
 
 check the squares we can cast goblin onto
 
->   checkValidSquares conn "\n\
+>   assertValidSquaresEquals db "\n\
 >                      \1X     2      3\n\
 >                      \XX             \n\
 >                      \               \n\
@@ -615,7 +623,7 @@ cast it and check the resulting board
 
 >   rigActionSuccess conn "cast" True
 >   goSquare conn 1 0
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -627,7 +635,7 @@ cast it and check the resulting board
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Buddha" []])]))
+>                   [('G', [makePD "goblin" "Buddha"])]))
 >   --check we are on the next wizard's phase
 >   checkCurrentWizardPhase conn "Kong Fuzi" "cast"
 
@@ -636,7 +644,7 @@ cast it and check the resulting board
 >   newGameReadyToCast conn "goblin"
 >   rigActionSuccess conn "cast" False
 >   goSquare conn 1 0
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -654,7 +662,7 @@ cast it and check the resulting board
 >   newGameReadyToCast conn "magic_wood"
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1W W W 2      3\n\
 >                   \               \n\
 >                   \W W W          \n\
@@ -666,12 +674,12 @@ cast it and check the resulting board
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('W', [PieceDescription "magic_tree" "Buddha" []])]))
+>                   [('W', [makePD "magic_tree" "Buddha"])]))
 
 > testCastShadowWood :: Database -> Connection -> Test.Framework.Test
 > testCastShadowWood db = tctor "testCastShadowWood" $ \conn -> do
 >   newGameReadyToCast conn "shadow_wood"
->   checkValidSquares conn "\n\
+>   assertValidSquaresEquals db "\n\
 >                          \1XXXXXX2X     3\n\
 >                          \XXXXXXXXX      \n\
 >                          \XXXXXXXXX      \n\
@@ -685,7 +693,7 @@ cast it and check the resulting board
 >   rigActionSuccess conn "cast" True
 >   mapM_ (uncurry $ goSquare conn)
 >         [(1,0),(3,0),(5,0),(0,2),(2,2),(4,2),(1,4),(3,4)]
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1W W W 2      3\n\
 >                   \               \n\
 >                   \W W W          \n\
@@ -697,12 +705,12 @@ cast it and check the resulting board
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('W', [PieceDescription "shadow_tree" "Buddha" []])]))
+>                   [('W', [makePD "shadow_tree" "Buddha"])]))
 
 > testCastMagicBolt :: Database -> Connection -> Test.Framework.Test
 > testCastMagicBolt db = tctor "testCastMagicBolt" $ \conn -> do
 >   newGameReadyToCast conn "magic_bolt"
->   checkValidSquares conn "\n\
+>   assertValidSquaresEquals db "\n\
 >                          \1      2      3\n\
 >                          \               \n\
 >                          \               \n\
@@ -716,7 +724,7 @@ cast it and check the resulting board
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" False
 >   goSquare conn 0 4
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -732,7 +740,7 @@ cast it and check the resulting board
 > testCastMagicBoltResisted :: Database -> Connection -> Test.Framework.Test
 > testCastMagicBoltResisted db = tctor "testCastMagicBoltResisted" $ \conn -> do
 >   newGameReadyToCast conn "magic_bolt"
->   checkValidSquares conn "\n\
+>   assertValidSquaresEquals db "\n\
 >                          \1      2      3\n\
 >                          \               \n\
 >                          \               \n\
@@ -746,7 +754,7 @@ cast it and check the resulting board
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" True
 >   goSquare conn 0 4
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -774,8 +782,8 @@ cast it and check the resulting board
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
->   checkValidSquares conn "\n\
+>                   [('G', [PieceDescription "goblin" "Kong Fuzi" Real Alive])]))
+>   assertValidSquaresEquals db "\n\
 >                          \1X     X      X\n\
 >                          \X              \n\
 >                          \               \n\
@@ -789,7 +797,7 @@ cast it and check the resulting board
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" False
 >   goSquare conn 7 0
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -817,8 +825,8 @@ cast it and check the resulting board
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
->   checkValidSquares conn "\n\
+>                   [('G', [PieceDescription "goblin" "Kong Fuzi" Real Alive])]))
+>   assertValidSquaresEquals db "\n\
 >                          \1X     X      X\n\
 >                          \X              \n\
 >                          \               \n\
@@ -832,7 +840,7 @@ cast it and check the resulting board
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" False
 >   goSquare conn 1 0
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \G              \n\
 >                   \               \n\
@@ -844,7 +852,7 @@ cast it and check the resulting board
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
+>                   [('G', [makePD "goblin" "Kong Fuzi"])]))
 
 > testCastVengeanceMonsterResisted :: Database -> Connection -> Test.Framework.Test
 > testCastVengeanceMonsterResisted db =
@@ -862,8 +870,8 @@ cast it and check the resulting board
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
->   checkValidSquares conn "\n\
+>                   [('G', [PieceDescription "goblin" "Kong Fuzi" Real Alive])]))
+>   assertValidSquaresEquals db "\n\
 >                          \1X     X      X\n\
 >                          \X              \n\
 >                          \               \n\
@@ -877,7 +885,7 @@ cast it and check the resulting board
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" True
 >   goSquare conn 1 0
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1G     2      3\n\
 >                   \G              \n\
 >                   \               \n\
@@ -889,7 +897,7 @@ cast it and check the resulting board
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
+>                   [('G', [makePD "goblin" "Kong Fuzi"])]))
 
 > testCastSubversion :: Database -> Connection -> Test.Framework.Test
 > testCastSubversion db = tctor "testCastSubversion" $ \conn -> do
@@ -906,8 +914,8 @@ cast it and check the resulting board
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
->   checkValidSquares conn "\n\
+>                   [('G', [makePD "goblin" "Kong Fuzi"])]))
+>   assertValidSquaresEquals db "\n\
 >                          \1X     2      3\n\
 >                          \               \n\
 >                          \               \n\
@@ -921,7 +929,7 @@ cast it and check the resulting board
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" False
 >   goSquare conn 1 0
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -933,7 +941,7 @@ cast it and check the resulting board
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Buddha" []])]))
+>                   [('G', [makePD "goblin" "Buddha"])]))
 
 > testCastSubversionResisted :: Database -> Connection -> Test.Framework.Test
 > testCastSubversionResisted db = tctor "testCastSubversionResisted" $ \conn -> do
@@ -950,8 +958,8 @@ cast it and check the resulting board
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
->   checkValidSquares conn "\n\
+>                   [('G', [makePD "goblin" "Kong Fuzi"])]))
+>   assertValidSquaresEquals db "\n\
 >                          \1X     2      3\n\
 >                          \               \n\
 >                          \               \n\
@@ -965,7 +973,7 @@ cast it and check the resulting board
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" True
 >   goSquare conn 1 0
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -977,7 +985,7 @@ cast it and check the resulting board
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
+>                   [('G', [makePD "goblin" "Kong Fuzi"])]))
 
 > testCastDisbelieveReal :: Database -> Connection -> Test.Framework.Test
 > testCastDisbelieveReal db = tctor "testCastDisbelieveReal" $ \conn -> do
@@ -994,8 +1002,8 @@ cast it and check the resulting board
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
->   checkValidSquares conn "\n\
+>                   [('G', [makePD "goblin" "Kong Fuzi"])]))
+>   assertValidSquaresEquals db "\n\
 >                          \1X     2      3\n\
 >                          \               \n\
 >                          \               \n\
@@ -1007,7 +1015,7 @@ cast it and check the resulting board
 >                          \               \n\
 >                          \6      7      8"
 >   goSquare conn 1 0
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1019,7 +1027,7 @@ cast it and check the resulting board
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
+>                   [('G', [makePD "goblin" "Kong Fuzi"])]))
 
 > testCastDisbelieveImaginary :: Database -> Connection -> Test.Framework.Test
 > testCastDisbelieveImaginary db = tctor "testCastDisbelieveImaginary" $ \conn -> do
@@ -1036,9 +1044,8 @@ cast it and check the resulting board
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi"
->                            [PImaginary]])]))
->   checkValidSquares conn "\n\
+>                   [('G', [PieceDescription "goblin" "Kong Fuzi" Imaginary Alive])]))
+>   assertValidSquaresEquals db "\n\
 >                          \1X     2      3\n\
 >                          \               \n\
 >                          \               \n\
@@ -1050,7 +1057,7 @@ cast it and check the resulting board
 >                          \               \n\
 >                          \6      7      8"
 >   goSquare conn 1 0
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1079,8 +1086,8 @@ cast it and check the resulting board
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "dead" []])]))
->   checkValidSquares conn "\n\
+>                   [('G', [makePD "goblin" "dead"])]))
+>   assertValidSquaresEquals db "\n\
 >                          \1X     2      3\n\
 >                          \               \n\
 >                          \               \n\
@@ -1093,7 +1100,7 @@ cast it and check the resulting board
 >                          \6      7      8"
 >   rigActionSuccess conn "cast" True
 >   goSquare conn 1 0
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1105,44 +1112,44 @@ cast it and check the resulting board
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Buddha" [PUndead]])]))
+>                   [('G', [PieceDescription "goblin" "Buddha" Real Undead])]))
 
 > testCastShield :: Database -> Connection -> Test.Framework.Test
 > testCastShield db = tctor "testCastShield" $ \conn ->
->   doUpgradeTest conn "magic_shield" $
+>   doUpgradeTest conn db "magic_shield" $
 >                 addStat "physical_defense" 2
 
 > testCastArmour :: Database -> Connection -> Test.Framework.Test
 > testCastArmour db = tctor "testCastArmour" $ \conn ->
->   doUpgradeTest conn "magic_armour" $
+>   doUpgradeTest conn db "magic_armour" $
 >                 addStat "physical_defense" 4
 
 > testCastKnife :: Database -> Connection -> Test.Framework.Test
 > testCastKnife db = tctor "testCastKnife" $ \conn ->
->   doUpgradeTest conn "magic_knife" $
+>   doUpgradeTest conn db "magic_knife" $
 >                 addStat "attack_strength" 2
 
 > testCastSword :: Database -> Connection -> Test.Framework.Test
 > testCastSword db = tctor "testCastSword" $ \conn ->
->   doUpgradeTest conn "magic_sword" $
+>   doUpgradeTest conn db "magic_sword" $
 >                 addStat "attack_strength" 4
 
 > testCastBow :: Database -> Connection -> Test.Framework.Test
 > testCastBow db = tctor "testCastBow" $ \conn ->
->   doUpgradeTest conn "magic_bow" $
+>   doUpgradeTest conn db "magic_bow" $
 >                 setStat "ranged_weapon_type" "projectile" .
 >                 setStat "range" "6" .
 >                 setStat "ranged_attack_strength" "6"
 
 > testCastWings :: Database -> Connection -> Test.Framework.Test
 > testCastWings db = tctor "testCastWings" $ \conn ->
->   doUpgradeTest conn "magic_wings" $
+>   doUpgradeTest conn db "magic_wings" $
 >                 setStat "speed" "6" .
 >                 setStat "flying" "True"
 
 > testCastShadowForm :: Database -> Connection -> Test.Framework.Test
 > testCastShadowForm db = tctor "testCastShadowForm" $ \conn ->
->   doUpgradeTest conn "shadow_form" $
+>   doUpgradeTest conn db "shadow_form" $
 >                 addStat "physical_defense" 2 .
 >                 addStat "agility" 2 .
 >                 setStat "speed" "3"
@@ -1155,20 +1162,22 @@ cast it and check the resulting board
 > setStat :: String -> String -> SqlRow -> SqlRow
 > setStat = M.insert
 
-> doUpgradeTest :: Connection -> String -> (SqlRow -> SqlRow)
+> doUpgradeTest :: Connection -> Database -> String -> (SqlRow -> SqlRow)
 >               -> IO ()
-> doUpgradeTest conn spell attrChange = do
+> doUpgradeTest conn db spell attrChange = do
 >   newGameReadyToCast conn spell
+>   undefined {-
 >   oldStats <- selectTuple conn "select * from pieces_mr\n\
 >                               \  where ptype='wizard'\n\
->                               \    and allegiance='Buddha'" []
+>                               \    and allegiance='Buddha'" []-}
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
->   newStats <- selectTuple conn "select * from pieces_mr\n\
+>   undefined
+>   {-newStats <- selectTuple conn "select * from pieces_mr\n\
 >                               \  where ptype='wizard'\n\
->                               \    and allegiance='Buddha'" []
->   assertEqual "upgraded stats" (attrChange oldStats) newStats
->   checkBoard conn ("\n\
+>                               \    and allegiance='Buddha'" []-}
+>   undefined --assertEqual "upgraded stats" (attrChange oldStats) undefined newStats
+>   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1181,6 +1190,7 @@ cast it and check the resulting board
 >                   \6      7      8",
 >                   wizardPiecesList)
 
+> type SqlRow = M.Map String String
 
 todo:
 stack upgrades - different spells, same spells e.g. magic knife
@@ -1195,9 +1205,10 @@ tested too
 >   newGameReadyToCast conn "law"
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
+>   undefined {-
 >   align <- selectValue conn "select world_alignment\n\
 >                               \from world_alignment_table" []
->   assertEqual "world alignment not law after casting law" "1" align
+>   assertEqual "world alignment not law after casting law" "1" align-}
 
 > testImaginary :: Database -> Connection -> Test.Framework.Test
 > testImaginary db = tctor "testImaginary" $ \conn -> do
@@ -1210,11 +1221,11 @@ tested too
 >                     skipToPhase conn "cast"
 >                     rigActionSuccess conn "cast" True
 >                     goSquare conn 1 0
->   let sv c = do
+>   let sv c = undefined {-do
 >              v <- selectValue conn "select imaginary from monster_pieces\n\
 >                                    \natural inner join pieces\n\
 >                                    \where x= 1 and y = 0" []
->              c ((read v) :: Bool)
+>              c ((read v) :: Bool)-}
 >   setStuffUp1
 >   setStuffUp2
 >   sv (\v -> assertBool "default real for monsters" $ not v)
@@ -1397,8 +1408,8 @@ variations, so we don't need to test them elsewhere.
 > testWalkCancelAttackDone db = tctor "testWalkCancelAttackDone" $
 >                                   \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('G', [PieceDescription "goblin" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>               [('G', [makePD "goblin" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G R   2      3\n\
 >                   \               \n\
@@ -1415,7 +1426,7 @@ variations, so we don't need to test them elsewhere.
 >     checkSelectedPiece conn "Buddha" "goblin"
 >     checkMoveSubphase conn "motion"
 >     goSquare conn 2 0
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1434,8 +1445,8 @@ variations, so we don't need to test them elsewhere.
 > testCancelMotionDone db = tctor "testCancelMotionDone" $
 >                               \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('G', [PieceDescription "goblin" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>               [('G', [makePD "goblin" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
@@ -1452,7 +1463,7 @@ variations, so we don't need to test them elsewhere.
 >     checkMoveSubphase conn "motion"
 >     sendKeyPress conn "End"
 >     checkPieceDoneSelection conn "goblin" "Buddha"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1468,8 +1479,8 @@ variations, so we don't need to test them elsewhere.
 > testWalkNoAvailAttackDone db = tctor "testWalkNoAvailAttackDone" $
 >                                    \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('G', [PieceDescription "goblin" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>               [('G', [makePD "goblin" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G  R  2      3\n\
 >                   \               \n\
@@ -1486,7 +1497,7 @@ variations, so we don't need to test them elsewhere.
 >     checkMoveSubphase conn "motion"
 >     goSquare conn 2 0
 >     checkPieceDoneSelection conn "goblin" "Buddha"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1501,10 +1512,10 @@ variations, so we don't need to test them elsewhere.
 > testWAttackDone :: Database -> Connection -> Test.Framework.Test
 > testWAttackDone db = tctor "testWAttackDone" $ \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('G', [PieceDescription "goblin" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
->                ('E', [PieceDescription "goblin" "Buddha" [],
->                       PieceDescription "giant_rat" "dead" []])])
+>               [('G', [makePD "goblin" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"]),
+>                ('E', [makePD "goblin" "Buddha",
+>                       makePD "giant_rat" "dead"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
@@ -1522,7 +1533,7 @@ variations, so we don't need to test them elsewhere.
 >     rigActionSuccess conn "attack" True
 >     goSquare conn 2 0
 >     checkPieceDoneSelection conn "goblin" "Buddha"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1 E    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1537,8 +1548,8 @@ variations, so we don't need to test them elsewhere.
 > testWalk2Done :: Database -> Connection -> Test.Framework.Test
 > testWalk2Done db = tctor "testWalk2Done" $ \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('B', [PieceDescription "bear" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>               [('B', [makePD "bear" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1B   R 2      3\n\
 >                   \               \n\
@@ -1556,7 +1567,7 @@ variations, so we don't need to test them elsewhere.
 >     goSquare conn 2 0
 >     checkSelectedPiece conn "Buddha" "bear"
 >     checkMoveSubphase conn "motion"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1 B  R 2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1569,7 +1580,7 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 >     goSquare conn 3 0
 >     checkPieceDoneSelection conn "bear" "Buddha"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1  B R 2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1585,8 +1596,8 @@ variations, so we don't need to test them elsewhere.
 > testWalk1CancelDone db = tctor "testWalk1CancelDone" $
 >                              \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('B', [PieceDescription "bear" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>               [('B', [makePD "bear" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1B R   2      3\n\
 >                   \               \n\
@@ -1604,7 +1615,7 @@ variations, so we don't need to test them elsewhere.
 >     goSquare conn 2 0
 >     checkSelectedPiece conn "Buddha" "bear"
 >     checkMoveSubphase conn "motion"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1 BR   2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1622,10 +1633,10 @@ variations, so we don't need to test them elsewhere.
 > testFlyAttackDone db = tctor "testFlyAttackDone" $
 >                            \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('G', [PieceDescription "eagle" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
->                ('H', [PieceDescription "eagle" "Buddha" [],
->                       PieceDescription "giant_rat" "dead" []])])
+>               [('G', [makePD "eagle" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"]),
+>                ('H', [makePD "eagle" "Buddha",
+>                       makePD "giant_rat" "dead"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G  R  2      3\n\
 >                   \               \n\
@@ -1641,7 +1652,7 @@ variations, so we don't need to test them elsewhere.
 >     checkSelectedPiece conn "Buddha" "eagle"
 >     checkMoveSubphase conn "motion"
 >     goSquare conn 3 0
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1  GR  2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1656,7 +1667,7 @@ variations, so we don't need to test them elsewhere.
 >     rigActionSuccess conn "attack" True
 >     goSquare conn 4 0
 >     checkPieceDoneSelection conn "eagle" "Buddha"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1   H  2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1671,8 +1682,8 @@ variations, so we don't need to test them elsewhere.
 > testFAttackDone :: Database -> Connection -> Test.Framework.Test
 > testFAttackDone db = tctor "testFAttackDone" $ \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('G', [PieceDescription "eagle" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>               [('G', [makePD "eagle" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G  R  2      3\n\
 >                   \               \n\
@@ -1690,7 +1701,7 @@ variations, so we don't need to test them elsewhere.
 >     rigActionSuccess conn "attack" False
 >     goSquare conn 4 0
 >     checkPieceDoneSelection conn "eagle" "Buddha"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1G  R  2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1706,8 +1717,8 @@ variations, so we don't need to test them elsewhere.
 > testCancelFlyDone db = tctor "testCancelFlyDone" $
 >                            \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('G', [PieceDescription "eagle" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>               [('G', [makePD "eagle" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
@@ -1724,7 +1735,7 @@ variations, so we don't need to test them elsewhere.
 >     checkMoveSubphase conn "motion"
 >     sendKeyPress conn "End"
 >     checkPieceDoneSelection conn "eagle" "Buddha"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1740,8 +1751,8 @@ variations, so we don't need to test them elsewhere.
 > testFlyNoAvailAttackDone db = tctor "testFlyNoAvailAttackDone" $
 >                                   \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('G', [PieceDescription "eagle" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>               [('G', [makePD "eagle" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G    R2      3\n\
 >                   \               \n\
@@ -1758,7 +1769,7 @@ variations, so we don't need to test them elsewhere.
 >     checkMoveSubphase conn "motion"
 >     goSquare conn 3 0
 >     checkPieceDoneSelection conn "eagle" "Buddha"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1  G  R2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -1777,11 +1788,11 @@ variations, so we don't need to test them elsewhere.
 > testWalkAttackRangedDone db = tctor "testWalkAttackRangedDone" $
 >                                   \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('G', [PieceDescription "elf" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
->                ('H', [PieceDescription "elf" "Buddha" [],
->                       PieceDescription "giant_rat" "dead" []]),
->                ('r', [PieceDescription "giant_rat" "dead" []])])
+>               [('G', [makePD "elf" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"]),
+>                ('H', [makePD "elf" "Buddha",
+>                       makePD "giant_rat" "dead"]),
+>                ('r', [makePD "giant_rat" "dead"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G R   2      3\n\
 >                   \   R           \n\
@@ -1798,7 +1809,7 @@ variations, so we don't need to test them elsewhere.
 >     checkMoveSubphase conn "motion"
 >     goSquare conn 2 0
 >     checkMoveSubphase conn "attack"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -1812,7 +1823,7 @@ variations, so we don't need to test them elsewhere.
 >     rigActionSuccess conn "attack" True
 >     goSquare conn 3 0
 >     checkMoveSubphase conn "ranged_attack"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1  H   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -1825,7 +1836,7 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "ranged_attack" True
 >     goSquare conn 3 1
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1  H   2      3\n\
 >                   \   r           \n\
 >                   \               \n\
@@ -1842,10 +1853,10 @@ variations, so we don't need to test them elsewhere.
 > testWalkAttackCancelDone db = tctor "testWalkAttackCancelDone" $
 >                                   \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('G', [PieceDescription "elf" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
->                ('H', [PieceDescription "elf" "Buddha" [],
->                       PieceDescription "giant_rat" "dead" []])])
+>               [('G', [makePD "elf" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"]),
+>                ('H', [makePD "elf" "Buddha",
+>                       makePD "giant_rat" "dead"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G R   2      3\n\
 >                   \   R           \n\
@@ -1862,7 +1873,7 @@ variations, so we don't need to test them elsewhere.
 >     checkMoveSubphase conn "motion"
 >     goSquare conn 2 0
 >     checkMoveSubphase conn "attack"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -1876,7 +1887,7 @@ variations, so we don't need to test them elsewhere.
 >     rigActionSuccess conn "attack" True
 >     goSquare conn 3 0
 >     checkMoveSubphase conn "ranged_attack"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1  H   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -1889,7 +1900,7 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 >     sendKeyPress conn "End"
 >     checkPieceDoneSelection conn "elf" "Buddha"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1  H   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -1905,8 +1916,8 @@ variations, so we don't need to test them elsewhere.
 > testWalkCancelRangedDone db = tctor "testWalkCancelRangedDone" $
 >                                   \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('G', [PieceDescription "elf" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>               [('G', [makePD "elf" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G R   2      3\n\
 >                   \   R           \n\
@@ -1923,7 +1934,7 @@ variations, so we don't need to test them elsewhere.
 >     checkMoveSubphase conn "motion"
 >     goSquare conn 2 0
 >     checkMoveSubphase conn "attack"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -1936,7 +1947,7 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 >     sendKeyPress conn "End"
 >     checkMoveSubphase conn "ranged_attack"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -1950,7 +1961,7 @@ variations, so we don't need to test them elsewhere.
 >     rigActionSuccess conn "ranged_attack" False
 >     goSquare conn 3 1
 >     checkPieceDoneSelection conn "elf" "Buddha"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -1966,9 +1977,9 @@ variations, so we don't need to test them elsewhere.
 > testCancelRangedDone db = tctor "testCancelRangedDone" $
 >                               \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('G', [PieceDescription "elf" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
->                ('r', [PieceDescription "giant_rat" "dead" []])])
+>               [('G', [makePD "elf" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"]),
+>                ('r', [makePD "giant_rat" "dead"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
@@ -1985,7 +1996,7 @@ variations, so we don't need to test them elsewhere.
 >     checkMoveSubphase conn "motion"
 >     sendKeyPress conn "End"
 >     checkMoveSubphase conn "ranged_attack"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -1999,7 +2010,7 @@ variations, so we don't need to test them elsewhere.
 >     rigActionSuccess conn "ranged_attack" True
 >     goSquare conn 3 1
 >     checkPieceDoneSelection conn "elf" "Buddha"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   r           \n\
 >                   \               \n\
@@ -2015,8 +2026,8 @@ variations, so we don't need to test them elsewhere.
 > testWalkNoAvailAttackRangedDone db =
 >   tctor "testWalkNoAvailAttackRangedDone" $ \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('G', [PieceDescription "elf" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>               [('G', [makePD "elf" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G  R  2      3\n\
 >                   \    R          \n\
@@ -2032,7 +2043,7 @@ variations, so we don't need to test them elsewhere.
 >     checkSelectedPiece conn "Buddha" "elf"
 >     checkMoveSubphase conn "motion"
 >     goSquare conn 2 0
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \    R          \n\
 >                   \               \n\
@@ -2044,7 +2055,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     checkMoveSubphase conn "ranged_attack"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \    R          \n\
 >                   \               \n\
@@ -2058,7 +2069,7 @@ variations, so we don't need to test them elsewhere.
 >     rigActionSuccess conn "ranged_attack" False
 >     goSquare conn 4 1
 >     checkPieceDoneSelection conn "elf" "Buddha"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \    R          \n\
 >                   \               \n\
@@ -2074,8 +2085,8 @@ variations, so we don't need to test them elsewhere.
 > testWalkStraightRangedDone db =
 >   tctor "testWalkStraightRangedDone" $ \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('G', [PieceDescription "elf" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>               [('G', [makePD "elf" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G  R  2      3\n\
 >                   \   RR          \n\
@@ -2091,7 +2102,7 @@ variations, so we don't need to test them elsewhere.
 >     checkSelectedPiece conn "Buddha" "elf"
 >     checkMoveSubphase conn "motion"
 >     goSquare conn 2 0
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \   RR          \n\
 >                   \               \n\
@@ -2103,7 +2114,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     checkMoveSubphase conn "attack"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \   RR          \n\
 >                   \               \n\
@@ -2117,7 +2128,7 @@ variations, so we don't need to test them elsewhere.
 >     rigActionSuccess conn "ranged_attack" False
 >     goSquare conn 4 1
 >     checkPieceDoneSelection conn "elf" "Buddha"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \   RR          \n\
 >                   \               \n\
@@ -2133,8 +2144,8 @@ variations, so we don't need to test them elsewhere.
 > testStraightRangedDone db =
 >   tctor "testStraightRangedDone" $ \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('G', [PieceDescription "elf" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>               [('G', [makePD "elf" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1G  R  2      3\n\
 >                   \  R R          \n\
@@ -2151,7 +2162,7 @@ variations, so we don't need to test them elsewhere.
 >     checkMoveSubphase conn "motion"
 >     rigActionSuccess conn "ranged_attack" False
 >     goSquare conn 4 0
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1G  R  2      3\n\
 >                   \  R R          \n\
 >                   \               \n\
@@ -2163,7 +2174,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     checkPieceDoneSelection conn "elf" "Buddha"
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1G  R  2      3\n\
 >                   \  R R          \n\
 >                   \               \n\
@@ -2182,9 +2193,9 @@ variations, so we don't need to test them elsewhere.
 > testAttackDone :: Database -> Connection -> Test.Framework.Test
 > testAttackDone db = tctor "testAttackDone" $ \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('W', [PieceDescription "shadow_tree" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []]),
->                ('r', [PieceDescription "giant_rat" "dead" []])])
+>               [('W', [makePD "shadow_tree" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"]),
+>                ('r', [makePD "giant_rat" "dead"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1WR    2      3\n\
 >                   \    R          \n\
@@ -2201,7 +2212,7 @@ variations, so we don't need to test them elsewhere.
 >     checkMoveSubphase conn "attack"
 >     rigActionSuccess conn "attack" True
 >     goSquare conn 2 0
->     checkBoard conn ("\n\
+>     assertBoardEquals db ("\n\
 >                   \1Wr    2      3\n\
 >                   \    R          \n\
 >                   \               \n\
@@ -2218,8 +2229,8 @@ variations, so we don't need to test them elsewhere.
 > testNoAvailAttackDone db = tctor "testNoAvailAttackDone" $
 >                                \conn -> do
 >     let pl = (wizardPiecesList ++
->               [('W', [PieceDescription "shadow_tree" "Buddha" []]),
->                ('R', [PieceDescription "giant_rat" "Kong Fuzi" []])])
+>               [('W', [makePD "shadow_tree" "Buddha"]),
+>                ('R', [makePD "giant_rat" "Kong Fuzi"])])
 >     startNewGameReadyToMove conn ("\n\
 >                   \1W     2      3\n\
 >                   \    R          \n\
@@ -2251,13 +2262,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []]),
->                    ('H', [PieceDescription "goblin" "Buddha" []])]))
+>                   [('G', [makePD "goblin" "Kong Fuzi"]),
+>                    ('H', [makePD "goblin" "Buddha"])]))
 >   sendKeyPress conn "space"
 >   goSquare conn 1 0
 >   rigActionSuccess conn "attack" True
 >   goSquare conn 0 0
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \G      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -2269,7 +2280,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
+>                   [('G', [makePD "goblin" "Kong Fuzi"])]))
 
 > testFlyAttack :: Database -> Connection -> Test.Framework.Test
 > testFlyAttack db = tctor "testFlyAttack" $ \conn -> do
@@ -2285,12 +2296,12 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []]),
->                    ('E', [PieceDescription "eagle" "Buddha" []])]))
+>                   [('G', [makePD "goblin" "Kong Fuzi"]),
+>                    ('E', [makePD "eagle" "Buddha"])]))
 >   goSquare conn 2 0
 >   rigActionSuccess conn "attack" True
 >   goSquare conn 3 3
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -2302,15 +2313,15 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('E', [PieceDescription "eagle" "Buddha" [],
->                           PieceDescription "goblin" "dead" []])]))
+>                   [('E', [makePD "eagle" "Buddha",
+>                           makePD "goblin" "dead"])]))
 
 > testMountThenMoveMount :: Database -> Connection -> Test.Framework.Test
 > testMountThenMoveMount db = tctor "testMountThenMoveMount" $
 >                              \conn -> do
->   let pl = wizardPiecesList ++ [('P', [PieceDescription "pegasus" "Buddha" []]),
->             ('M', [PieceDescription "wizard" "Buddha" [],
->                    PieceDescription "pegasus" "Buddha" []])]
+>   let pl = wizardPiecesList ++ [('P', [makePD "pegasus" "Buddha"]),
+>             ('M', [makePD "wizard" "Buddha",
+>                    makePD "pegasus" "Buddha"])]
 >   startNewGameReadyToMove conn ("\n\
 >                   \1P     2      3\n\
 >                   \               \n\
@@ -2328,7 +2339,7 @@ variations, so we don't need to test them elsewhere.
 >   sendKeyPress conn "Return"
 >   assertSelectedPiece conn "pegasus" "Buddha"
 >   goSquare conn 2 2
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \       2      3\n\
 >                   \               \n\
 >                   \  M            \n\
@@ -2362,8 +2373,8 @@ is mounted here.
 >                   \               \n\
 >                   \6      7      8",
 >                    wizardPiecesList ++
->                   [('P', [PieceDescription "wizard" "Buddha" [],
->                           PieceDescription "pegasus" "Buddha" []])])
+>                   [('P', [makePD "wizard" "Buddha",
+>                           makePD "pegasus" "Buddha"])])
 >   --select then cancel the wizard
 >   goSquare conn 1 0
 >   assertSelectedPiece conn "wizard" "Buddha"
@@ -2372,7 +2383,7 @@ is mounted here.
 >   sendKeyPress conn "Return"
 >   assertSelectedPiece conn "pegasus" "Buddha"
 >   goSquare conn 2 2
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \       2      3\n\
 >                   \               \n\
 >                   \  P            \n\
@@ -2384,8 +2395,8 @@ is mounted here.
 >                   \               \n\
 >                   \6      7      8",
 >                    wizardPiecesList ++
->                   [('P', [PieceDescription "wizard" "Buddha" [],
->                           PieceDescription "pegasus" "Buddha" []])])
+>                   [('P', [makePD "wizard" "Buddha",
+>                           makePD "pegasus" "Buddha"])])
 
 dismount then move
 
@@ -2403,13 +2414,13 @@ dismount then move
 >                   \               \n\
 >                   \6      7      8",
 >                    wizardPiecesList ++
->                   [('P', [PieceDescription "wizard" "Buddha" [],
->                           PieceDescription "pegasus" "Buddha" []])])
+>                   [('P', [makePD "wizard" "Buddha",
+>                           makePD "pegasus" "Buddha"])])
 >   goSquare conn 1 0
 >   goSquare conn 1 1
 >   goSquare conn 1 0
 >   goSquare conn 3 0
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \   P   2      3\n\
 >                   \ 1             \n\
 >                   \               \n\
@@ -2421,7 +2432,7 @@ dismount then move
 >                   \               \n\
 >                   \6      7      8",
 >                    wizardPiecesList ++
->                   [('P', [PieceDescription "pegasus" "Buddha" []])])
+>                   [('P', [makePD "pegasus" "Buddha"])])
 
 move when already mounted
 
@@ -2440,13 +2451,13 @@ move when already mounted
 >                   \               \n\
 >                   \6      7      8",
 >                    wizardPiecesList ++
->                   [('P', [PieceDescription "wizard" "Buddha" [],
->                           PieceDescription "pegasus" "Buddha" []])])
+>                   [('P', [makePD "wizard" "Buddha",
+>                           makePD "pegasus" "Buddha"])])
 >   goSquare conn 1 0
 >   sendKeyPress conn "End"
 >   sendKeyPress conn "Return"
 >   goSquare conn 3 0
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \   P   2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -2458,8 +2469,8 @@ move when already mounted
 >                   \               \n\
 >                   \6      7      8",
 >                    wizardPiecesList ++
->                   [('P', [PieceDescription "wizard" "Buddha" [],
->                           PieceDescription "pegasus" "Buddha" []])])
+>                   [('P', [makePD "wizard" "Buddha",
+>                           makePD "pegasus" "Buddha"])])
 
 todo: attack when dismounting, dismounting when flying
 
@@ -2477,12 +2488,12 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \6      7      8",
 >                    wizardPiecesList ++
->                   [('P', [PieceDescription "wizard" "Buddha" [],
->                           PieceDescription "dark_citadel" "Buddha" []])])
+>                   [('P', [makePD "wizard" "Buddha",
+>                           makePD "dark_citadel" "Buddha"])])
 >   goSquare conn 1 0
 >   assertSelectedPiece conn "wizard" "Buddha"
 >   goSquare conn 1 1
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \ P     2      3\n\
 >                   \ 1             \n\
 >                   \               \n\
@@ -2494,7 +2505,7 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \6      7      8",
 >                    wizardPiecesList ++
->                   [('P', [PieceDescription "dark_citadel" "Buddha" []])])
+>                   [('P', [makePD "dark_citadel" "Buddha"])])
 
 > testEnter :: Database -> Connection -> Test.Framework.Test
 > testEnter db = tctor "testEnter" $ \conn -> do
@@ -2510,10 +2521,10 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('P', [PieceDescription "dark_citadel" "Buddha" []])]))
+>                   [('P', [makePD "dark_citadel" "Buddha"])]))
 >   goSquare conn 0 0
 >   goSquare conn 1 0
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -2525,8 +2536,8 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \6      7      8",
 >                    wizardPiecesList ++
->                   [('P', [PieceDescription "wizard" "Buddha" [],
->                           PieceDescription "dark_citadel" "Buddha" []])])
+>                   [('P', [makePD "wizard" "Buddha",
+>                           makePD "dark_citadel" "Buddha"])])
 
 > testAttackShadowForm :: Database -> Connection -> Test.Framework.Test
 > testAttackShadowForm db = tctor "testAttackShadowForm" $ \conn -> do
@@ -2543,26 +2554,28 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
->   oldStats <- selectTuple conn "select * from pieces_mr\n\
+>                   [('G', [makePD "goblin" "Kong Fuzi"])]))
+>   undefined
+>   {-oldStats <- selectTuple conn "select * from pieces_mr\n\
 >                               \  where ptype='wizard'\n\
->                               \    and allegiance='Buddha'" []
+>                               \    and allegiance='Buddha'"-}
 >   sendKeyPress conn "Return"
 >   skipToPhase conn "move"
 >   goSquare conn 0 0
 >   rigActionSuccess conn "attack" False
 >   goSquare conn 1 0
->   newStats <- selectTuple conn "select * from pieces_mr\n\
+>   undefined
+>   {-newStats <- selectTuple conn "select * from pieces_mr\n\
 >                               \  where ptype='wizard'\n\
->                               \    and allegiance='Buddha'" []
->   assertEqual "attacking loses shadow form" oldStats newStats
+>                               \    and allegiance='Buddha'"
+>   assertEqual "attacking loses shadow form" oldStats newStats-}
 
 
 > testAttackUndeadOnUndead :: Database -> Connection -> Test.Framework.Test
 > testAttackUndeadOnUndead db = tctor "testAttackUndeadOnUndead" $ \conn -> do
 >   let pl = wizardPiecesList ++
->            [('G', [PieceDescription "ghost" "Kong Fuzi" [PUndead]]),
->             ('S', [PieceDescription "goblin" "Buddha" [PUndead]])]
+>            [('G', [PieceDescription "ghost" "Kong Fuzi" Real Undead]),
+>             ('S', [PieceDescription "goblin" "Buddha" Real Undead])]
 >   startNewGameReadyToMove conn ("\n\
 >                   \1S     2      3\n\
 >                   \ G             \n\
@@ -2577,7 +2590,7 @@ todo: attack when dismounting, dismounting when flying
 >   goSquare conn 1 0
 >   rigActionSuccess conn "attack" True
 >   goSquare conn 1 1
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \ S             \n\
 >                   \               \n\
@@ -2592,8 +2605,8 @@ todo: attack when dismounting, dismounting when flying
 > testAttackNonUndeadOnUndead :: Database -> Connection -> Test.Framework.Test
 > testAttackNonUndeadOnUndead db = tctor "testAttackNonUndeadOnUndead" $ \conn -> do
 >   let pl = wizardPiecesList ++
->            [('G', [PieceDescription "ghost" "Kong Fuzi" [PUndead]]),
->             ('S', [PieceDescription "goblin" "Buddha" []])]
+>            [('G', [PieceDescription "ghost" "Kong Fuzi" Real Undead]),
+>             ('S', [PieceDescription "goblin" "Buddha" Real Alive])]
 >   startNewGameReadyToMove conn ("\n\
 >                   \1S     2      3\n\
 >                   \ G             \n\
@@ -2609,7 +2622,7 @@ todo: attack when dismounting, dismounting when flying
 >   goSquare conn 1 0
 >   rigActionSuccess conn "attack" True
 >   goSquare conn 1 1
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1S     2      3\n\
 >                   \ G             \n\
 >                   \               \n\
@@ -2624,8 +2637,8 @@ todo: attack when dismounting, dismounting when flying
 > testMagicWeaponOnUndead :: Database -> Connection -> Test.Framework.Test
 > testMagicWeaponOnUndead db = tctor "testMagicWeaponOnUndead" $ \conn -> do
 >   let pl = wizardPiecesList ++
->            [('G', [PieceDescription "ghost" "Kong Fuzi" [PUndead]]),
->             ('S', [PieceDescription "spectre" "Buddha" [PUndead]])]
+>            [('G', [PieceDescription "ghost" "Kong Fuzi" Real Undead]),
+>             ('S', [PieceDescription "spectre" "Buddha" Real Undead])]
 >   startNewGameReadyToMove conn ("\n\
 >                   \1S     2      3\n\
 >                   \ G             \n\
@@ -2642,7 +2655,7 @@ todo: attack when dismounting, dismounting when flying
 >   goSquare conn 0 0
 >   rigActionSuccess conn "attack" True
 >   goSquare conn 1 1
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \ S     2      3\n\
 >                   \ 1             \n\
 >                   \               \n\
@@ -2660,7 +2673,7 @@ todo: attack when dismounting, dismounting when flying
 > testNoMoveEngaged :: Database -> Connection -> Test.Framework.Test
 > testNoMoveEngaged db = tctor "testNoMoveEngaged" $ \conn -> do
 >   let pl = wizardPiecesList ++
->            [('G', [PieceDescription "goblin" "Kong Fuzi" [PUndead]])]
+>            [('G', [PieceDescription "goblin" "Kong Fuzi" Real Undead])]
 >   startNewGameReadyToMove conn ("\n\
 >                   \1      2      3\n\
 >                   \ G             \n\
@@ -2675,7 +2688,7 @@ todo: attack when dismounting, dismounting when flying
 >   rigActionSuccess conn "break_engaged" False
 >   goSquare conn 0 0
 >   goSquare conn 0 1
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \ G             \n\
 >                   \               \n\
@@ -2690,7 +2703,7 @@ todo: attack when dismounting, dismounting when flying
 > testBreakEngaged :: Database -> Connection -> Test.Framework.Test
 > testBreakEngaged db = tctor "testBreakEngaged" $ \conn -> do
 >   let pl = wizardPiecesList ++
->            [('G', [PieceDescription "goblin" "Kong Fuzi" [PUndead]])]
+>            [('G', [PieceDescription "goblin" "Kong Fuzi" Real Undead])]
 >   startNewGameReadyToMove conn ("\n\
 >                   \1      2      3\n\
 >                   \ G             \n\
@@ -2705,7 +2718,7 @@ todo: attack when dismounting, dismounting when flying
 >   rigActionSuccess conn "break_engaged" True
 >   goSquare conn 0 0
 >   goSquare conn 0 1
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \       2      3\n\
 >                   \1G             \n\
 >                   \               \n\
@@ -2745,9 +2758,9 @@ moved if free'd that turn
 > testBlobSelection :: Database -> Connection -> Test.Framework.Test
 > testBlobSelection db = tctor "testBlobSelection" $ \conn -> do
 >   let pl = wizardPiecesList ++
->            [('O', [PieceDescription "goblin" "Buddha" [],
->                    PieceDescription "gooey_blob" "Kong Fuzi" []]),
->             ('g', [PieceDescription "goblin" "Buddha" []])]
+>            [('O', [makePD "goblin" "Buddha",
+>                    makePD "gooey_blob" "Kong Fuzi"]),
+>             ('g', [makePD "goblin" "Buddha"])]
 >   startNewGameReadyToMoveNoSpread conn ("\n\
 >                   \1O     2      3\n\
 >                   \               \n\
@@ -2765,7 +2778,7 @@ moved if free'd that turn
 >   rigActionSuccess conn "attack" True
 >   goSquare conn 1 0
 >   checkNoSelectedPiece conn
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1g     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -2825,9 +2838,9 @@ castles disappearing
 > testCastleDisappear :: Database -> Connection -> Test.Framework.Test
 > testCastleDisappear db = tctor "testCastleDisappear" $ \conn -> do
 >   let pl = wizardPiecesList ++
->            [('O', [PieceDescription "wizard" "Buddha" [],
->                    PieceDescription "dark_citadel" "Buddha" []]),
->             ('C', [PieceDescription "dark_citadel" "Buddha" []])]
+>            [('O', [makePD "wizard" "Buddha",
+>                    makePD "dark_citadel" "Buddha"]),
+>             ('C', [makePD "dark_citadel" "Buddha"])]
 >   startNewGameReadyToAuto conn ("\n\
 >                   \O      2      3\n\
 >                   \               \n\
@@ -2841,7 +2854,7 @@ castles disappearing
 >                   \6      7      8", pl)
 >   rigActionSuccess conn "disappear" True
 >   sendKeyPress conn "space"
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -2856,9 +2869,9 @@ castles disappearing
 > testCastleStay :: Database -> Connection -> Test.Framework.Test
 > testCastleStay db = tctor "testCastleStay" $ \conn -> do
 >   let pl = wizardPiecesList ++
->            [('O', [PieceDescription "wizard" "Buddha" [],
->                    PieceDescription "dark_citadel" "Buddha" []]),
->             ('C', [PieceDescription "dark_citadel" "Buddha" []])]
+>            [('O', [makePD "wizard" "Buddha",
+>                    makePD "dark_citadel" "Buddha"]),
+>             ('C', [makePD "dark_citadel" "Buddha"])]
 >   startNewGameReadyToAuto conn ("\n\
 >                   \O      2      3\n\
 >                   \               \n\
@@ -2872,7 +2885,7 @@ castles disappearing
 >                   \6      7      8", pl)
 >   rigActionSuccess conn "disappear" False
 >   sendKeyPress conn "space"
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \O      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -2885,15 +2898,15 @@ castles disappearing
 >                   \6      7      8",pl)
 
 > selectInt :: Connection -> String -> [String] -> IO Int
-> selectInt conn q a = do
+> selectInt conn q a = undefined {-do
 >     x <- selectValue conn q a
->     return (read x ::Int)
+>     return (read x ::Int)-}
 
 > testGetSpell :: Database -> Connection -> Test.Framework.Test
 > testGetSpell db = tctor "testGetSpell" $ \conn -> do
 >   let pl = wizardPiecesList ++
->            [('T', [PieceDescription "wizard" "Buddha" [],
->                    PieceDescription "magic_tree" "Buddha" []])]
+>            [('T', [makePD "wizard" "Buddha",
+>                    makePD "magic_tree" "Buddha"])]
 >   numSpells <- selectInt conn
 >          "select count(*) from spell_books where wizard_name='Buddha'" []
 >   startNewGameReadyToAuto conn ("\n\
@@ -2909,7 +2922,7 @@ castles disappearing
 >                   \6      7      8", pl)
 >   rigActionSuccess conn "bonus" True
 >   sendKeyPress conn "space"
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -2927,8 +2940,8 @@ castles disappearing
 > testNoGetSpell :: Database -> Connection -> Test.Framework.Test
 > testNoGetSpell db = tctor "testNoGetSpell" $ \conn -> do
 >   let pl = wizardPiecesList ++
->            [('T', [PieceDescription "wizard" "Buddha" [],
->                    PieceDescription "magic_tree" "Buddha" []])]
+>            [('T', [makePD "wizard" "Buddha",
+>                    makePD "magic_tree" "Buddha"])]
 >   startNewGameReadyToAuto conn ("\n\
 >                   \T      2      3\n\
 >                   \               \n\
@@ -2942,7 +2955,7 @@ castles disappearing
 >                   \6      7      8", pl)
 >   rigActionSuccess conn "bonus" False
 >   sendKeyPress conn "space"
->   checkBoard conn ("\n\
+>   assertBoardEquals db ("\n\
 >                   \T      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -2977,7 +2990,7 @@ and target action views are empty.
 >                   \               \n\
 >                   \               ",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "goblin" "Kong Fuzi" []])]))
+>                   [('G', [makePD "goblin" "Kong Fuzi"])]))
 >   sendKeyPress conn "space"
 >   goSquare conn 1 0
 >   rigActionSuccess conn "attack" True
@@ -2998,9 +3011,9 @@ and target action views are empty.
 
 > assertRelvarValue :: (Read a,Eq a,Show a) =>
 >                      String -> Connection -> String -> [String] -> a -> IO ()
-> assertRelvarValue m conn q args val = do
+> assertRelvarValue m conn q args val = undefined {-do
 >   v <- selectValue conn q args
->   assertEqual m val (read v)
+>   assertEqual m val (read v)-}
 
 Draw works similarly to win, except it is detected the instant there
 are no wizards left.
@@ -3019,7 +3032,7 @@ are no wizards left.
 >                   \               \n\
 >                   \               ",
 >                   (wizardPiecesList ++
->                   [('G', [PieceDescription "green_dragon" "Kong Fuzi" []])]))
+>                   [('G', [makePD "green_dragon" "Kong Fuzi"])]))
 >   sendKeyPress conn "space"
 >   goSquare conn 1 0
 >   rigActionSuccess conn "attack" True
@@ -3038,278 +3051,6 @@ are no wizards left.
 >                     conn "select count(1)\n\
 >                          \from client_valid_activate_actions;" []
 >                     (0::Int)
-
-
-================================================================================
-
-= Diagrams
-
-In the testing, we frequently use a square list which is either
-* a list of x,y co-ordinates
-    used for testing valid squares for an action
-* list of x,y co-ordinates each with a list of piece descriptions
-    used to describe a board, either to set one up or
-    to check against the board in the database
-
-To help the tests be a bit more easy to write and understand, both of
-this lists can be created with 'diagrams': a sort of acsii art layout
-thingy.
-
-The parseDiagram function converts the layout to a list of key,x,y
-triples
-
-This code is used both for the valid squares and the board diagrams.
-
-> parseDiagram :: String -> [(Char,Int,Int)]
-> parseDiagram board =
->     let ls' = lines board
->     in case True of
->          _ | null ls' -> error "board diagram empty"
->            | head ls' /= "" ->
->                error $ "first line in diagram should be empty string, got " ++
->                        head ls'
->            | otherwise ->
->            let ls = tail ls'
->            in case True of
->                  _ | length ls /= 10 ->
->                        error $ "diagram should have 10 lines, but has " ++
->                          show (length ls)
->                    | not $ null $ filter (\l -> length l /= 15) ls ->
->                        error "all lines after first must be \
->                              \15 chars in diagram"
->                    | otherwise ->
->                        let sqs = flip concatMap [0..9]
->                                    (\y -> for [0..14]
->                                           (\x -> ((ls !! y) !! x, x,y)))
->                        in filter (\(c,_,_) -> c /= ' ') sqs
-
-================================================================================
-
-== valid squares
-
-Valid squares diagram looks like this:
-1X     2      3\
-XX             \
-               \
-               \
-4             5\
-               \
-               \
-               \
-               \
-6      7      8\
-
-The numbers are there to get your bearing - they are in the starting
-positions for each wizard and are ignored when parsing.
-
-The Xs mark the valid squares (if one is needed on a wizard position
-then you leave the wizard number out of the diagram).
-
-> parseValidSquaresString :: String -> [(Int,Int)]
-> parseValidSquaresString =
->     mapMaybe (\(c,x,y) ->
->               case c of
->                 'X' -> Just (x,y)
->                 _ -> if c `elem` ['1'..'8']
->                        then Nothing
->                        else error $ "invalid char in validsquares: " ++ [c])
->               . parseDiagram
-
-corresponding function to read the list of valid squares from the
-database hard coded to casting for now, will need to cover other stuff
-as well.
-
-> readValidSquares :: Connection -> IO [(Int, Int)]
-> readValidSquares conn =
->   selectTuplesC conn "select x,y from current_wizard_spell_squares" []
->     (\t -> (read $ lk "x" t, read $ lk "y" t))
-
-
-================================================================================
-
-= test helpers
-
-== valid squares
-
-take a valid squares string and check it matches the database
-it has to be the cast phase for this to succeed.
-
-> checkValidSquares :: Connection -> String -> IO ()
-> checkValidSquares conn vss = do
->     --get our piece tuple lists for the board in the database
->     --and the expected board
->     currentValidSquares <- readValidSquares conn
->     let avs' = sort currentValidSquares
->         evs' = sort $ parseValidSquaresString vss
->     assertEqual "valid squares wrong" evs' avs'
-
-== board
-
-The board diagram works like the valid squares, but additional needs a
-key to match letters and numbers to piece lists.
-
-An example board with the wizards in their starting positions an a
-goblin owned by the first wizard next to him:
-
-"\n\
-\1G     2      3\
-\               \
-\               \
-\               \
-\4             5\
-\               \
-\               \
-\               \
-\               \
-\6      7      8"
-The key is:
-(wizardPiecesList ++
-[('G', [PieceDescription "goblin" "Buddha" []])]
-
-wizardPiecesList is a list of the wizard pieces to avoid writing them
-out each test since most tests have all eight wizards remaining at the
-end
-
-> wizardPiecesList :: [(Char, [PieceDescription])]
-> wizardPiecesList =  [('1', [PieceDescription "wizard" "Buddha" []]),
->                      ('2', [PieceDescription "wizard" "Kong Fuzi" []]),
->                      ('3', [PieceDescription "wizard" "Laozi" []]),
->                      ('4', [PieceDescription "wizard" "Moshe" []]),
->                      ('5', [PieceDescription "wizard" "Muhammad" []]),
->                      ('6', [PieceDescription "wizard" "Shiva" []]),
->                      ('7', [PieceDescription "wizard" "Yeshua" []]),
->                      ('8', [PieceDescription "wizard" "Zarathushthra" []])]
-
-> wizardStartPos :: [(PieceDescription, Int, Int)]
-> wizardStartPos = [(PieceDescription "wizard" "Buddha" [], 0, 0),
->                  (PieceDescription "wizard" "Kong Fuzi" [] ,7 ,0),
->                  (PieceDescription "wizard" "Laozi" [], 14, 0),
->                  (PieceDescription "wizard" "Moshe" [], 0, 4),
->                  (PieceDescription "wizard" "Muhammad" [], 14,4),
->                  (PieceDescription "wizard" "Shiva" [], 0, 9),
->                  (PieceDescription "wizard" "Yeshua" [], 7, 9),
->                  (PieceDescription "wizard" "Zarathushthra" [], 14,9)]
-
-> wizardNames :: [String]
-> wizardNames = map (\(_, [PieceDescription _ w _]) -> w) wizardPiecesList
-
-We use these two datatypes in the key for the boards
-
-> data PieceDescription =
->     PieceDescription String String [PieceTag]
->     deriving (Show,Eq,Ord)
-
-> data PieceTag = PImaginary | PUndead
->     deriving (Show,Eq,Ord)
-
-The piece tag holds a bit of extra information about that piece to
-shorten the tests and avoid having to read out lots of tables when
-e.g. if a creature is imaginary or undead, etc. Will probably rethink
-this when the tests are expanded in scope.
-
-These are our type alias for the board
-
-A key entry gives a piece list corresponding to a letter on a board
-diagram
-
-> type KeyEntry = (Char, [PieceDescription])
-
-The full board diagram is the diagram string plus the key
-
-> type BoardDiagram = (String, [KeyEntry])
-
-A board description is what we read out of the database and parse the
-board diagram to for comparison and loading into the database.
-
-> type BoardDescription = [(PieceDescription,Int,Int)]
-
-Top level fn, take the expected board description in the form of a
-board string and a key, and check it against what is in the database:
-
-> checkBoard :: Connection -> BoardDiagram -> IO ()
-> checkBoard conn bd = do
->   actualBoard <- readBoard conn
->   let expectedBoard = parseBoardDiagram bd
->   assertEqual "board pieces" (sort expectedBoard) (sort actualBoard)
-
-Like with check board, but we are only want to check the topmost piece
-on each square
-
-> checkTopPieces :: Connection -> BoardDiagram -> IO ()
-> checkTopPieces conn bd = do
->   actualBoard <- readPiecesOnTop conn
->   let expectedBoard = parseBoardDiagram bd
->   assertEqual "board pieces on top" (sort expectedBoard) (sort actualBoard)
-
-
-
-> parseBoardDiagram :: BoardDiagram -> BoardDescription
-> parseBoardDiagram (diagram, key) =
->   let keyPositionList = parseDiagram diagram
->   in flip concatMap keyPositionList
->               (\(k,x,y) ->
->                    let ps = safeLookup "board diagram parse" k key
->                    in map (\p -> (p,x,y)) ps)
->
-
-now the code to read the board from the database and get it in the same format:
-
-> readBoard :: Connection -> IO BoardDescription
-> readBoard conn =
->   selectTuples conn "select ptype,allegiance,x,y,undead\n\
->                       \from piece_details" [] >>=
->     convertBoardRel conn
-
-The variant for only the topmost pieces:
-
-> readPiecesOnTop :: Connection -> IO BoardDescription
-> readPiecesOnTop conn =
->   selectTuples conn "select ptype,allegiance,x,y,undead\n\
->                           \from pieces_on_top_view" [] >>=
->   convertBoardRel conn
->
-
-This is the function that takes the relation returned from the
-previous two functions and turns it into a boarddescription
-
-Adding the tags is a bit haphazard
-
-> convertBoardRel :: Connection -> [SqlRow] -> IO BoardDescription
-> convertBoardRel _ v = do
->   let checkTag r t t' = if lk t r == "True"
->                        then Just t'
->                        else Nothing
->   let w = for v (\p ->
->                           (PieceDescription
->                            (lk "ptype" p)
->                            (lk "allegiance" p)
->                            (catMaybes [checkTag p "undead" PUndead]),
->                            read $ lk "x" p,
->                            read $ lk "y" p))
->   return w
-
-now add tags from the wizards table, so we can check things like magic
-sword
- >   u <- readWizardUpgrades conn
- >   return $ for w (\pd@(PieceDescription ptype allegiance tags, x, y) ->
- >                 if ptype /= "wizard"
- >                    then pd
- >                    else (PieceDescription
- >                          ptype
- >                          allegiance
- >                          (tags ++ (fromMaybe [] $ lookup allegiance u)),
- >                          x, y))
-
-
- > readWizardUpgrades :: Connection -> IO [(String, [PieceTag])]
- > readWizardUpgrades conn = do
- >   v <- selectTuples conn "select wizard_name, magic_armour from wizards" []
- >   let checkTag r t t' = if lk t r == "True"
- >                           then Just t'
- >                           else Nothing
- >   return $ for v (\vs -> (lk "wizard_name" vs,
- >                           catMaybes [checkTag vs "magic_armour" PArmour]))
-
 
 == check new game relvars
 
@@ -3341,32 +3082,32 @@ database. Should create a better format for writing relvar literals in
 this test file.
 
 > checkRelvar :: Connection -> String -> [String] -> IO ()
-> checkRelvar conn relvarName value =
->   selectTuplesC conn ("select * from " ++ relvarName) []
+> checkRelvar conn relvarName value = undefined
+>   {-selectTuplesC conn ("select * from " ++ relvarName) []
 >                      (\r -> head $ map snd $ M.toList r) >>=
->     assertEqual ("relvar " ++ relvarName) value
+>     assertEqual ("relvar " ++ relvarName) value-}
 
 shorthands to check data in the database
 
 > checkSelectedPiece :: Connection -> [Char] -> [Char] -> IO ()
-> checkSelectedPiece conn allegiance ptype = do
->   v <- selectTuple conn "select * from selected_piece" []
+> checkSelectedPiece conn allegiance ptype = undefined {-do
+>   v <- selectTuple conn "select * from selected_piece"
 >   assertEqual "selected piece" (allegiance,ptype)
->               (lk "allegiance" v, lk "ptype" v)
+>               (lk "allegiance" v, lk "ptype" v)-}
 
 > checkMoveSubphase :: Connection -> [Char] -> IO ()
-> checkMoveSubphase conn sp = do
->   ms <- selectTuple conn "select move_phase from selected_piece" []
->   assertEqual "move subphase" sp (lk "move_phase" ms)
+> checkMoveSubphase conn sp = undefined {-do
+>   ms <- selectTuple conn "select move_phase from selected_piece"
+>   assertEqual "move subphase" sp (lk "move_phase" ms)-}
 
 > checkNoSelectedPiece :: Connection -> IO ()
-> checkNoSelectedPiece conn = do
->   v <- selectTupleIf conn "select * from selected_piece" []
+> checkNoSelectedPiece conn = undefined {-do
+>   v <- selectTupleIf conn "select * from selected_piece"
 >   assertBool ("there should be no selected piece, got " ++
 >               let r =  fromJust v
 >               in lk "ptype" r ++ " - " ++ lk "allegiance" r ++
 >                  " " ++ lk "move_phase" r)
->              (isNothing v)
+>              (isNothing v)-}
 
 ================================================================================
 
@@ -3378,21 +3119,21 @@ this takes a board description and sets the board to match it used to
 setup a particular game before running some tests
 
 > setupBoard :: Connection -> BoardDiagram -> IO ()
-> setupBoard conn bd = do
+> setupBoard conn bd = undefined {-do
 >   let targetBoard = parseBoardDiagram bd
 >   --just assume that present wizards are in the usual starting positions
 >   --fix this when needed
 >   let (wizardItems, nonWizardItems) =
->          partition (\(PieceDescription t _ _, _, _) -> t == "wizard")
+>          partition (\(makePD t _ _, _, _) -> t == "wizard")
 >          targetBoard
->       isWizPresent name = any (\(PieceDescription _ n _, _, _) ->
+>       isWizPresent name = any (\(makePD _ n _, _, _) ->
 >                                n == name) wizardItems
 >   -- remove missing wizards
 >   forM_ [0..7] (\i ->
 >     unless (isWizPresent $ wizardNames !! i) $
 >       callSp conn "kill_wizard" [wizardNames !! i])
 >   -- move present wizards
->   forM_ wizardItems (\(PieceDescription _ name _, x, y) -> do
+>   forM_ wizardItems (\(makePD _ name _, x, y) -> do
 >     t <- selectTuple conn "select x,y from pieces where ptype='wizard'\n\
 >                      \and allegiance=?" [name]
 >     unless (read (lk "x" t) == x && read (lk "y" t) == y)
@@ -3400,7 +3141,7 @@ setup a particular game before running some tests
 >                        \where ptype='wizard' and allegiance=?"
 >                    [show x, show y, name]))
 >   -- add extra pieces
->   forM_ nonWizardItems $ \(PieceDescription ptype allegiance tags, x, y) -> do
+>   forM_ nonWizardItems $ \(makePD ptype allegiance tags, x, y) -> do
 >     if allegiance == "dead"
 >       then callSp conn "create_corpse"
 >                   [ptype,
@@ -3414,9 +3155,9 @@ setup a particular game before running some tests
 >                    (show y),
 >                    show (PImaginary `elem` tags)]
 >     when (PUndead `elem` tags) $ do
->       tag <- selectValue conn "select max(tag) from pieces" []
+>       tag <- selectValue conn "select max(tag) from pieces"
 >       callSp conn "make_piece_undead" [ptype,allegiance, tag]
->   return ()
+>   return () -}
 
 this overrides the next random test by name e.g. so we can test the
 board after a spell has succeeded and after it has failed
@@ -3430,21 +3171,21 @@ board after a spell has succeeded and after it has failed
 
 = database update helpers
 
-> startNewGame :: Connection -> IO ()
+> {-startNewGame :: Connection -> IO ()
 > startNewGame conn = do
->   dbAction conn "reset_new_game_widget_state" []
->   runSql conn "update new_game_widget_state set state='human'" []
->   dbAction conn "client_new_game_using_new_game_widget_state" []
->   dbAction conn "reset_current_effects" []
->   checkNewGameRelvars conn
+>   dbAction conn "reset_new_game_widget_state"
+>   runSql conn "update new_game_widget_state set state='human'"
+>   dbAction conn "client_new_game_using_new_game_widget_state"
+>   dbAction conn "reset_current_effects"
+>   checkNewGameRelvars conn-}
 
-> startNewGameAI :: Connection -> IO ()
+> {-startNewGameAI :: Connection -> IO ()
 > startNewGameAI conn = do
->   dbAction conn "reset_new_game_widget_state" []
->   runSql conn "update new_game_widget_state set state='computer'" []
->   dbAction conn "client_new_game_using_new_game_widget_state" []
->   dbAction conn "reset_current_effects" []
->   checkNewGameRelvars conn
+>   dbAction conn "reset_new_game_widget_state"
+>   runSql conn "update new_game_widget_state set state='computer'"
+>   dbAction conn "client_new_game_using_new_game_widget_state"
+>   dbAction conn "reset_current_effects"
+>   checkNewGameRelvars conn-}
 
 
 Adds the spell given to the first wizard's spell book
@@ -3460,10 +3201,11 @@ keep running next_phase until we get to the cast phase
 > skipToPhase conn phase = do
 >   unless (phase `elem` ["choose","cast","move"])
 >          (error $ "unrecognised phase: " ++ phase)
->   whenA1 (readTurnPhase conn)
+>   undefined
+>   {-whenA1 (readTurnPhase conn)
 >          (/= phase) $ do
 >          sendKeyPress conn "space"
->          skipToPhase conn phase
+>          skipToPhase conn phase-}
 
 > sendKeyPress :: Connection -> String -> IO ()
 > sendKeyPress conn k = do
@@ -3480,20 +3222,20 @@ keep running next_phase until we get to the cast phase
 = database read shortcuts
 
 > readTurnPhase :: Connection -> IO String
-> readTurnPhase conn =
->   selectValue conn "select turn_phase from turn_phase_table" []
+> readTurnPhase conn = undefined
+>   {-selectValue conn "select turn_phase from turn_phase_table"-}
 
 > readCurrentWizard :: Connection -> IO String
-> readCurrentWizard conn =
->   selectValue conn
->          "select current_wizard from current_wizard_table" []
+> readCurrentWizard conn = undefined
+>   {-selectValue conn
+>          "select current_wizard from current_wizard_table"-}
 
 > assertSelectedPiece :: Connection -> String -> String -> IO()
-> assertSelectedPiece conn ptype allegiance = do
->   t <- selectTuple conn "select ptype, allegiance from selected_piece" []
+> assertSelectedPiece conn ptype allegiance = undefined {-do
+>   t <- selectTuple conn "select ptype, allegiance from selected_piece"
 >   assertEqual "selected piece"
 >               (ptype,allegiance)
->               (lk "ptype" t, lk "allegiance" t)
+>               (lk "ptype" t, lk "allegiance" t)-}
 
 > checkCurrentWizardPhase :: Connection -> String -> String -> IO()
 > checkCurrentWizardPhase conn wiz phase = do
@@ -3503,13 +3245,13 @@ keep running next_phase until we get to the cast phase
 >   assertEqual "current phase" phase' phase
 
 > checkPieceDoneSelection :: Connection -> String -> String -> IO ()
-> checkPieceDoneSelection conn ptype allegiance = do
+> checkPieceDoneSelection conn ptype allegiance = undefined {-do
 >     checkNoSelectedPiece conn
 >     v <- selectTuples conn
 >                       "select * from pieces_to_move\n\
 >                       \where ptype=? and\n\
 >                       \  allegiance=?" [ptype,allegiance]
->     assertBool "piece not in ptm" (null v)
+>     assertBool "piece not in ptm" (null v)-}
 
 ================================================================================
 
@@ -3539,9 +3281,9 @@ understand
 
 
 > keyChooseSpell :: String -> String
-> keyChooseSpell spellName = safeLookup
+> keyChooseSpell spellName = undefined {-safeLookup
 >                              "get key for spell" spellName
->                              lookupChooseSpellKeys
+>                              lookupChooseSpellKeys-}
 
 --------------------------------------------------------------
 
@@ -3588,3 +3330,31 @@ everything
 
 run each action from each wizard, and from a monster and a wizard variations
 when applicable
+
+===============================================================================
+
+> startNewGame :: Connection -> IO ()
+> startNewGame conn = do
+>   newGame conn
+>   resetCurrentEffects conn
+
+> resetNewGameWidgetState conn = callSp conn "select action_reset_new_game_widget_state();" []
+
+> setAllHuman conn = run conn "update new_game_widget_state set state='human';" []
+
+> newGame conn = callSp conn "select action_client_new_game_using_new_game_widget_state" []
+
+> resetCurrentEffects conn = callSp conn "select action_reset_current_effects" []
+
+> callSp :: IConnection conn => conn -> String -> [String] -> IO ()
+> callSp conn sql args = do
+>   _ <- run conn sql $ map toSql args
+>   commit conn
+
+> runSql :: IConnection conn => conn -> String -> [String] -> IO ()
+> runSql conn sql args = do
+>   _ <- run conn sql $ map toSql args
+>   commit conn
+
+> dbAction :: IConnection conn => conn -> String -> [String] -> IO ()
+> dbAction conn a args = callSp conn ("select action_" ++ a ++ "();") args

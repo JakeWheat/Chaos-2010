@@ -21,7 +21,7 @@ new game widget:
 |sprite | autogen name (editable) |radio:human computer none|
 -------------------------------------------------------------
 
-
+> {-# LANGUAGE ScopedTypeVariables #-}
 > module Games.Chaos2010.UI.NewGameWidget where
 >
 > import Control.Applicative
@@ -32,8 +32,8 @@ new game widget:
 > import Games.Chaos2010.Database.New_game_widget_state
 > import Games.Chaos2010.UI.HdbUtils
 >
-> newGameWidget :: DBText
-> newGameWidget =
+> newGameWidget :: (String -> [String] -> IO ()) -> DBText
+> newGameWidget callSP =
 >    DBText $ \db ->
 >    let q t r = qdb db t r
 >    in concat . concat <$> M.sequence [
@@ -46,17 +46,25 @@ new game widget:
 >                ,ToggleButtonGroup [("human", "human")
 >                                   ,("computer","computer")
 >                                   ,("none", "none")]
->                                   (show (r # line))
 >                                   (r # state)
+>                                   (\x -> do
+>                                     let (l::Int) = r # line
+>                                     --   "update new_game_widget_state
+>                                     --       \set state =? where line =?"
+>                                     return ())
 >                ,Text "\n"])
 >      ,q (do
 >          t1 <- table new_game_widget_state
 >          project $ line .=. count(t1 .!. line)
 >                 .*. emptyRecord)
->         (\_ -> [Button "start game" "startGame"
->                ,Button "reset this window" "resetNewGameWindow"
+>         (\_ -> [Button "start game" startGame
+>                ,Button "reset this window" resetWidget
 >                ,Text "\n"]
 >          ++ flip map ["all_pieces"
 >                      ,"upgraded_wizards"
 >                      ,"overlapping"]
->                      (\lb -> Button lb lb))]
+>                      (\lb -> Button lb (setupTestBoard lb )))]
+>    where
+>      startGame =  callSP "select action_client_new_game_using_new_game_widget_state();" []
+>      resetWidget = callSP "select action_reset_new_game_widget_state();" []
+>      setupTestBoard t = callSP "select action_setup_test_board(?);" [t]

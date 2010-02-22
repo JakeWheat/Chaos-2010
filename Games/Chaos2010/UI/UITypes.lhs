@@ -10,16 +10,13 @@ data types for the abstract ui
 > data MyTextItem = Text String
 >                 | TaggedText [String] String
 >                 | Image String
->                 | ToggleButtonGroup [(EventID,String)] EventID EventID --gid,currently selected
->                 | Button String EventID
->                   deriving (Eq,Show)
+>                 | ToggleButtonGroup [(String,String)] String (String -> IO()) --name,label, name of current select, callback
+>                 | Button String (IO())
 
-> type EventID = String
+ > type EventID = String
 
 > data Event = Key String
->            | ButtonClick EventID
->            | ToggleButtonGroupClick EventID EventID
->              deriving (Eq,Show)
+>            | Callback (IO())
 
 > data SpriteGrid = SpriteGrid Int Int [(Int,Int,String)]
 
@@ -66,13 +63,12 @@ and the field accesses are typechecked at this point
 >     rnf (Text s) = rnf s `seq` ()
 >     rnf (TaggedText tg t) = rnf tg `seq` rnf t `seq` ()
 >     rnf (Image i) = rnf i `seq` ()
->     rnf (ToggleButtonGroup m e s) = rnf m `seq` rnf e `seq` rnf s `seq` ()
->     rnf (Button s e) = rnf s `seq` rnf e `seq` ()
+>     rnf (ToggleButtonGroup m s _) = rnf m `seq` rnf s `seq` ()
+>     rnf (Button s _) = rnf s `seq` ()
 
 > instance NFData Event where
 >     rnf (Key s) = rnf s `seq` ()
->     rnf (ButtonClick e) = rnf e `seq` ()
->     rnf (ToggleButtonGroupClick e e1) = rnf e `seq` rnf e1 `seq` ()
+>     rnf (Callback _) = ()
 
 > instance NFData SpriteGrid where
 >     rnf (SpriteGrid x y l) = rnf x `seq` rnf y `seq` rnf l `seq` ()

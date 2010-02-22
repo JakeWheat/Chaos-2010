@@ -1,8 +1,6 @@
 .bzrignore
-logchanges
-notes
-chaos.log
-profiling.png
-dist
+/logchanges
+/notes
+/dist
 *.hi
-Tests
+old
