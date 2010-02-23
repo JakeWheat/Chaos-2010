@@ -197,7 +197,6 @@ board after a spell has succeeded and after it has failed
 > rigActionSuccess :: IConnection conn => conn -> String -> Bool -> IO ()
 > rigActionSuccess conn override setting = do
 >   DBu.rigActionSuccess conn override setting
->   resetCurrentEffects conn
 
 ================================================================================
 
@@ -342,7 +341,6 @@ understand
 >   resetNewGameWidgetState conn
 >   setAllHuman conn
 >   newGame conn
->   resetCurrentEffects conn
 
 > whenA1 :: IO a -> (a -> Bool) -> IO () -> IO ()
 > whenA1 feed cond f = (cond `liftM` feed) >>= flip when f

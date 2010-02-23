@@ -1,22 +1,22 @@
 > module Games.Chaos2010.DBUpdates
 >     (resetNewGameWidgetState
->     ,setAllHuman
 >     ,newGame
->     ,resetCurrentEffects
+>     ,sendKeyPress
+>     ,rollback
+>     ,updateNewGameState
+>     --testing stuff
 >     ,setCursorPos
+>     ,setAllHuman
 >     ,killWizard
 >     ,setWizardPosition
 >     ,createCorpse
 >     ,createPieceInternal
 >     ,addSpell
 >     ,rigActionSuccess
->     ,sendKeyPress
->     ,rollback
 >     ,disableSpreading
 >     ,addMagicSword
 >     ,killTopPieceAt
 >     ,setupTestBoard
->     ,updateNewGameState
 >     ) where
 > import Database.HDBC hiding (rollback)
 > import Data.List
@@ -39,9 +39,6 @@
 
 > newGame :: IConnection conn => conn -> IO ()
 > newGame conn = callSp conn "action_client_new_game_using_new_game_widget_state" []
-
-> resetCurrentEffects :: IConnection conn => conn -> IO ()
-> resetCurrentEffects conn = callSp conn "action_reset_current_effects" []
 
 > setCursorPos :: IConnection conn => conn -> Int -> Int -> IO ()
 > setCursorPos conn x y =
@@ -98,7 +95,6 @@
 > sendKeyPress :: IConnection conn => conn -> String -> IO ()
 > sendKeyPress conn k = do
 >   callSp conn "action_key_pressed" [k]
->   resetCurrentEffects conn
 
 > disableSpreading :: IConnection conn => conn -> IO ()
 > disableSpreading conn =
@@ -122,8 +118,3 @@
 > runSql conn sql args = do
 >   _ <- run conn sql $ map toSql args
 >   commit conn
-
-
-
-> --dbAction :: IConnection conn => conn -> String -> [String] -> IO ()
-> --dbAction conn a args = callSp conn ("action_" ++ a) args

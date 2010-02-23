@@ -68,11 +68,6 @@ list of windows.
 >         project $ line .=. count(t1 .!. line)
 >                 .*. emptyRecord
 
- > callSP :: IConnection conn => conn -> String -> [String] -> IO ()
- > callSP conn sql args = do
- >   _ <- run conn sql $ map toSql args
- >   commit conn
-
 > handleEvent :: IConnection conn => Database -> conn -> Event -> IO ()
 > handleEvent _ conn e =
 >   case e of

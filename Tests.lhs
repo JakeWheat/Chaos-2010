@@ -125,6 +125,16 @@ Run all the tests.
 > main = do
 >   postgresqlConnect [("dbname", "chaos")] $ \db -> do
 >   withConn ("dbname=chaos") $ \conn -> do
+>   _ <- run conn "update pg_settings\n\
+>                 \  set setting=true\n\
+>                 \  where name='log_duration'" []
+>   _ <- run conn "update pg_settings\n\
+>                 \  set setting='all'\n\
+>                 \  where name='log_statement'" []
+>   _ <- run conn "update pg_settings\n\
+>                 \  set setting='0'\n\
+>                 \  where name='log_min_duration_statement'" []
+>   commit conn
 >   defaultMain $ allTests db conn
 >   return ()
 

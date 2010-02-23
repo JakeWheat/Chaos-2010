@@ -11,6 +11,7 @@
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.Database.Cursor_position
+> import Games.Chaos2010.DBUpdates
 
 > basics :: IConnection conn => Database -> conn -> Test.Framework.Test
 > basics db conn = testGroup "basics" [
