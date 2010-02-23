@@ -1,17 +1,18 @@
 
 
 > {-# LANGUAGE FlexibleContexts #-}
+> {-# OPTIONS_GHC -fcontext-stack57 #-}
 > module Games.Chaos2010.Tests.Upgrades (upgrades) where
 
 > import Test.HUnit
 > import Test.Framework
 
-> import Database.HaskellDB hiding (insert)
+> import Database.HaskellDB hiding (insert, update)
 > import Database.HDBC (IConnection)
 
-> import Games.Chaos2010.Tests.BoardUtils
+> import qualified Games.Chaos2010.Tests.BoardUtils as B
 > import Games.Chaos2010.Tests.TestUtils
-> import Games.Chaos2010.Database.Pieces_mr as P
+> import Games.Chaos2010.Database.Pieces_mr
 
 > upgrades :: IConnection conn => Database -> conn -> Test.Framework.Test
 > upgrades db conn = testGroup "upgrades" $
@@ -70,22 +71,30 @@
 >            t -> a -> Record t2 -> Record l'
 > setStat f v r = (f .=. Just v) .@. r
 
-> addStat :: (HasField l t2 (f a),
->             Num a,
+> addStat :: (Num a,
 >             Functor f,
->             HUpdateAtHNat n (LVPair l (f a)) t2 l',
+>             HasField l r (f a),
+>             HUpdateAtHNat n (LVPair l (f a)) r r,
 >             HFind l ls n,
->             RecordLabels t2 ls) =>
->             l -> a -> Record t2 -> Record l'
-> addStat f v r = let v1 = r # f
->                 in (f .=. (fmap (+v) v1)) .@. r
+>             RecordLabels r ls) =>
+>            l -> a -> Record r -> Record r
+> addStat l n hl = update l (fmap (+n)) hl
 
-> {-doUpgradeTest :: IConnection conn =>
+> update :: (HasField l r a,
+>            HUpdateAtHNat n (LVPair l a) r r,
+>            HFind l ls n,
+>            RecordLabels r ls) =>
+>           l -> (a -> a) -> Record r -> Record r
+> update l f hl =
+>   let v = hl # l
+>   in (l .=. f v) .@. hl
+
+> doUpgradeTest :: IConnection conn =>
 >                  conn
 >               -> Database
 >               -> String
->               -> (Pieces_mr -> Pieces_mr)
->               -> IO ()-}
+>               -> (Pieces_mr_v -> Pieces_mr_v)
+>               -> IO ()
 > doUpgradeTest conn db spell attrChange = do
 >   newGameReadyToCast db conn spell
 >   oldStats <- getStats
@@ -93,7 +102,7 @@
 >   sendKeyPress conn "Return"
 >   newStats <- getStats
 >   assertEqual "upgraded stats" (attrChange oldStats) newStats
->   assertBoardEquals db ("\n\
+>   B.assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -104,7 +113,7 @@
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",
->                   wizardPiecesList)
+>                   B.wizardPiecesList)
 >   where
 >     --getStats :: IO Pieces_mr_tuple
 >     --getStats :: IO Pieces_mr
@@ -115,6 +124,26 @@
 >         restrict ((t1 .!. allegiance) .==. constJust "Buddha")
 >         project $ copyAll t1
 >       return $ head rel
+
+
+> type Pieces_mr_v =
+>     Record (HCons (LVPair Ptype (Maybe String))
+>             (HCons (LVPair Allegiance (Maybe String))
+>              (HCons (LVPair Tag (Maybe Int))
+>               (HCons (LVPair X (Maybe Int))
+>                (HCons (LVPair Y (Maybe Int))
+>                 (HCons (LVPair Imaginary (Maybe Bool))
+>                  (HCons (LVPair Flying (Maybe Bool))
+>                   (HCons (LVPair Speed (Maybe Int))
+>                    (HCons (LVPair Agility (Maybe Int))
+>                     (HCons (LVPair Undead (Maybe Bool))
+>                      (HCons (LVPair Ridable (Maybe Bool))
+>                       (HCons (LVPair Ranged_weapon_type (Maybe String))
+>                        (HCons (LVPair Range (Maybe Int))
+>                         (HCons (LVPair Ranged_attack_strength (Maybe Int))
+>                          (HCons (LVPair Attack_strength (Maybe Int))
+>                           (HCons (LVPair Physical_defense (Maybe Int))
+>                            (HCons (LVPair Magic_defense (Maybe Int)) HNil)))))))))))))))))
 
 
 todo:

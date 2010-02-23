@@ -8,6 +8,7 @@
 
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
+> import Games.Chaos2010.Utils
 
 > phases :: IConnection conn => Database -> conn -> Test.Framework.Test
 > phases db conn = testGroup "phases" $
@@ -26,7 +27,7 @@ twice, check the turn_phase and current_wizard each time
 
 > testNextPhase :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testNextPhase db = tctor "testNextPhase" $ \conn -> do
->   startNewGame conn
+>   startNewGame db conn
 >   forM_ ["choose","cast","move","choose","cast","move"]
 >         (\phase ->
 >              forM_ [0..7] (\i -> do
@@ -48,7 +49,7 @@ to do all variations is 256 tests
 > testNextPhaseWizardDead :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testNextPhaseWizardDead db = tctor "testNextPhaseWizardDead" $ \conn ->
 >   forM_ [0..7] (\j -> do
->     startNewGame conn
+>     startNewGame db conn
 >     --kill wizard
 >     killWizard conn $ wizardNames !! j
 >     let theseWizards = dropItemN wizardNames j
@@ -64,7 +65,7 @@ to do all variations is 256 tests
 > testNextPhaseTwoWizardsDead db = tctor "testNextPhaseTwoWizardsDead" $ \conn ->
 >   forM_ [0..7] (\j ->
 >     forM_ [(j + 1)..7] (\k -> do
->       startNewGame conn
+>       startNewGame db conn
 >       --kill wizards
 >       killWizard conn $ wizardNames !! j
 >       killWizard conn $ wizardNames !! k
@@ -98,14 +99,3 @@ these are tested in the spell cast and move sections respectively
 >     forM_ [0..7] (\i -> do
 >        assertCurrentWizardPhase db (wizardNames !! i) phase
 >        sendKeyPress conn "space"))-}
-
-
-
-> whenA1 :: IO a -> (a -> Bool) -> IO () -> IO ()
-> whenA1 feed cond f = (cond `liftM` feed) >>= flip when f
-
-> dropItemN :: [a] -> Int -> [a]
-> dropItemN [] _ = []
-> dropItemN (x:xs) i = if i == 0
->                        then xs
->                        else x: dropItemN xs (i - 1)

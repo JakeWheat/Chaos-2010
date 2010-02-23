@@ -11,7 +11,6 @@ Test utilities for reading and setting pieces.
 >     ,Undead(..)
 >     ,Ptype
 >     ,Allegiance
->     ,safeLookup
 >     ,assertValidSquaresEquals
 >     ,assertBoardEquals
 >     ,wizardPiecesList
@@ -25,10 +24,11 @@ Test utilities for reading and setting pieces.
 > import Data.List
 > import Test.HUnit
 
+
 > import qualified Games.Chaos2010.Database.Current_wizard_spell_squares as Cwss
 > import qualified Games.Chaos2010.Database.Piece_details as Pd
 > import qualified Games.Chaos2010.Database.Pieces_on_top_view as Ptv
-> import Games.Chaos2010.UI.HdbUtils
+> import Games.Chaos2010.Utils
 
 ================================================================================
 
@@ -287,9 +287,3 @@ The variant for only the topmost pieces:
 >                                (if mb (t # Ptv.undead) then Undead else Alive)
 >              ,mn $ t # Ptv.x
 >              ,mn $ t # Ptv.y)
-
-> safeLookup :: (Show a, Eq a) => String -> a -> [(a, b)] -> b
-> safeLookup errMsg key lkp =
->     case lookup key lkp of
->       Just x -> x
->       Nothing -> error $ errMsg ++ " missing key: " ++ show key

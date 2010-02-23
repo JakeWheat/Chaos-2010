@@ -10,6 +10,7 @@
 
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
+> import Games.Chaos2010.Utils
 > import Games.Chaos2010.Database.Cursor_position
 > --import Games.Chaos2010.DBUpdates
 
@@ -48,7 +49,7 @@ magic tree or castle; add test for these.
 
 > testPiecesOnTop :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testPiecesOnTop db = tctor "testPiecesOnTop" $ \conn -> do
->   startNewGame conn
+>   startNewGame db conn
 >   setupBoard db conn ("\n\
 >                   \b      c      d\n\
 >                   \               \n\
@@ -112,9 +113,9 @@ the cursor to a given position, also check the moveto code
 > testCursorMovement :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCursorMovement db = tctor "testCursorMovement" $ \conn -> do
 >   --make sure there is a game running:
->   startNewGame conn
+>   startNewGame db conn
 >   --reset the cursor position
->   setCursorPos conn 0 0
+>   setCursorPos db 0 0
 >   let moveAndCheck m xp yp = do
 >         sendKeyPress conn $ cursorShorthand m
 >         assertCursorPosition db xp yp

@@ -162,14 +162,3 @@
 >         sn = dropExtension fn
 >         f = takeExtension sn
 >     in (sn,read (tail f))
-
-l =~ ("^" ++ sp ++ "\\.[0-9]\\.png"))
-
-> insertWith :: Eq k => (a -> a -> a) -> k -> a -> [(k,a)] -> [(k,a)]
-> insertWith ac k v m =
->     case lookup k m of
->       Nothing -> m ++ [(k,v)]
->       Just v' -> let nv = ac v' v
->                  in map (\p@(k1,_) -> if k1 == k
->                                       then (k1,nv)
->                                       else p) m

@@ -10,6 +10,7 @@
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.Database.Pieces_mr
+> --import Games.Chaos2010.Database.Wizards
 >
 > moveMisc :: IConnection conn => Database -> conn -> Test.Framework.Test
 > moveMisc db conn = testGroup "moveMisc" $
@@ -51,9 +52,9 @@
 >                   [('G', [makePD "goblin" "Kong Fuzi"]),
 >                    ('H', [makePD "goblin" "Buddha"])]))
 >   sendKeyPress conn "space"
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   rigActionSuccess conn "attack" True
->   goSquare conn 0 0
+>   goSquare db conn 0 0
 >   assertBoardEquals db ("\n\
 >                   \G      2      3\n\
 >                   \               \n\
@@ -84,9 +85,9 @@
 >                   (wizardPiecesList ++
 >                   [('G', [makePD "goblin" "Kong Fuzi"]),
 >                    ('E', [makePD "eagle" "Buddha"])]))
->   goSquare conn 2 0
+>   goSquare db conn 2 0
 >   rigActionSuccess conn "attack" True
->   goSquare conn 3 3
+>   goSquare db conn 3 3
 >   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -119,12 +120,12 @@
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->   goSquare conn 0 0
+>   goSquare db conn 0 0
 >   assertSelectedPiece db "wizard" "Buddha"
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   sendKeyPress conn "Return"
 >   assertSelectedPiece db "pegasus" "Buddha"
->   goSquare conn 2 2
+>   goSquare db conn 2 2
 >   assertBoardEquals db ("\n\
 >                   \       2      3\n\
 >                   \               \n\
@@ -162,13 +163,13 @@ is mounted here.
 >                   [('P', [makePD "wizard" "Buddha",
 >                           makePD "pegasus" "Buddha"])])
 >   --select then cancel the wizard
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   assertSelectedPiece db "wizard" "Buddha"
 >   sendKeyPress conn "End"
 >   --now we can select the monster
 >   sendKeyPress conn "Return"
 >   assertSelectedPiece db "pegasus" "Buddha"
->   goSquare conn 2 2
+>   goSquare db conn 2 2
 >   assertBoardEquals db ("\n\
 >                   \       2      3\n\
 >                   \               \n\
@@ -202,10 +203,10 @@ dismount then move
 >                    wizardPiecesList ++
 >                   [('P', [makePD "wizard" "Buddha",
 >                           makePD "pegasus" "Buddha"])])
->   goSquare conn 1 0
->   goSquare conn 1 1
->   goSquare conn 1 0
->   goSquare conn 3 0
+>   goSquare db conn 1 0
+>   goSquare db conn 1 1
+>   goSquare db conn 1 0
+>   goSquare db conn 3 0
 >   assertBoardEquals db ("\n\
 >                   \   P   2      3\n\
 >                   \ 1             \n\
@@ -239,10 +240,10 @@ move when already mounted
 >                    wizardPiecesList ++
 >                   [('P', [makePD "wizard" "Buddha",
 >                           makePD "pegasus" "Buddha"])])
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   sendKeyPress conn "End"
 >   sendKeyPress conn "Return"
->   goSquare conn 3 0
+>   goSquare db conn 3 0
 >   assertBoardEquals db ("\n\
 >                   \   P   2      3\n\
 >                   \               \n\
@@ -276,9 +277,9 @@ todo: attack when dismounting, dismounting when flying
 >                    wizardPiecesList ++
 >                   [('P', [makePD "wizard" "Buddha",
 >                           makePD "dark_citadel" "Buddha"])])
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   assertSelectedPiece db "wizard" "Buddha"
->   goSquare conn 1 1
+>   goSquare db conn 1 1
 >   assertBoardEquals db ("\n\
 >                   \ P     2      3\n\
 >                   \ 1             \n\
@@ -308,8 +309,8 @@ todo: attack when dismounting, dismounting when flying
 >                   \6      7      8",
 >                   (wizardPiecesList ++
 >                   [('P', [makePD "dark_citadel" "Buddha"])]))
->   goSquare conn 0 0
->   goSquare conn 1 0
+>   goSquare db conn 0 0
+>   goSquare db conn 1 0
 >   assertBoardEquals db ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
@@ -344,9 +345,9 @@ todo: attack when dismounting, dismounting when flying
 >   oldStats <- getStats
 >   sendKeyPress conn "Return"
 >   skipToPhase db conn "move"
->   goSquare conn 0 0
+>   goSquare db conn 0 0
 >   rigActionSuccess conn "attack" False
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   newStats <- getStats
 >   assertEqual "attacking loses shadow form" oldStats newStats
 >   where
@@ -375,9 +376,9 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8", pl)
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   rigActionSuccess conn "attack" True
->   goSquare conn 1 1
+>   goSquare db conn 1 1
 >   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \ S             \n\
@@ -406,9 +407,9 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8", pl)
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   rigActionSuccess conn "attack" True
->   goSquare conn 1 1
+>   goSquare db conn 1 1
 >   assertBoardEquals db ("\n\
 >                   \1S     2      3\n\
 >                   \ G             \n\
@@ -437,10 +438,14 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8", pl)
->   addMagicSword conn "Buddha"
->   goSquare conn 0 0
+>   addMagicSword db "Buddha"
+>   --printWiz
+>   --querySelectedPiece db >>= print
+>   goSquare db conn 0 0
+>   --querySelectedPiece db >>= print
 >   rigActionSuccess conn "attack" True
->   goSquare conn 1 1
+>   goSquare db conn 1 1
+>   --querySelectedPiece db >>= print
 >   assertBoardEquals db ("\n\
 >                   \ S     2      3\n\
 >                   \ 1             \n\
@@ -452,7 +457,15 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8", pl)
-
+>   {-where
+>     printWiz = do
+>                rel <- query db $ do
+>                                  t1 <- table wizards
+>                                  --restrict $ t1 .!. wizard_name .==. constant "Buddha"
+>                                  project $ copy wizard_name t1
+>                                            .*. copy magic_sword t1
+>                                            .*. emptyRecord
+>                print rel-}
 
 == misc todo
 
@@ -472,8 +485,8 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \6      7      8", pl)
 >   rigActionSuccess conn "break_engaged" False
->   goSquare conn 0 0
->   goSquare conn 0 1
+>   goSquare db conn 0 0
+>   goSquare db conn 0 1
 >   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \ G             \n\
@@ -502,8 +515,8 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \6      7      8", pl)
 >   rigActionSuccess conn "break_engaged" True
->   goSquare conn 0 0
->   goSquare conn 0 1
+>   goSquare db conn 0 0
+>   goSquare db conn 0 1
 >   assertBoardEquals db ("\n\
 >                   \       2      3\n\
 >                   \1G             \n\
@@ -558,11 +571,11 @@ moved if free'd that turn
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8", pl)
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   assertNoSelectedPiece db
->   goSquare conn 0 0
+>   goSquare db conn 0 0
 >   rigActionSuccess conn "attack" True
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   assertNoSelectedPiece db
 >   assertBoardEquals db ("\n\
 >                   \1g     2      3\n\
@@ -575,7 +588,7 @@ moved if free'd that turn
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   assertSelectedPiece db "goblin" "Buddha"
 
 

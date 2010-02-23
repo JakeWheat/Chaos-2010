@@ -10,6 +10,7 @@
 > import Database.HaskellDB.Database
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
+> import Games.Chaos2010.Utils
 > import Games.Chaos2010.Database.Action_history_mr
 > import Games.Chaos2010.Database.Client_valid_activate_actions
 > import Games.Chaos2010.Database.Client_valid_target_actions
@@ -46,9 +47,9 @@ and target action views are empty.
 >                   (wizardPiecesList ++
 >                   [('G', [makePD "goblin" "Kong Fuzi"])]))
 >   sendKeyPress conn "space"
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   rigActionSuccess conn "attack" True
->   goSquare conn 0 0
+>   goSquare db conn 0 0
 >   sendKeyPress conn "space"
 >   assertCount "game won history entry" db
 >                     (do
@@ -102,9 +103,9 @@ are no wizards left.
 >                   (wizardPiecesList ++
 >                   [('G', [makePD "green_dragon" "Kong Fuzi"])]))
 >   sendKeyPress conn "space"
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   rigActionSuccess conn "attack" True
->   goSquare conn 0 0
+>   goSquare db conn 0 0
 >   --now magically kill the remaining to force the draw
 >   killTopPieceAt conn 3 0
 >   assertCount "game drawn history entry" db

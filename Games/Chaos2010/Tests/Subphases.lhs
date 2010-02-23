@@ -174,10 +174,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     --select goblin
->     goSquare conn 1 0
+>     goSquare db conn 1 0
 >     assertSelectedPiece db "goblin" "Buddha"
 >     assertMoveSubphase db "motion"
->     goSquare conn 2 0
+>     goSquare db conn 2 0
 >     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \               \n\
@@ -210,7 +210,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 1 0
+>     goSquare db conn 1 0
 >     assertSelectedPiece db "goblin" "Buddha"
 >     assertMoveSubphase db "motion"
 >     sendKeyPress conn "End"
@@ -244,10 +244,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 1 0
+>     goSquare db conn 1 0
 >     assertSelectedPiece db "goblin" "Buddha"
 >     assertMoveSubphase db "motion"
->     goSquare conn 2 0
+>     goSquare db conn 2 0
 >     assertPieceDoneSelection db "goblin" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
@@ -279,11 +279,11 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 1 0
+>     goSquare db conn 1 0
 >     assertSelectedPiece db "goblin" "Buddha"
 >     assertMoveSubphase db "motion"
 >     rigActionSuccess conn "attack" True
->     goSquare conn 2 0
+>     goSquare db conn 2 0
 >     assertPieceDoneSelection db "goblin" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1 E    2      3\n\
@@ -313,10 +313,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 1 0
+>     goSquare db conn 1 0
 >     assertSelectedPiece db "bear" "Buddha"
 >     assertMoveSubphase db "motion"
->     goSquare conn 2 0
+>     goSquare db conn 2 0
 >     assertSelectedPiece db "bear" "Buddha"
 >     assertMoveSubphase db "motion"
 >     assertBoardEquals db ("\n\
@@ -330,7 +330,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 3 0
+>     goSquare db conn 3 0
 >     assertPieceDoneSelection db "bear" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1  B R 2      3\n\
@@ -361,10 +361,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 1 0
+>     goSquare db conn 1 0
 >     assertSelectedPiece db "bear" "Buddha"
 >     assertMoveSubphase db "motion"
->     goSquare conn 2 0
+>     goSquare db conn 2 0
 >     assertSelectedPiece db "bear" "Buddha"
 >     assertMoveSubphase db "motion"
 >     assertBoardEquals db ("\n\
@@ -400,10 +400,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 1 0
+>     goSquare db conn 1 0
 >     assertSelectedPiece db "eagle" "Buddha"
 >     assertMoveSubphase db "motion"
->     goSquare conn 3 0
+>     goSquare db conn 3 0
 >     assertBoardEquals db ("\n\
 >                   \1  GR  2      3\n\
 >                   \               \n\
@@ -417,7 +417,7 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 >     assertMoveSubphase db "attack"
 >     rigActionSuccess conn "attack" True
->     goSquare conn 4 0
+>     goSquare db conn 4 0
 >     assertPieceDoneSelection db "eagle" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1   H  2      3\n\
@@ -447,11 +447,11 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 1 0
+>     goSquare db conn 1 0
 >     assertSelectedPiece db "eagle" "Buddha"
 >     assertMoveSubphase db "motion"
 >     rigActionSuccess conn "attack" False
->     goSquare conn 4 0
+>     goSquare db conn 4 0
 >     assertPieceDoneSelection db "eagle" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1G  R  2      3\n\
@@ -482,7 +482,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 1 0
+>     goSquare db conn 1 0
 >     assertSelectedPiece db "eagle" "Buddha"
 >     assertMoveSubphase db "motion"
 >     sendKeyPress conn "End"
@@ -516,10 +516,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 1 0
+>     goSquare db conn 1 0
 >     assertSelectedPiece db "eagle" "Buddha"
 >     assertMoveSubphase db "motion"
->     goSquare conn 3 0
+>     goSquare db conn 3 0
 >     assertPieceDoneSelection db "eagle" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1  G  R2      3\n\
@@ -556,10 +556,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 1 0
+>     goSquare db conn 1 0
 >     assertSelectedPiece db "elf" "Buddha"
 >     assertMoveSubphase db "motion"
->     goSquare conn 2 0
+>     goSquare db conn 2 0
 >     assertMoveSubphase db "attack"
 >     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
@@ -573,7 +573,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "attack" True
->     goSquare conn 3 0
+>     goSquare db conn 3 0
 >     assertMoveSubphase db "ranged_attack"
 >     assertBoardEquals db ("\n\
 >                   \1  H   2      3\n\
@@ -587,7 +587,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "ranged_attack" True
->     goSquare conn 3 1
+>     goSquare db conn 3 1
 >     assertBoardEquals db ("\n\
 >                   \1  H   2      3\n\
 >                   \   r           \n\
@@ -620,10 +620,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 1 0
+>     goSquare db conn 1 0
 >     assertSelectedPiece db "elf" "Buddha"
 >     assertMoveSubphase db "motion"
->     goSquare conn 2 0
+>     goSquare db conn 2 0
 >     assertMoveSubphase db "attack"
 >     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
@@ -637,7 +637,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "attack" True
->     goSquare conn 3 0
+>     goSquare db conn 3 0
 >     assertMoveSubphase db "ranged_attack"
 >     assertBoardEquals db ("\n\
 >                   \1  H   2      3\n\
@@ -681,10 +681,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 1 0
+>     goSquare db conn 1 0
 >     assertSelectedPiece db "elf" "Buddha"
 >     assertMoveSubphase db "motion"
->     goSquare conn 2 0
+>     goSquare db conn 2 0
 >     assertMoveSubphase db "attack"
 >     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
@@ -711,7 +711,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "ranged_attack" False
->     goSquare conn 3 1
+>     goSquare db conn 3 1
 >     assertPieceDoneSelection db "elf" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
@@ -743,7 +743,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 2 0
+>     goSquare db conn 2 0
 >     assertSelectedPiece db "elf" "Buddha"
 >     assertMoveSubphase db "motion"
 >     sendKeyPress conn "End"
@@ -760,7 +760,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "ranged_attack" True
->     goSquare conn 3 1
+>     goSquare db conn 3 1
 >     assertPieceDoneSelection db "elf" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1 GR   2      3\n\
@@ -791,10 +791,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 1 0
+>     goSquare db conn 1 0
 >     assertSelectedPiece db "elf" "Buddha"
 >     assertMoveSubphase db "motion"
->     goSquare conn 2 0
+>     goSquare db conn 2 0
 >     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \    R          \n\
@@ -819,7 +819,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "ranged_attack" False
->     goSquare conn 4 1
+>     goSquare db conn 4 1
 >     assertPieceDoneSelection db "elf" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
@@ -850,10 +850,10 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 1 0
+>     goSquare db conn 1 0
 >     assertSelectedPiece db "elf" "Buddha"
 >     assertMoveSubphase db "motion"
->     goSquare conn 2 0
+>     goSquare db conn 2 0
 >     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \   RR          \n\
@@ -878,7 +878,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "ranged_attack" False
->     goSquare conn 4 1
+>     goSquare db conn 4 1
 >     assertPieceDoneSelection db "elf" "Buddha"
 >     assertBoardEquals db ("\n\
 >                   \1 G R  2      3\n\
@@ -909,11 +909,11 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 1 0
+>     goSquare db conn 1 0
 >     assertSelectedPiece db "elf" "Buddha"
 >     assertMoveSubphase db "motion"
 >     rigActionSuccess conn "ranged_attack" False
->     goSquare conn 4 0
+>     goSquare db conn 4 0
 >     assertBoardEquals db ("\n\
 >                   \1G  R  2      3\n\
 >                   \  R R          \n\
@@ -959,11 +959,11 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 1 0
+>     goSquare db conn 1 0
 >     assertSelectedPiece db "shadow_tree" "Buddha"
 >     assertMoveSubphase db "attack"
 >     rigActionSuccess conn "attack" True
->     goSquare conn 2 0
+>     goSquare db conn 2 0
 >     assertBoardEquals db ("\n\
 >                   \1Wr    2      3\n\
 >                   \    R          \n\
@@ -994,6 +994,6 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     goSquare conn 1 0
+>     goSquare db conn 1 0
 >     assertPieceDoneSelection db "shadow_tree" "Buddha"
 

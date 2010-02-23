@@ -9,9 +9,9 @@
 
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
+> import Games.Chaos2010.Utils
 > import Games.Chaos2010.Database.World_alignment_table
 > import qualified Games.Chaos2010.Database.Monster_pieces as Mp
-> import Games.Chaos2010.UI.HdbUtils
 
 > casting :: IConnection conn => Database -> conn -> Test.Framework.Test
 > casting db conn = testGroup "casting" $
@@ -43,7 +43,7 @@
 setup the game, get to cast phase with the first wizard having
 chosen goblin
 
->   startNewGame conn
+>   startNewGame db conn
 >   addSpell conn "Buddha" "goblin"
 >   sendKeyPress conn $ keyChooseSpell "goblin"
 >   --get the next wizard to select disbelieve so we can check the
@@ -69,7 +69,7 @@ check the squares we can cast goblin onto
 cast it and check the resulting board
 
 >   rigActionSuccess conn "cast" True
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   assertBoardEquals db ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -90,7 +90,7 @@ cast it and check the resulting board
 > testFailCastGoblin db = tctor "testFailCastGoblin" $ \conn -> do
 >   newGameReadyToCast db conn "goblin"
 >   rigActionSuccess conn "cast" False
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -138,7 +138,7 @@ cast it and check the resulting board
 >                          \XXX            \n\
 >                          \6      7      8"
 >   rigActionSuccess conn "cast" True
->   mapM_ (uncurry $ goSquare conn)
+>   mapM_ (uncurry $ goSquare db conn)
 >         [(1,0),(3,0),(5,0),(0,2),(2,2),(4,2),(1,4),(3,4)]
 >   assertBoardEquals db ("\n\
 >                   \1W W W 2      3\n\
@@ -170,7 +170,7 @@ cast it and check the resulting board
 >                          \6      7      8"
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" False
->   goSquare conn 0 4
+>   goSquare db conn 0 4
 >   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -200,7 +200,7 @@ cast it and check the resulting board
 >                          \6      7      8"
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" True
->   goSquare conn 0 4
+>   goSquare db conn 0 4
 >   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -243,7 +243,7 @@ cast it and check the resulting board
 >                          \X      X      X"
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" False
->   goSquare conn 7 0
+>   goSquare db conn 7 0
 >   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -286,7 +286,7 @@ cast it and check the resulting board
 >                          \X      X      X"
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" False
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \G              \n\
@@ -331,7 +331,7 @@ cast it and check the resulting board
 >                          \X      X      X"
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" True
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   assertBoardEquals db ("\n\
 >                   \1G     2      3\n\
 >                   \G              \n\
@@ -375,7 +375,7 @@ cast it and check the resulting board
 >                          \6      7      8"
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" False
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   assertBoardEquals db ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -419,7 +419,7 @@ cast it and check the resulting board
 >                          \6      7      8"
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" True
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   assertBoardEquals db ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -461,7 +461,7 @@ cast it and check the resulting board
 >                          \               \n\
 >                          \               \n\
 >                          \6      7      8"
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   assertBoardEquals db ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -503,7 +503,7 @@ cast it and check the resulting board
 >                          \               \n\
 >                          \               \n\
 >                          \6      7      8"
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   assertBoardEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -546,7 +546,7 @@ cast it and check the resulting board
 >                          \               \n\
 >                          \6      7      8"
 >   rigActionSuccess conn "cast" True
->   goSquare conn 1 0
+>   goSquare db conn 1 0
 >   assertBoardEquals db ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -578,13 +578,13 @@ cast it and check the resulting board
 > testImaginary db = tctor "testImaginary" $ \conn -> do
 
 >   let setStuffUp1 = do
->                     startNewGame conn
+>                     startNewGame db conn
 >                     addSpell conn "Buddha" "goblin"
 >                     sendKeyPress conn $ keyChooseSpell "goblin"
 >   let setStuffUp2 = do
 >                     skipToPhase db conn "cast"
 >                     rigActionSuccess conn "cast" True
->                     goSquare conn 1 0
+>                     goSquare db conn 1 0
 >   let sv c = let t = do
 >                       t1 <- table Mp.monster_pieces
 >                       restrict ((t1 .!. Mp.x) .==. constJust 1)

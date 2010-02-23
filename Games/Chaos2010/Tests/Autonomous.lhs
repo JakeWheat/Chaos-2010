@@ -9,6 +9,7 @@
 
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
+> import Games.Chaos2010.Utils
 > import Games.Chaos2010.Database.Spell_books
 >
 > autonomous :: IConnection conn => Database -> conn -> Test.Framework.Test
