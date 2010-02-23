@@ -6,7 +6,7 @@
 > import Test.Framework
 
 > import Database.HaskellDB
-> import Database.HDBC
+> import Database.HDBC (IConnection)
 > import Database.HaskellDB.Database
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
@@ -110,7 +110,7 @@ are no wizards left.
 >   rigActionSuccess conn "attack" True
 >   goSquare conn 0 0
 >   --now magically kill the remaining to force the draw
->   runSql conn "select kill_top_piece_at(?,?);" ["3","0"]
+>   killTopPieceAt conn 3 0
 >   assertCount "game drawn history entry" db
 >                     (do
 >                       t1 <- table action_history_mr

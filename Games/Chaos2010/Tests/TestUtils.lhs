@@ -1,28 +1,34 @@
 > module Games.Chaos2010.Tests.TestUtils
 >     (tctor
+>
 >     ,startNewGame
->     ,setupBoard
->     ,runSql
->     ,sendKeyPress
->     ,callSp
->     ,assertCurrentWizardPhase
 >     ,newGameReadyToCast
->     ,rigActionSuccess
+>     ,setupBoard
 >     ,startNewGameReadyToAuto
->     --,selectInt
 >     ,startNewGameReadyToMove
+>     ,startNewGameReadyToMoveNoSpread
+>     ,newGameWithBoardReadyToCast
+>     ,addSpell
+>     ,keyChooseSpell
+>     ,killWizard
+>     ,addMagicSword
+>     ,killTopPieceAt
+>
+>     ,rigActionSuccess
+>     ,sendKeyPress
 >     ,goSquare
+>     ,skipToPhase
+>     ,setCursorPos
+>
+>     ,queryTurnPhase
+>
+>     ,assertCurrentWizardPhase
 >     ,assertSelectedPiece
 >     ,assertMoveSubphase
 >     ,assertPieceDoneSelection
->     ,queryTurnPhase
->     ,startNewGameReadyToMoveNoSpread
->     ,skipToPhase
->     ,newGameWithBoardReadyToCast
 >     ,assertNoSelectedPiece
->     --,assertRelvarValue
->     ,addSpell
->     ,keyChooseSpell
+>
+>     ,time
 >     ) where
 
 > import Test.HUnit
@@ -31,13 +37,15 @@
 > import Control.Monad
 > import Control.Exception
 > import Data.List
+> import System.Time
 
-> import Database.HDBC
+> import Database.HDBC (IConnection)
 > import Database.HaskellDB
 
+> import Games.Chaos2010.DBUpdates hiding (rigActionSuccess)
+> import qualified Games.Chaos2010.DBUpdates as DBu
 > import Games.Chaos2010.Tests.BoardUtils
 > import qualified Games.Chaos2010.Database.Selected_piece as Sp
-> import qualified Games.Chaos2010.Database.Pieces as P
 > import qualified Games.Chaos2010.Database.Pieces_to_move as Ptm
 > import Games.Chaos2010.Database.Turn_phase_table
 > import Games.Chaos2010.Database.Current_wizard_table
@@ -46,14 +54,14 @@
 >       -> (conn -> IO ())
 >       -> conn
 >       -> Test.Framework.Test
-> tctor l f conn = testCase l $ rollbackOnError conn $ f conn
+> tctor l f conn = testCase l $ rollbackOnError conn $ time $ f conn
 
  > type SqlRow = M.Map String String
 
 > newGameReadyToCast :: IConnection conn => Database -> conn -> String -> IO ()
 > newGameReadyToCast db conn spellName = do
 >   startNewGame conn
->   addSpell conn spellName
+>   addSpell conn "Buddha" spellName
 >   sendKeyPress conn  $ keyChooseSpell spellName
 >   skipToPhase db conn "cast"
 
@@ -66,7 +74,7 @@
 > newGameWithBoardReadyToCast db conn spellName board = do
 >   startNewGame conn
 >   setupBoard db conn board
->   addSpell conn spellName
+>   addSpell conn "Buddha" spellName
 >   sendKeyPress conn  $ keyChooseSpell spellName
 >   skipToPhase db conn "cast"
 
@@ -106,7 +114,7 @@ todo: add all relvars which aren't readonly to this
 
 > goSquare :: IConnection conn => conn -> Int -> Int -> IO ()
 > goSquare conn x y = do
->   runSql conn "update cursor_position set x=?, y=?" [show x,show y]
+>   setCursorPos conn x y
 >   sendKeyPress conn "Return"
 
 == some helper functions
@@ -158,7 +166,7 @@ this takes a board description and sets the board to match it used to
 setup a particular game before running some tests
 
 > setupBoard :: IConnection conn => Database -> conn -> BoardDiagram -> IO ()
-> setupBoard db conn bd = do
+> setupBoard _ conn bd = do
 >   let targetBoard = toBoardDescription bd
 >   --just assume that present wizards are in the usual starting positions
 >   --fix this when needed
@@ -169,54 +177,27 @@ setup a particular game before running some tests
 >                                n == name) wizardItems
 >   -- remove missing wizards
 >   forM_ [0..7] (\i ->
->     unless (isWizPresent $ wizardNames !! i) $
->       callSp conn "kill_wizard" [wizardNames !! i])
+>     unless (isWizPresent $ wizardNames !! i) $ killWizard conn (wizardNames !! i))
 >   -- move present wizards
 >   forM_ wizardItems (\(PieceDescription _ name _ _, x, y) -> do
 >     {-t <- selectTuple conn "select x,y from pieces where ptype='wizard'\n\
 >                      \and allegiance=?" [name]
 >     unless (read (lk "x" t) == x && read (lk "y" t) == y)-}
->            (runSql conn "update pieces set x = ?, y = ?\n\
->                        \where ptype='wizard' and allegiance=?"
->                    [show x, show y, name]))
+>            setWizardPosition conn name x y)
 >   -- add extra pieces
 >   forM_ nonWizardItems $ \(PieceDescription ptype allegiance im un, x, y) -> do
 >     if allegiance == "dead"
->       then callSp conn "create_corpse"
->                   [ptype,
->                    (show x),
->                    (show y),
->                    show $ im == Imaginary]
->       else callSp conn "create_piece_internal"
->                   [ptype,
->                    allegiance,
->                    (show x),
->                    (show y),
->                    show $ im == Imaginary]
->     when (un == Undead) $ do
->       tag <- maxTag
->       callSp conn "make_piece_undead" [ptype,allegiance, show tag]
+>       then createCorpse conn ptype x y (im == Imaginary)
+>       else createPieceInternal conn ptype allegiance x y (im == Imaginary) (un == Undead)
 >   return ()
->   where
->     maxTag :: IO Int
->     maxTag = do
->       rel <- query db $ do
->                 tb <- table P.pieces
->                 order [desc tb P.tag]
->                 --project $ P.tag .=. max (tb .!. P.tag)
->                 project $ copy P.tag tb
->                           .*. emptyRecord
->       let t = head rel
->       return (t # P.tag)
-
 
 this overrides the next random test by name e.g. so we can test the
 board after a spell has succeeded and after it has failed
 
 > rigActionSuccess :: IConnection conn => conn -> String -> Bool -> IO ()
 > rigActionSuccess conn override setting = do
->   dbAction conn "rig_action_success" [override, show setting]
->   dbAction conn "reset_current_effects" []
+>   DBu.rigActionSuccess conn override setting
+>   resetCurrentEffects conn
 
 ================================================================================
 
@@ -241,10 +222,6 @@ board after a spell has succeeded and after it has failed
 
 Adds the spell given to the first wizard's spell book
 
-> addSpell :: IConnection conn => conn -> String -> IO ()
-> addSpell conn spellName =
->   runSql conn "insert into spell_books (spell_name, wizard_name)\n\
->          \values (?, 'Buddha');" [spellName]
 
 keep running next_phase until we get to the cast phase
 
@@ -257,15 +234,10 @@ keep running next_phase until we get to the cast phase
 >          sendKeyPress conn "space"
 >          skipToPhase db conn phase
 
-> sendKeyPress :: IConnection conn => conn -> String -> IO ()
-> sendKeyPress conn k = do
->   dbAction conn "key_pressed" [k]
->   dbAction conn "reset_current_effects" []
-
 > rollbackOnError :: IConnection conn => conn -> IO c -> IO c
 > rollbackOnError conn =
 >     bracketOnError (return())
->                    (const $ runSql conn "rollback" []) . const
+>                    (const $ rollback conn) . const
 
 > startNewGameReadyToMove :: IConnection conn => Database -> conn -> BoardDiagram -> IO ()
 > startNewGameReadyToMove db conn board = do
@@ -277,8 +249,7 @@ keep running next_phase until we get to the cast phase
 > startNewGameReadyToMoveNoSpread :: IConnection conn => Database -> conn -> BoardDiagram -> IO ()
 > startNewGameReadyToMoveNoSpread db conn board = do
 >   startNewGame conn
->   runSql conn "update disable_spreading_table\n\
->               \set disable_spreading = true;" []
+>   disableSpreading conn
 >   setupBoard db conn board
 >   rigActionSuccess conn "disappear" False
 >   skipToPhase db conn "move"
@@ -373,32 +344,14 @@ understand
 >   newGame conn
 >   resetCurrentEffects conn
 
-> resetNewGameWidgetState :: IConnection conn => conn -> IO ()
-> resetNewGameWidgetState conn = callSp conn "action_reset_new_game_widget_state" []
-
-> setAllHuman :: IConnection conn => conn -> IO ()
-> setAllHuman conn = runSql conn "update new_game_widget_state set state='human';" []
-
-> newGame :: IConnection conn => conn -> IO ()
-> newGame conn = callSp conn "action_client_new_game_using_new_game_widget_state" []
-
-> resetCurrentEffects :: IConnection conn => conn -> IO ()
-> resetCurrentEffects conn = callSp conn "action_reset_current_effects" []
-
-> callSp :: IConnection conn => conn -> String -> [String] -> IO ()
-> callSp conn spName args = do
->   let qs = intersperse ',' $ replicate (length args) '?'
->       sqlString = "select " ++ spName ++ "(" ++ qs ++ ")"
->   _ <- run conn sqlString $ map toSql args
->   commit conn
-
-> runSql :: IConnection conn => conn -> String -> [String] -> IO ()
-> runSql conn sql args = do
->   _ <- run conn sql $ map toSql args
->   commit conn
-
-> dbAction :: IConnection conn => conn -> String -> [String] -> IO ()
-> dbAction conn a args = callSp conn ("action_" ++ a) args
-
 > whenA1 :: IO a -> (a -> Bool) -> IO () -> IO ()
 > whenA1 feed cond f = (cond `liftM` feed) >>= flip when f
+
+> time :: IO c -> IO c
+> time =
+>   bracket getClockTime
+>           (\st -> do
+>              et <- getClockTime
+>              let tdiff = diffClockTimes et st
+>              putStrLn $ "time taken: " ++ timeDiffToString tdiff)
+>           . const

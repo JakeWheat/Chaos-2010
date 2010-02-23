@@ -5,7 +5,7 @@
 > import Test.Framework
 
 > import Database.HaskellDB
-> import Database.HDBC
+> import Database.HDBC (IConnection)
 
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
@@ -439,8 +439,7 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8", pl)
->   runSql conn "update wizards set magic_sword = true\n\
->               \where wizard_name='Buddha'" []
+>   addMagicSword conn "Buddha"
 >   goSquare conn 0 0
 >   rigActionSuccess conn "attack" True
 >   goSquare conn 1 1

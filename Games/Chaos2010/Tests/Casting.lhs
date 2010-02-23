@@ -5,7 +5,7 @@
 > import Test.Framework
 
 > import Database.HaskellDB
-> import Database.HDBC
+> import Database.HDBC (IConnection)
 
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
@@ -44,7 +44,7 @@ setup the game, get to cast phase with the first wizard having
 chosen goblin
 
 >   startNewGame conn
->   addSpell conn "goblin"
+>   addSpell conn "Buddha" "goblin"
 >   sendKeyPress conn $ keyChooseSpell "goblin"
 >   --get the next wizard to select disbelieve so we can check the
 >   --auto next phase works
@@ -580,7 +580,7 @@ cast it and check the resulting board
 
 >   let setStuffUp1 = do
 >                     startNewGame conn
->                     addSpell conn "goblin"
+>                     addSpell conn "Buddha" "goblin"
 >                     sendKeyPress conn $ keyChooseSpell "goblin"
 >   let setStuffUp2 = do
 >                     skipToPhase db conn "cast"

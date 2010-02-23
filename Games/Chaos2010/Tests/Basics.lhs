@@ -6,7 +6,7 @@
 > import Control.Monad
 
 > import Database.HaskellDB
-> import Database.HDBC
+> import Database.HDBC (IConnection)
 
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
@@ -113,7 +113,7 @@ the cursor to a given position, also check the moveto code
 >   --make sure there is a game running:
 >   startNewGame conn
 >   --reset the cursor position
->   runSql conn "update cursor_position set x=0,y=0;" []
+>   setCursorPos conn 0 0
 >   let moveAndCheck m xp yp = do
 >         sendKeyPress conn $ cursorShorthand m
 >         assertCursorPosition db xp yp

@@ -4,7 +4,7 @@
 > import Control.Monad
 
 > import Database.HaskellDB
-> import Database.HDBC
+> import Database.HDBC (IConnection)
 
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
@@ -50,7 +50,7 @@ to do all variations is 256 tests
 >   forM_ [0..7] (\j -> do
 >     startNewGame conn
 >     --kill wizard
->     callSp conn "kill_wizard" [wizardNames !! j]
+>     killWizard conn $ wizardNames !! j
 >     let theseWizards = dropItemN wizardNames j
 >     forM_ ["choose","cast","move","choose","cast","move"] (\phase ->
 >       forM_ [0..6] (\i -> do
@@ -66,8 +66,8 @@ to do all variations is 256 tests
 >     forM_ [(j + 1)..7] (\k -> do
 >       startNewGame conn
 >       --kill wizards
->       callSp conn "kill_wizard" [wizardNames !! j]
->       callSp conn "kill_wizard" [wizardNames !! k]
+>       killWizard conn $ wizardNames !! j
+>       killWizard conn $ wizardNames !! k
 >       let theseWizards = dropItemN (dropItemN wizardNames k) j
 >       forM_ ["choose","cast","move","choose","cast","move"] (\phase ->
 >         forM_ [0..5] (\i -> do

@@ -4,7 +4,7 @@
 > import Test.Framework
 
 > import Database.HaskellDB
-> import Database.HDBC
+> import Database.HDBC (IConnection)
 
 > import Games.Chaos2010.Tests.Basics
 > import Games.Chaos2010.Tests.Phases
