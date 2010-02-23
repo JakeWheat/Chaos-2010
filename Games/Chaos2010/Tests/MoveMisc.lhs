@@ -407,7 +407,6 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8", pl)
->   sendKeyPress conn "space"
 >   goSquare conn 1 0
 >   rigActionSuccess conn "attack" True
 >   goSquare conn 1 1

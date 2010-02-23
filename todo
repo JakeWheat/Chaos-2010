@@ -14,3 +14,51 @@ move the callbacks into the abstract widgets, with routing and stuff
 rewrite tests from scratch, make the bits into utils, reuse the ascii
   art stuff to redo the setup test board in the sql code, start adding
   tests for each constraint - want to give hssqlppp a bit of exercise
+
+plan to try and speed things up:
+profiling: not sure how to do this properly
+want: to run tests, or play back game, and collect timing information
+-> responsiveness measurement - how quickly cursor update is on screen
+   after pressing key, also, how quickly sprites, text widgets,
+   etc. are updated after keypress that triggers update
+-> speed measurement: speed of regenerating the board cache
+   speed of each action being processed
+-> time spread: want to know how much time is spent in gtk, sdl,
+   haskell code, database code, break down by event causing. Want to
+   collect full stats on database queries and updates, so can count
+   how many - see if being called too many times, see the progression
+   of updates and selects for thinking about, and get stats on the
+   average and total time spent in each select or funtion call.
+
+Squares valid is definitely a slow bit of code, so is new game, which
+is bad for testing speed.
+
+New plan for squares valid:
+add full tests for each kind of valid square calculation
+refactor code:
+first create the categories with squares, plus allegiance information
+- ignoring current wizard, range issues
+empty and not adjacent to tree: extra step
+empty
+empty or corpse only
+attackable
+creature on top
+monster on top
+corpse only
+mount/enter squares: magic tree: allegiance is unimportant, mount, castle it is
+-> make two categories, one for each
+selectable pieces - we ignore the turn position, and mount/ mountee -
+just list them all
+movable to squares-> empty or corpse only
+
+this gives us the square categories table: category, x, y, maybe allegiance
+
+what we need is the valid target actions list, which will be action_name, x, y
+the complete list of target actions is:
+
+cast_target_spell
+select_piece_at_position
+walk
+fly
+attack (walk, fly)
+ranged_attack

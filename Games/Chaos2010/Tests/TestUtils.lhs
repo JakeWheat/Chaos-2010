@@ -21,6 +21,7 @@
 >     ,setCursorPos
 >
 >     ,queryTurnPhase
+>     ,queryTurnSequenceInfo
 >
 >     ,assertCurrentWizardPhase
 >     ,assertSelectedPiece
@@ -46,9 +47,10 @@
 > import qualified Games.Chaos2010.DBUpdates as DBu
 > import Games.Chaos2010.Tests.BoardUtils
 > import qualified Games.Chaos2010.Database.Selected_piece as Sp
-> import qualified Games.Chaos2010.Database.Pieces_to_move as Ptm
+> import qualified Games.Chaos2010.Database.Pieces_moved as Pm
 > import Games.Chaos2010.Database.Turn_phase_table
 > import Games.Chaos2010.Database.Current_wizard_table
+> import Games.Chaos2010.Database.Turn_number_table
 
 > tctor :: IConnection conn => String
 >       -> (conn -> IO ())
@@ -276,6 +278,36 @@ keep running next_phase until we get to the cast phase
 >   rel <- query db $ table current_wizard_table
 >   let t = head rel
 >   return (t # current_wizard)
+ 
+> queryTurnSequenceInfo :: Database
+>                       -> IO
+>                          [Record
+>                           (HCons
+>                            (LVPair Turn_number Int)
+>                            (HCons
+>                             (LVPair Current_wizard String)
+>                             (HCons
+>                              (LVPair Turn_phase String)
+>                              HNil)))]
+> queryTurnSequenceInfo db = do
+>   r1 <- query db $ do
+>           t1 <- table turn_number_table
+>           t2 <- table current_wizard_table
+>           t3 <- table turn_phase_table
+>           project $ copyAll t1 `hAppend` copyAll t2 `hAppend` copyAll t3
+>   return r1
+
+1 turn number
+1 current wizard
+1 turn phase
+m wizard spellchoices
+01 spell parts to cast
+01 cast success checked
+1 world alignment
+m pieces moved
+01 selected piece
+01 remaining walk
+01 cast alignment
 
 > assertSelectedPiece :: Database -> Ptype -> Allegiance -> IO()
 > assertSelectedPiece db ptype allegiance = do
@@ -295,11 +327,11 @@ keep running next_phase until we get to the cast phase
 > assertPieceDoneSelection db ptype allegiance = do
 >     assertNoSelectedPiece db
 >     rel <- query db $ do
->              t1 <- table Ptm.pieces_to_move
->              restrict ((t1 .!. Ptm.ptype) .==. constant ptype)
->              restrict ((t1 .!. Ptm.allegiance) .==. constant allegiance)
+>              t1 <- table Pm.pieces_moved
+>              restrict ((t1 .!. Pm.ptype) .==. constant ptype)
+>              restrict ((t1 .!. Pm.allegiance) .==. constant allegiance)
 >              project $ copyAll t1
->     assertBool "piece not in ptm" (null rel)
+>     assertBool "piece in ptm" (not $ null rel)
 
 ================================================================================
 

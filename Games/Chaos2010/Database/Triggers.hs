@@ -89,6 +89,17 @@ trigger_name :: Trigger_name
 trigger_name = proxy
 
 ---------------------------------------------------------------------------
+-- Trigger_name Field
+---------------------------------------------------------------------------
+
+data Trigger_nameTag
+type Trigger_name = Proxy Trigger_nameTag
+instance ShowLabel Trigger_name where showLabel _ = "trigger_name"
+
+trigger_name :: Trigger_name
+trigger_name = proxy
+
+---------------------------------------------------------------------------
 -- Operator_name Field
 ---------------------------------------------------------------------------
 

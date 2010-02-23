@@ -24,3 +24,7 @@
 > withConn cs f = bracket (connectPostgreSQL cs)
 >                         disconnect
 >                         f
+
+to regenerate the haskelldb code use:
+
+DBDirect-hdbc-postgresql Games.Chaos2010.Database "dbname=chaos"

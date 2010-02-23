@@ -142,3 +142,15 @@ Run all the tests.
 > withConn cs f = bracket (connectPostgreSQL cs)
 >                         disconnect
 >                         f
+
+
+
+update pg_settings
+ set setting=true
+  where name='log_duration';
+update pg_settings
+  set setting='all'
+  where name='log_statement';
+update pg_settings
+  set setting='0'
+  where name='log_min_duration_statement';
