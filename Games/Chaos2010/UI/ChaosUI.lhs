@@ -9,8 +9,7 @@ list of windows.
 > import Control.Concurrent.Chan.Strict
 > import Database.HaskellDB
 > import Control.Applicative
-> import Database.HDBC.PostgreSQL
-> import Database.HDBC
+> import Database.HDBC (IConnection)
 
 
 > import Games.Chaos2010.UI.UITypes
@@ -20,6 +19,7 @@ list of windows.
 > import Games.Chaos2010.UI.ActionHistoryWidget
 > import Games.Chaos2010.UI.BoardWidget
 > import Games.Chaos2010.Database.New_game_widget_state
+> import Games.Chaos2010.DBUpdates
 
 > chaosUI :: [Window]
 > chaosUI = [Window "Info" WText 0 371 579 213
@@ -28,10 +28,10 @@ list of windows.
 >           ,Window "Board" WSpriteGrid 99 28 480 320
 >           ,Window "Action History" WText 843 28 429 556]
 
-> chaosRenders :: Connection -> [(String, Database -> IO WindowUpdate)]
+> chaosRenders :: IConnection conn => conn  -> [(String, Database -> IO WindowUpdate)]
 > chaosRenders conn = [("Info", unwrapDBText infoWidget)
 >                     ,("Spell Book", unwrapDBText spellBookWidget)
->                     ,("New Game", unwrapDBText $ newGameWidget (callSP conn))
+>                     ,("New Game", unwrapDBText $ newGameWidget conn)
 >                     ,("Board", unwrapSG boardWidget)
 >                     ,("Action History", unwrapDBText actionHistoryWidget)]
 
@@ -41,7 +41,7 @@ list of windows.
 > unwrapSG :: DBSpriteGrid -> Database -> IO WindowUpdate
 > unwrapSG (DBSpriteGrid u) = fmap WUSpriteGrid . u
 
-> chaosServer :: Database -> Connection -> (Chan Event) -> (Chan (String,WindowUpdate)) -> IO ()
+> chaosServer :: IConnection conn => Database -> conn -> (Chan Event) -> (Chan (String,WindowUpdate)) -> IO ()
 > chaosServer db conn inChan outChan = do
 >   return ()
 >   checkNewGameRelvar db conn
@@ -57,27 +57,26 @@ list of windows.
 >         mapM (\(n,u) -> (n,) <$> u db) $ chaosRenders conn
 
 
-> checkNewGameRelvar :: Database -> Connection -> IO ()
+> checkNewGameRelvar :: IConnection conn => Database -> conn -> IO ()
 > checkNewGameRelvar db conn = do
 >   r <- query db c
 >   forM_ r $ \rt ->
->     when (rt # line == 0) $
->       callSP conn "select action_reset_new_game_widget_state();" []
+>     when (rt # line == 0) $ resetNewGameWidgetState conn
 >   where
 >     c = do
 >         t1 <- table new_game_widget_state
 >         project $ line .=. count(t1 .!. line)
 >                 .*. emptyRecord
 
-> callSP :: IConnection conn => conn -> String -> [String] -> IO ()
-> callSP conn sql args = do
->   _ <- run conn sql $ map toSql args
->   commit conn
+ > callSP :: IConnection conn => conn -> String -> [String] -> IO ()
+ > callSP conn sql args = do
+ >   _ <- run conn sql $ map toSql args
+ >   commit conn
 
-> handleEvent :: Database -> Connection -> Event -> IO ()
-> handleEvent db conn e =
+> handleEvent :: IConnection conn => Database -> conn -> Event -> IO ()
+> handleEvent _ conn e =
 >   case e of
 >     Key k -> do
 >              putStrLn $ "key press: " ++ k
->              callSP conn "select action_key_pressed(?);" [k]
+>              sendKeyPress conn k
 >     Callback c -> c

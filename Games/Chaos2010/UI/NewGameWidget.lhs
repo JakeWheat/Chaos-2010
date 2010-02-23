@@ -27,13 +27,15 @@ new game widget:
 > import Control.Applicative
 > import Database.HaskellDB
 > import Control.Monad as M
+> import Database.HDBC (IConnection)
 
 > import Games.Chaos2010.UI.UITypes
 > import Games.Chaos2010.Database.New_game_widget_state
 > import Games.Chaos2010.UI.HdbUtils
+> import Games.Chaos2010.DBUpdates
 >
-> newGameWidget :: (String -> [String] -> IO ()) -> DBText
-> newGameWidget callSP =
+> newGameWidget :: IConnection conn => conn -> DBText
+> newGameWidget conn =
 >    DBText $ \db ->
 >    let q t r = qdb db t r
 >    in concat . concat <$> M.sequence [
@@ -47,11 +49,8 @@ new game widget:
 >                                   ,("computer","computer")
 >                                   ,("none", "none")]
 >                                   (r # state)
->                                   (\x -> do
->                                     let (l::Int) = r # line
->                                     --   "update new_game_widget_state
->                                     --       \set state =? where line =?"
->                                     return ())
+>                                   (\st ->
+>                                     updateNewGameState conn (r # line) st)
 >                ,Text "\n"])
 >      ,q (do
 >          t1 <- table new_game_widget_state
@@ -63,8 +62,7 @@ new game widget:
 >          ++ flip map ["all_pieces"
 >                      ,"upgraded_wizards"
 >                      ,"overlapping"]
->                      (\lb -> Button lb (setupTestBoard lb )))]
+>                      (\lb -> Button lb (setupTestBoard conn lb)))]
 >    where
->      startGame =  callSP "select action_client_new_game_using_new_game_widget_state();" []
->      resetWidget = callSP "select action_reset_new_game_widget_state();" []
->      setupTestBoard t = callSP "select action_setup_test_board(?);" [t]
+>      startGame =  newGame conn
+>      resetWidget = resetNewGameWidgetState conn

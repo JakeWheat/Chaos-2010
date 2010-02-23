@@ -15,9 +15,21 @@
 >     ,disableSpreading
 >     ,addMagicSword
 >     ,killTopPieceAt
+>     ,setupTestBoard
+>     ,updateNewGameState
 >     ) where
 > import Database.HDBC hiding (rollback)
 > import Data.List
+
+> setupTestBoard :: IConnection conn => conn -> String -> IO ()
+> setupTestBoard conn t =
+>     callSp conn "select action_setup_test_board(?);" [t]
+
+> updateNewGameState :: IConnection conn => conn -> Int -> String -> IO ()
+> updateNewGameState conn l s =
+>     runSql conn "update new_game_widget_state\n\
+>                 \set state =? where line =?" [s, show l]
+
 
 > resetNewGameWidgetState :: IConnection conn => conn -> IO ()
 > resetNewGameWidgetState conn = callSp conn "action_reset_new_game_widget_state" []
