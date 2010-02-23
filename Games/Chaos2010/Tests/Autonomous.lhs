@@ -102,7 +102,6 @@ castles disappearing
 >   let pl = wizardPiecesList ++
 >            [('T', [makePD "wizard" "Buddha",
 >                    makePD "magic_tree" "Buddha"])]
->   numSpells <- countSpells db
 >   startNewGameReadyToAuto db conn ("\n\
 >                   \T      2      3\n\
 >                   \               \n\
@@ -114,6 +113,7 @@ castles disappearing
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8", pl)
+>   numSpells <- countSpells db
 >   rigActionSuccess conn "bonus" True
 >   sendKeyPress conn "space"
 >   assertBoardEquals db ("\n\
@@ -131,14 +131,10 @@ castles disappearing
 >   assertEqual "got a new spell" (numSpells + 1) newNumSpells
 
 > countSpells :: Database -> IO Int
-> countSpells db = do
->   rel <- query db $ do
+> countSpells db =
+>   getCount db $ do
 >                 t1 <- table spell_books
 >                 restrict ((t1 .!. wizard_name) .==. constant "Buddha")
->                 project $ xid .=. count (t1 .!. xid)
->                         .*. emptyRecord
->   let t = head rel
->   return $ t # xid
 
 > testNoGetSpell :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testNoGetSpell db = tctor "testNoGetSpell" $ \conn -> do

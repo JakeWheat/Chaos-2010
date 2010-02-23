@@ -23,7 +23,7 @@
 
 > setupTestBoard :: IConnection conn => conn -> String -> IO ()
 > setupTestBoard conn t =
->     callSp conn "select action_setup_test_board(?);" [t]
+>     callSp conn "action_setup_test_board" [t]
 
 > updateNewGameState :: IConnection conn => conn -> Int -> String -> IO ()
 > updateNewGameState conn l s =
@@ -83,7 +83,7 @@
 
 > killTopPieceAt :: IConnection conn => conn -> Int -> Int -> IO ()
 > killTopPieceAt conn x y =
->   runSql conn "select kill_top_piece_at(?,?);" [show x, show y]
+>   callSp conn "kill_top_piece_at" [show x, show y]
 
 
 

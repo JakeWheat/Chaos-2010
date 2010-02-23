@@ -350,13 +350,12 @@ todo: attack when dismounting, dismounting when flying
 >   newStats <- getStats
 >   assertEqual "attacking loses shadow form" oldStats newStats
 >   where
->     getStats = do
->       rel <- query db $ do
+>     getStats =
+>       query db $ do
 >         t1 <- table pieces_mr
 >         restrict ((t1 .!. ptype) .==. constJust "wizard")
 >         restrict ((t1 .!. allegiance) .==. constJust "Buddha")
 >         project $ copyAll t1
->       return $ head rel
 
 
 

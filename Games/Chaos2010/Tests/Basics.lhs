@@ -1,7 +1,7 @@
 
+> {-# LANGUAGE ScopedTypeVariables #-}
 > module Games.Chaos2010.Tests.Basics (basics) where
 
-> import Test.HUnit
 > import Test.Framework
 > import Control.Monad
 
@@ -11,7 +11,7 @@
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.Database.Cursor_position
-> import Games.Chaos2010.DBUpdates
+> --import Games.Chaos2010.DBUpdates
 
 > basics :: IConnection conn => Database -> conn -> Test.Framework.Test
 > basics db conn = testGroup "basics" [
@@ -224,6 +224,7 @@ move the cursor to x,y, using key presses
 >                      -> Int
 >                      -> IO ()
 > assertCursorPosition db xp yp = do
->   cp <- queryCursorPosition db
->   assertEqual "cursor position" cp (xp, yp)
-
+>   let v = [x .=. xp
+>        .*. y .=. yp
+>        .*. emptyRecord]
+>   assertRelvarValue db (table cursor_position) v

@@ -71,12 +71,8 @@ and target action views are empty.
 >             -> Int
 >             -> IO ()
 > assertCount m db t1 c = do
->     rel <- query db t1
->                 --t1 <- table t
->                 --project $ xcount .=. count (undefined)
->                 --        .*. emptyRecord
-
->     assertEqual m c $ length rel
+>     c1 <- getCount db t1
+>     assertEqual m c c1
 
  > data CountTag deriving Typeable
  > type Count = Proxy CountTag

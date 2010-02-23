@@ -571,9 +571,8 @@ cast it and check the resulting board
 >   assertEqual "world alignment not law after casting law" 1 align
 
 > getWorldAlignment :: Database -> IO Int
-> getWorldAlignment db = do
->   rel <- query db $ table world_alignment_table
->   return $ (head rel) # world_alignment
+> getWorldAlignment db =
+>   querySingleValue db (table world_alignment_table)
 
 > testImaginary :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testImaginary db = tctor "testImaginary" $ \conn -> do
@@ -586,14 +585,13 @@ cast it and check the resulting board
 >                     skipToPhase db conn "cast"
 >                     rigActionSuccess conn "cast" True
 >                     goSquare conn 1 0
->   let sv c = do
->              rel <- query db $ do
+>   let sv c = let t = do
 >                       t1 <- table Mp.monster_pieces
 >                       restrict ((t1 .!. Mp.x) .==. constJust 1)
 >                       restrict ((t1 .!. Mp.y) .==. constJust 0)
 >                       project $ copy Mp.imaginary t1
 >                                   .*. emptyRecord
->              c $ mb $ (head rel) # Mp.imaginary
+>              in querySingleValue db t >>= c . mb
 >   setStuffUp1
 >   setStuffUp2
 >   sv (\v -> assertBool "default real for monsters" $ not v)

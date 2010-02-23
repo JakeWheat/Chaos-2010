@@ -2,7 +2,23 @@ Copyright 2010 Jake Wheat
 
 Test utilities for reading and setting pieces.
 
-> module Games.Chaos2010.Tests.BoardUtils where
+> module Games.Chaos2010.Tests.BoardUtils
+>     (BoardDiagram
+>     ,toBoardDescription
+>     ,PieceDescription(..)
+>     ,wizardNames
+>     ,Imaginary(..)
+>     ,Undead(..)
+>     ,Ptype
+>     ,Allegiance
+>     ,safeLookup
+>     ,assertValidSquaresEquals
+>     ,assertBoardEquals
+>     ,wizardPiecesList
+>     ,makePD
+>     ,liftPl
+>     ,assertTopPiecesEquals
+>     ) where
 
 > import Data.Maybe
 > import Database.HaskellDB
@@ -178,9 +194,6 @@ this when the tests are expanded in scope.
 
 > wizardPiecesList :: [(Char, [PieceDescription])]
 > wizardPiecesList = map (\(a,_,_,c) -> (a,[c])) wizardStuff
-
-> wizardStartPos :: [(PieceDescription, Int, Int)]
-> wizardStartPos = map (\(_,xp,yp,c) -> (c, xp, yp)) wizardStuff
 
 > wizardNames :: [String]
 > wizardNames = map (\(_, _, _,PieceDescription _ w _ _) -> w) wizardStuff
