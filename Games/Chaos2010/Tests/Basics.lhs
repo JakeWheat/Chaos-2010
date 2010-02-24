@@ -12,6 +12,7 @@
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.Utils
 > import Games.Chaos2010.Database.Cursor_position
+> import Games.Chaos2010.Tests.SetupGameState
 > --import Games.Chaos2010.DBUpdates
 
 > basics :: IConnection conn => Database -> conn -> Test.Framework.Test
@@ -113,7 +114,8 @@ the cursor to a given position, also check the moveto code
 > testCursorMovement :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCursorMovement db = tctor "testCursorMovement" $ \conn -> do
 >   --make sure there is a game running:
->   startNewGame db conn
+>   --startNewGame db conn
+>   setupGame db conn defaultGameState
 >   --reset the cursor position
 >   setCursorPos db 0 0
 >   let moveAndCheck m xp yp = do

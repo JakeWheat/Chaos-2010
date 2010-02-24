@@ -9,6 +9,10 @@ relevant tables. Use defaults to make this as concise as possible.
 >     (defaultGameState
 >     ,GameState(..)
 >     ,setupGame
+>     ,Wizards_v
+>     ,Pieces_v
+>     ,Imaginary_pieces_v
+>     ,Crimes_against_nature_v
 >     ) where
 
 > --import Test.HUnit
@@ -27,13 +31,15 @@ relevant tables. Use defaults to make this as concise as possible.
 > import Games.Chaos2010.Database.Board_size
 > import Games.Chaos2010.Database.World_alignment_table
 > import Games.Chaos2010.Database.Turn_number_table
-> import qualified Games.Chaos2010.Database.Current_wizard as Cw
+> import qualified Games.Chaos2010.Database.Current_wizard_table as Cw
 > import Games.Chaos2010.Database.Turn_phase_table
 > import Games.Chaos2010.Database.Wizards
 > import Games.Chaos2010.Database.Pieces
 > import qualified Games.Chaos2010.Database.Imaginary_pieces as I
 > import qualified Games.Chaos2010.Database.Crimes_against_nature as Cr
 > import qualified Games.Chaos2010.Database.Spell_books as Sb
+> import qualified Games.Chaos2010.Database.Cursor_position as C
+> import qualified Games.Chaos2010.Database.Wizard_display_info as Wd
 
 tables to possibly set:
 
@@ -84,8 +90,8 @@ triggers.
 > type Turn_number_table_v =
 >    Record (HCons (LVPair Turn_number Int) HNil)
 
-> type Current_wizard_v =
->    Record (HCons (LVPair Cw.Wizard_name (Maybe String)) HNil)
+> type Current_wizard_table_v =
+>    Record (HCons (LVPair Cw.Current_wizard String) HNil)
 
 > type Turn_phase_table_v =
 >    Record (HCons (LVPair Turn_phase String) HNil)
@@ -125,18 +131,30 @@ triggers.
 >             (HCons (LVPair Cr.Allegiance String)
 >              (HCons (LVPair Cr.Tag Int) HNil)))
 
+> type Cursor_position_v =
+>     Record (HCons (LVPair C.X Int)
+>             (HCons (LVPair C.Y Int) HNil))
+
+> type Wizard_display_info_v =
+>     Record (HCons (LVPair Wd.Wizard_name String)
+>             (HCons (LVPair Wd.Default_sprite String)
+>              (HCons (LVPair Wd.Colour String) HNil)))
+
+
 
 > data GameState = GameState
 >     {boardSize :: Board_size_v
 >     ,worldAlignment :: World_alignment_table_v
 >     ,turnNumber :: Turn_number_table_v
->     ,currentWizard :: Current_wizard_v
+>     ,currentWizard :: Current_wizard_table_v
 >     ,turnPhase :: Turn_phase_table_v
 >     ,wezards :: [Wizards_v]
 >     ,peeces :: [Pieces_v]
 >     ,spellBooks :: [Spell_books_v]
 >     ,imaginaryPieces :: [Imaginary_pieces_v]
 >     ,crimesAgainstNature :: [Crimes_against_nature_v]
+>     ,cursorPosition :: Cursor_position_v
+>     ,wizardDisplayInfo :: [Wizard_display_info_v]
 >     }
 
 > defaultGameState :: GameState
@@ -148,9 +166,9 @@ triggers.
 >                                .*. emptyRecord)
 >             ,turnNumber = (turn_number .=. 0
 >                            .*. emptyRecord)
->             ,currentWizard = (Cw.wizard_name .=. Just "Buddha"
+>             ,currentWizard = (Cw.current_wizard .=. "Buddha"
 >                            .*. emptyRecord)
->             ,turnPhase = (turn_phase .=. "Choose"
+>             ,turnPhase = (turn_phase .=. "choose"
 >                            .*. emptyRecord)
 >             ,wezards = let defaults n p = wizard_name .=. n
 >                                           .*. shadow_form .=. False
@@ -182,6 +200,7 @@ triggers.
 >                            .*. emptyRecord)
 >                        [("wizard","Buddha",0,0,0)
 >                        ,("wizard","Kong Fuzi",0,7,0)
+>                        ,("wizard","Laozi",0,14,0)
 >                        ,("wizard","Moshe",0,0,4)
 >                        ,("wizard","Muhammad",0,14,4)
 >                        ,("wizard","Shiva",0,0,9)
@@ -190,20 +209,35 @@ triggers.
 >             ,spellBooks = defaultSpellBookValue
 >             ,imaginaryPieces = []
 >             ,crimesAgainstNature = []
+>             ,cursorPosition = C.x .=. 0 .*. C.y .=. 0 .*. emptyRecord
+>             ,wizardDisplayInfo = map (\(n,s,c) -> Wd.wizard_name .=. n
+>                                                   .*. Wd.default_sprite .=. s
+>                                                   .*. Wd.colour .=. c
+>                                                   .*. emptyRecord)
+>                                      [("Buddha", "wizard0", "blue")
+>                                      ,("Kong Fuzi", "wizard1", "purple")
+>                                      ,("Laozi", "wizard2", "cyan")
+>                                      ,("Moshe", "wizard3", "yellow")
+>                                      ,("Muhammad", "wizard4", "green")
+>                                      ,("Shiva", "wizard5", "red")
+>                                      ,("Yeshua", "wizard6", "white")
+>                                      ,("Zarathushthra", "wizard7", "orange")]
 >             }
 
 > setupGame :: IConnection conn => Database -> conn -> GameState -> IO ()
-> setupGame db conn gs = withConstraintsDisabled conn $ do
+> setupGame db conn gs = withConstraintsDisabled conn $ transaction db $ do
 >   setRelvarT db board_size $ boardSize gs
 >   setRelvarT db world_alignment_table $ worldAlignment gs
 >   setRelvarT db turn_number_table $ turnNumber gs
->   setRelvarT db Cw.current_wizard $ currentWizard gs
->   setRelvarT db turn_phase_table $ turnPhase gs
 >   setRelvar db wizards $ wezards gs
+>   setRelvarT db Cw.current_wizard_table $ currentWizard gs
+>   setRelvarT db turn_phase_table $ turnPhase gs
 >   setRelvar db pieces $ peeces gs
 >   setRelvar db Sb.spell_books $ spellBooks gs
 >   setRelvar db I.imaginary_pieces $ imaginaryPieces gs
 >   setRelvar db Cr.crimes_against_nature $ crimesAgainstNature gs
+>   setRelvarT db C.cursor_position $ cursorPosition gs
+>   setRelvar db Wd.wizard_display_info $ wizardDisplayInfo gs
 
 > setRelvarT :: (RecordLabels er ls,
 >               HLabelSet ls,

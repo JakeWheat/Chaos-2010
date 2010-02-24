@@ -23,6 +23,7 @@ Test utilities for reading and setting pieces.
 > import Database.HaskellDB
 > import Data.List
 > import Test.HUnit
+> import Database.HDBC (IConnection)
 
 > import Games.Chaos2010.Tests.SetupGameState
 
@@ -244,6 +245,24 @@ on each square
 >               (\(k,x,y) ->
 >                    let ps = safeLookup "board diagram parse" k key
 >                    in map (\p -> (p,x,y)) ps)
+
+> type NewBoardDescription = ([Wizards_v]
+>                            ,[Pieces_v]
+>                            ,[Imaginary_pieces_v]
+>                            ,[Crimes_against_nature_v])
+
+> toNewBoardDescription :: BoardDiagram -> NewBoardDescription
+> toNewBoardDescription (diagram, key) = undefined
+
+> newSetupGame :: IConnection conn => Database -> conn -> BoardDiagram -> IO ()
+> newSetupGame db conn bd = do
+>   let (w,p,i,c) = toNewBoardDescription bd
+>   setupGame db conn $ defaultGameState {wezards = w
+>                                        ,peeces = p
+>                                        ,imaginaryPieces = i
+>                                        ,crimesAgainstNature = c
+>                                        }
+
 
 now the code to read the board from the database and get it in the same format:
 
