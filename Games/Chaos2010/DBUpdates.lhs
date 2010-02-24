@@ -18,6 +18,7 @@
 >     ,killTopPieceAt
 >     ,setupTestBoard
 >     ,withConstraintsDisabled
+>     ,nextPhaseChooseIf
 >     --,disableConstraints
 >     --,enableConstraints
 >     ) where
@@ -150,7 +151,15 @@
 >   --runSql conn "update disable_spreading_table\n\
 >   --           \set disable_spreading = true;" []
 
+> nextPhaseChooseIf :: IConnection conn => conn -> Bool -> IO ()
+> nextPhaseChooseIf conn c = do
+>   withTransaction conn $ \cn -> do
+>     when c $ callSpNoCommit cn "action_choose_disbelieve_spell" []
+>     callSpNoCommit cn "action_next_phase" []
+>     --callSpNoCommit cn "action_key_pressed" ["space"]
 
+> nextPhase :: IConnection conn => conn -> IO ()
+> nextPhase conn = callSp conn "action_next_phase" []
 
 > rollback :: IConnection conn => conn -> IO ()
 > rollback conn = run conn "rollback" [] >> return ()
@@ -158,10 +167,16 @@
 
 > callSp :: IConnection conn => conn -> String -> [String] -> IO ()
 > callSp conn spName args = do
+>   callSpNoCommit conn spName args
+>   commit conn
+
+> callSpNoCommit :: IConnection conn => conn -> String -> [String] -> IO ()
+> callSpNoCommit conn spName args = do
 >   let qs = intersperse ',' $ replicate (length args) '?'
 >       sqlString = "select " ++ spName ++ "(" ++ qs ++ ")"
 >   _ <- run conn sqlString $ map toSql args
->   commit conn
+>   return ()
+
 
 > {-disableConstraints :: IConnection conn => conn -> IO ()
 > disableConstraints conn = callSp conn "disable_all_constraints" []

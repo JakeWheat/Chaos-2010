@@ -8,6 +8,7 @@
 
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
+> import Games.Chaos2010.DBUpdates
 > import Games.Chaos2010.Utils
 > import Games.Chaos2010.Tests.SetupGameState
 
@@ -27,19 +28,16 @@ Just run through the choose, cast and move phases for each wizard
 twice, check the turn_phase and current_wizard each time
 
 > testNextPhase :: IConnection conn => Database -> conn -> Test.Framework.Test
-> testNextPhase db = tctor "testNextPhase" $ \conn -> do
+> testNextPhase db = tctor "testNextPhase1" $ \conn -> do
 >   setupGame db conn defaultGameState
->   forM_ ["choose","cast","move","choose","cast","move"]
->         (\phase ->
->              forM_ [0..7] (\i -> do
->                assertCurrentWizardPhase db (wizardNames !! i) phase
->                --so we don't skip the cast phase, make sure
->                -- each wizard has a spell chosen, use disbelieve
->                --cos wizards always have this spell available
->                whenA1 (queryTurnPhase db)
->                       (=="choose")
->                       (sendKeyPress conn "Q")
->                sendKeyPress conn "space"))
+>   testPhases db conn wizardNames
+
+> testPhases db conn wizs =
+>   forM_ ["choose","cast","move","choose","cast","move"] $ \phase ->
+>   forM_ wizs $ \wiz -> do
+>   assertCurrentWizardPhase db wiz phase
+>   nextPhaseChooseIf conn (phase == "choose")
+
 
 test next phase with some wizards not choosing spells
 
@@ -49,33 +47,17 @@ to do all variations is 256 tests
 
 > testNextPhaseWizardDead :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testNextPhaseWizardDead db = tctor "testNextPhaseWizardDead" $ \conn ->
->   forM_ [0..7] (\j -> do
->     setupGame db conn (removeWizardN j defaultGameState)
+>   forM_ [0..7] $ \j -> do
+>     setupGame db conn $ removeWizardN j defaultGameState
 >     let theseWizards = dropItemN wizardNames j
->     forM_ ["choose","cast","move","choose","cast","move"] (\phase ->
->       forM_ [0..6] (\i -> do
->         assertCurrentWizardPhase db (theseWizards !! i) phase
->         whenA1 (queryTurnPhase db)
->                (=="choose")
->                (sendKeyPress conn "Q")
->         sendKeyPress conn "space")))
+>     testPhases db conn theseWizards
 
 > testNextPhaseTwoWizardsDead :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testNextPhaseTwoWizardsDead db = tctor "testNextPhaseTwoWizardsDead" $ \conn ->
->   forM_ [0..7] (\j ->
->     forM_ [(j + 1)..7] (\k -> do
->       setupGame db conn (removeWizardN j $ removeWizardN k defaultGameState)
+>   forM_ [0..7] $ \j -> forM_ [(j + 1)..7] $ \k -> do
+>       setupGame db conn $ removeWizardN j $ removeWizardN k defaultGameState
 >       let theseWizards = dropItemN (dropItemN wizardNames k) j
->       forM_ ["choose","cast","move","choose","cast","move"] (\phase ->
->         forM_ [0..5] (\i -> do
->           assertCurrentWizardPhase db (theseWizards !! i) phase
->           --so we don't skip the cast phase, make sure
->           -- each wizard has a spell chosen, use disbelieve
->           --cos wizards always have this spell available
->           whenA1 (queryTurnPhase db)
->                  (=="choose")
->                  (sendKeyPress conn "Q")
->           sendKeyPress conn "space"))))
+>       testPhases db conn theseWizards
 
 
 check wizards dying during move when it is their turn - this can

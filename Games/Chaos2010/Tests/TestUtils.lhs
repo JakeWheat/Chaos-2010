@@ -264,11 +264,11 @@ keep running next_phase until we get to the cast phase
 >   let t = head rel
 >   return (t # turn_phase)
 
-> queryCurrentWizard :: Database -> IO String
+> {-queryCurrentWizard :: Database -> IO String
 > queryCurrentWizard db = do
 >   rel <- query db $ table current_wizard_table
 >   let t = head rel
->   return (t # current_wizard)
+>   return (t # current_wizard)-}
 
 > queryTurnSequenceInfo :: Database
 >                       -> IO
@@ -320,10 +320,25 @@ m pieces moved
 
 > assertCurrentWizardPhase :: Database -> String -> String -> IO()
 > assertCurrentWizardPhase db wiz phase = do
->   wiz' <- queryCurrentWizard db
->   phase' <- queryTurnPhase db
->   assertEqual "current wizard" wiz wiz'
->   assertEqual "current phase" phase' phase
+>   r <- queryTurnSequenceInfo db
+>   assertEqual "" (makeCwTp $ head r)
+>                  (current_wizard .=. wiz
+>                   .*. turn_phase .=. phase
+>                   .*. emptyRecord)
+
+> makeCwTp :: (HasField Turn_phase r v1, HasField Current_wizard r v) =>
+>             r -> Record (HCons
+>                          (LVPair Current_wizard v)
+>                          (HCons (LVPair Turn_phase v1) HNil))
+> makeCwTp hl =
+>     current_wizard .=. (hl # current_wizard)
+>      .*. turn_phase .=. (hl # turn_phase)
+>      .*. emptyRecord
+
+ > projectT (l:ls) hl =
+ >     (l .=. (hl # l)) .*. projectT ls hl
+ > projectT [] hl = undefined --emptyRecord
+
 
 > assertPieceDoneSelection :: Database -> String -> String -> IO ()
 > assertPieceDoneSelection db ptype allegiance = do
