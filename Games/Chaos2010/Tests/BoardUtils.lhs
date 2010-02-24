@@ -24,6 +24,7 @@ Test utilities for reading and setting pieces.
 > import Data.List
 > import Test.HUnit
 
+> import Games.Chaos2010.Tests.SetupGameState
 
 > import qualified Games.Chaos2010.Database.Current_wizard_spell_squares as Cwss
 > import qualified Games.Chaos2010.Database.Piece_details as Pd
