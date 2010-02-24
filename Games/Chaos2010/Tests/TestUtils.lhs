@@ -38,10 +38,10 @@
 > import Test.Framework
 > import Test.Framework.Providers.HUnit
 > import Control.Monad
-> import Control.Exception
+> --import Control.Exception
 > import Data.List
 
-> import Database.HDBC (IConnection)
+> import Database.HDBC (IConnection, withTransaction)
 > import Database.HaskellDB
 
 > import Games.Chaos2010.DBUpdates hiding (rigActionSuccess)
@@ -58,7 +58,8 @@
 >       -> (conn -> IO ())
 >       -> conn
 >       -> Test.Framework.Test
-> tctor l f conn = testCase l $ rollbackOnError conn $ U.time $ f conn
+> tctor l f conn =
+>   testCase l $ withTransaction conn $ \c -> U.time $ f c
 
 
 > newGameReadyToCast :: IConnection conn => Database -> conn -> String -> IO ()
@@ -106,7 +107,7 @@ todo: add all relvars which aren't readonly to this
 
 > goSquare :: IConnection conn => Database -> conn -> Int -> Int -> IO ()
 > goSquare db conn x y = do
->   setCursorPos db x y
+>   setCursorPos db conn x y
 >   sendKeyPress conn "Return"
 
 == some helper functions
@@ -175,7 +176,7 @@ setup a particular game before running some tests
 >     {-t <- selectTuple conn "select x,y from pieces where ptype='wizard'\n\
 >                      \and allegiance=?" [name]
 >     unless (read (lk "x" t) == x && read (lk "y" t) == y)-}
->            setWizardPosition db name x y)
+>            setWizardPosition db conn name x y)
 >   -- add extra pieces
 >   forM_ nonWizardItems $ \(PieceDescription ptype allegiance im un, x, y) -> do
 >     if allegiance == "dead"
@@ -225,10 +226,10 @@ keep running next_phase until we get to the cast phase
 >          sendKeyPress conn "space"
 >          skipToPhase db conn phase
 
-> rollbackOnError :: IConnection conn => conn -> IO c -> IO c
+> {-rollbackOnError :: IConnection conn => conn -> IO c -> IO c
 > rollbackOnError conn =
 >     bracketOnError (return())
->                    (const $ rollback conn) . const
+>                    (const $ rollback conn) . const-}
 
 > startNewGameReadyToMove :: IConnection conn => Database -> conn -> BoardDiagram -> IO ()
 > startNewGameReadyToMove db conn board = do
@@ -240,7 +241,7 @@ keep running next_phase until we get to the cast phase
 > startNewGameReadyToMoveNoSpread :: IConnection conn => Database -> conn -> BoardDiagram -> IO ()
 > startNewGameReadyToMoveNoSpread db conn board = do
 >   startNewGame db conn
->   disableSpreading db
+>   disableSpreading db conn
 >   setupBoard db conn board
 >   rigActionSuccess conn "disappear" False
 >   skipToPhase db conn "move"
@@ -372,5 +373,5 @@ understand
 > startNewGame :: IConnection conn => Database -> conn -> IO ()
 > startNewGame db conn = do
 >   resetNewGameWidgetState conn
->   setAllHuman db
+>   setAllHuman db conn
 >   newGame conn

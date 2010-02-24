@@ -50,8 +50,7 @@ magic tree or castle; add test for these.
 
 > testPiecesOnTop :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testPiecesOnTop db = tctor "testPiecesOnTop" $ \conn -> do
->   startNewGame db conn
->   setupBoard db conn ("\n\
+>   newSetupGame db conn ("\n\
 >                   \b      c      d\n\
 >                   \               \n\
 >                   \ aghi          \n\
@@ -116,8 +115,6 @@ the cursor to a given position, also check the moveto code
 >   --make sure there is a game running:
 >   --startNewGame db conn
 >   setupGame db conn defaultGameState
->   --reset the cursor position
->   setCursorPos db 0 0
 >   let moveAndCheck m xp yp = do
 >         sendKeyPress conn $ cursorShorthand m
 >         assertCursorPosition db xp yp
@@ -195,7 +192,7 @@ move the cursor to x,y, using key presses
 > moveCursorToK db conn xp yp = do
 >     --diagonals first then straight moves
 >     (cx,cy) <- queryCursorPosition db
->     -- putStrLn $ "move " ++ (show (cx,cy)) ++ " to " ++ (show (x,y))
+>     --putStrLn $ "move " ++ (show (cx,cy)) ++ " to " ++ (show (x,y))
 >     unless ((cx,cy) == (xp,yp)) $ do
 >         let (dx,dy) = (xp - cx, yp - cy)
 >             diagonalMoves = minimum [abs dx, abs dy]

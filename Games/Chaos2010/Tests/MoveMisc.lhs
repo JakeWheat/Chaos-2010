@@ -438,7 +438,7 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8", pl)
->   addMagicSword db "Buddha"
+>   addMagicSword db conn "Buddha"
 >   --printWiz
 >   --querySelectedPiece db >>= print
 >   goSquare db conn 0 0

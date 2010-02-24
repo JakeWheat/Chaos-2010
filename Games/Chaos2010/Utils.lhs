@@ -65,7 +65,7 @@
 >                   -> IO ()
 > assertRelvarValue db t v = do
 >   r <- query db t
->   assertEqual "" r v
+>   assertEqual "" v r
 
 > deRec :: Record t -> t
 > deRec (Record a) = a

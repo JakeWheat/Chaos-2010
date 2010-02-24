@@ -18,6 +18,8 @@
 >     ,killTopPieceAt
 >     ,setupTestBoard
 >     ,withConstraintsDisabled
+>     --,disableConstraints
+>     --,enableConstraints
 >     ) where
 > import Database.HDBC hiding (rollback)
 > import Database.HaskellDB
@@ -36,47 +38,45 @@
 > setupTestBoard conn t =
 >     callSp conn "action_setup_test_board" [t]
 
-> updateNewGameState :: Database -> Int -> String -> IO ()
-> updateNewGameState db l s =
+> updateNewGameState :: IConnection conn => Database -> conn -> Int -> String -> IO ()
+> updateNewGameState db conn l s =
 >   transaction db $
 >     update db Ng.new_game_widget_state
 >       (\r -> r # Ng.line .==. constant l)
 >       (\_ -> Ng.state .=. constant s .*. emptyRecord)
 
- >     runSql conn "update new_game_widget_state\n\
- >                 \set state =? where line =?" [s, show l]
+>   --  runSql conn "update new_game_widget_state\n\
+>   --              \set state =? where line =?" [s, show l]
 
 
 > resetNewGameWidgetState :: IConnection conn => conn -> IO ()
 > resetNewGameWidgetState conn = callSp conn "action_reset_new_game_widget_state" []
 
-> setAllHuman :: Database -> IO ()
-> setAllHuman db =
+> setAllHuman :: IConnection conn => Database -> conn -> IO ()
+> setAllHuman db conn =
 >   transaction db $
 >     update db Ng.new_game_widget_state
 >       (\_ -> constant True)
 >       (\_ -> Ng.state .=. constant "human" .*. emptyRecord)
-
-runSql conn "update new_game_widget_state set state='human';" []
+>   --runSql conn "update new_game_widget_state set state='human';" []
 
 > newGame :: IConnection conn => conn -> IO ()
 > newGame conn = callSp conn "action_client_new_game_using_new_game_widget_state" []
 
-> setCursorPos :: Database -> Int -> Int -> IO ()
-> setCursorPos db xp yp =
+> setCursorPos :: IConnection conn => Database -> conn -> Int -> Int -> IO ()
+> setCursorPos db conn xp yp =
 >   transaction db $
 >     update db C.cursor_position
 >       (\_ -> constant True)
 >       (\_ -> C.x .=. constant xp .*. C.y .=. constant yp .*. emptyRecord)
-
-   runSql conn "update cursor_position set x=?, y=?" [show x,show y]
+>   --runSql conn "update cursor_position set x=?, y=?" [show xp,show yp]
 
 > killWizard :: IConnection conn => conn -> String -> IO ()
 > killWizard conn wiz =
 >       callSp conn "kill_wizard" [wiz]
 
-> setWizardPosition :: Database -> String -> Int -> Int -> IO ()
-> setWizardPosition db allegiance xp yp =
+> setWizardPosition :: IConnection conn => Database -> conn -> String -> Int -> Int -> IO ()
+> setWizardPosition db conn allegiance xp yp =
 >   transaction db $
 >     update db P.pieces
 >       (\r ->  (r # P.ptype .==. constant "wizard")
@@ -84,10 +84,9 @@ runSql conn "update new_game_widget_state set state='human';" []
 >       (\_ -> P.x .=. constant xp
 >              .*. P.y .=. constant yp
 >              .*. emptyRecord)
-
-            runSql conn "update pieces set x = ?, y = ?\n\
-                         \where ptype='wizard' and allegiance=?"
-                    [show x, show y, allegiance]
+>            --runSql conn "update pieces set x = ?, y = ?\n\
+>            --             \where ptype='wizard' and allegiance=?"
+>            --        [show xp, show yp, allegiance]
 
 > createCorpse :: IConnection conn => conn -> String -> Int -> Int -> Bool -> IO ()
 > createCorpse conn ptype x y im =
@@ -111,12 +110,13 @@ runSql conn "update new_game_widget_state set state='human';" []
 > rigActionSuccess conn override setting =
 >   callSp conn "action_rig_action_success" [override, show setting]
 
-> addMagicSword :: Database -> String -> IO ()
-> addMagicSword db wiz = do
+> addMagicSword :: IConnection conn => Database -> conn -> String -> IO ()
+> addMagicSword db conn wiz = do
 >   transaction db $
 >     update db wizards
 >       (\r -> r # wizard_name .==. constant wiz)
 >       (\_ -> magic_sword .=. constant True .*. emptyRecord)
+>   --runSql conn "update wizards set magic_sword = true where wizard_name = ?" [wiz]
 
 > killTopPieceAt :: IConnection conn => conn -> Int -> Int -> IO ()
 > killTopPieceAt conn x y =
@@ -141,16 +141,14 @@ runSql conn "update new_game_widget_state set state='human';" []
 > sendKeyPress conn k = do
 >   callSp conn "action_key_pressed" [k]
 
-> disableSpreading :: Database -> IO ()
-> disableSpreading db =
+> disableSpreading :: IConnection conn => Database -> conn -> IO ()
+> disableSpreading db conn =
 >   transaction db $
 >     update db D.disable_spreading_table
 >       (\_ -> constant True)
 >       (\_ -> D.disable_spreading .=. constant True .*. emptyRecord)
-
-
-   runSql conn "update disable_spreading_table\n\
-               \set disable_spreading = true;" []
+>   --runSql conn "update disable_spreading_table\n\
+>   --           \set disable_spreading = true;" []
 
 
 
@@ -165,11 +163,23 @@ runSql conn "update new_game_widget_state set state='human';" []
 >   _ <- run conn sqlString $ map toSql args
 >   commit conn
 
+> {-disableConstraints :: IConnection conn => conn -> IO ()
+> disableConstraints conn = callSp conn "disable_all_constraints" []
+
+> enableConstraints :: IConnection conn => conn -> IO ()
+> enableConstraints conn = callSp conn "enable_all_constraints" []-}
+
 > withConstraintsDisabled :: IConnection conn => conn -> IO () -> IO ()
 > withConstraintsDisabled conn f =
 >   bracket (callSp conn "disable_all_constraints" [])
 >           (const $ callSp conn "enable_all_constraints" [])
 >           (const f)
+
+
+> {-runSql :: IConnection conn => conn -> String -> [String] -> IO ()
+> runSql conn sql args = do
+>   _ <- run conn sql $ map toSql args
+>   commit conn-}
 
 
 > {-selectRelation :: (IConnection conn) =>

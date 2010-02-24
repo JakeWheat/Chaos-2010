@@ -9,6 +9,7 @@
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.Utils
+> import Games.Chaos2010.Tests.SetupGameState
 
 > phases :: IConnection conn => Database -> conn -> Test.Framework.Test
 > phases db conn = testGroup "phases" $
@@ -27,7 +28,7 @@ twice, check the turn_phase and current_wizard each time
 
 > testNextPhase :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testNextPhase db = tctor "testNextPhase" $ \conn -> do
->   startNewGame db conn
+>   setupGame db conn defaultGameState
 >   forM_ ["choose","cast","move","choose","cast","move"]
 >         (\phase ->
 >              forM_ [0..7] (\i -> do
@@ -49,9 +50,7 @@ to do all variations is 256 tests
 > testNextPhaseWizardDead :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testNextPhaseWizardDead db = tctor "testNextPhaseWizardDead" $ \conn ->
 >   forM_ [0..7] (\j -> do
->     startNewGame db conn
->     --kill wizard
->     killWizard conn $ wizardNames !! j
+>     setupGame db conn (removeWizardN j defaultGameState)
 >     let theseWizards = dropItemN wizardNames j
 >     forM_ ["choose","cast","move","choose","cast","move"] (\phase ->
 >       forM_ [0..6] (\i -> do
@@ -65,10 +64,7 @@ to do all variations is 256 tests
 > testNextPhaseTwoWizardsDead db = tctor "testNextPhaseTwoWizardsDead" $ \conn ->
 >   forM_ [0..7] (\j ->
 >     forM_ [(j + 1)..7] (\k -> do
->       startNewGame db conn
->       --kill wizards
->       killWizard conn $ wizardNames !! j
->       killWizard conn $ wizardNames !! k
+>       setupGame db conn (removeWizardN j $ removeWizardN k defaultGameState)
 >       let theseWizards = dropItemN (dropItemN wizardNames k) j
 >       forM_ ["choose","cast","move","choose","cast","move"] (\phase ->
 >         forM_ [0..5] (\i -> do

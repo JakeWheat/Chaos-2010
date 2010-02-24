@@ -13,11 +13,17 @@ relevant tables. Use defaults to make this as concise as possible.
 >     ,Pieces_v
 >     ,Imaginary_pieces_v
 >     ,Crimes_against_nature_v
+>     ,defaultWizardList
+>     ,makePiece
+>     ,makeImag
+>     ,makeCrime
+>     ,removeWizardN
 >     ) where
 
 > --import Test.HUnit
 > --import Test.Framework
 > --import Control.Monad
+> --import Debug.Trace
 
 > import Database.HaskellDB
 > import Database.HaskellDB.Query
@@ -40,6 +46,16 @@ relevant tables. Use defaults to make this as concise as possible.
 > import qualified Games.Chaos2010.Database.Spell_books as Sb
 > import qualified Games.Chaos2010.Database.Cursor_position as C
 > import qualified Games.Chaos2010.Database.Wizard_display_info as Wd
+> import Games.Chaos2010.Database.Game_completed_table
+
+> import Games.Chaos2010.Database.Cast_alignment_table
+> import Games.Chaos2010.Database.Remaining_walk_table
+> import qualified Games.Chaos2010.Database.Selected_piece as Sp
+> import qualified Games.Chaos2010.Database.Pieces_moved as Pm
+> import Games.Chaos2010.Database.Spell_parts_to_cast_table
+> import qualified Games.Chaos2010.Database.Wizard_spell_choices_mr as Wc
+> import qualified Games.Chaos2010.Database.Action_history_mr as Ah
+> import Games.Chaos2010.Database.Cast_success_checked_table
 
 tables to possibly set:
 
@@ -63,14 +79,15 @@ pieces  wizards                    | Chaos.Server.Wizards
 ?       selected_piece             | Chaos.Server.TurnSequence
 ?       remaining_walk_table       | Chaos.Server.TurnSequence
 
+?       wizard_display_info        | Chaos.Client.WizardDisplayInfo
+single  cursor_position            | Chaos.Client.BoardWidget
+
 probably don't care about: (* useful for savegames)
 
  test_action_overrides      | Chaos.Server.Actions.TestSupport
 * game_completed_table       | Chaos.Server.TurnSequence
  disable_spreading_table    | Chaos.Server.Actions.Autononmous
 * action_history_mr          | Chaos.Server.Actions.History
-* wizard_display_info        | Chaos.Client.WizardDisplayInfo
-* cursor_position            | Chaos.Client.BoardWidget
 * piece_starting_ticks       | Chaos.Client.BoardWidget
  spell_book_show_all_table  | Chaos.Client.SpellBookWidget
  new_game_widget_state      | Chaos.Client.NewGameWidget
@@ -131,6 +148,29 @@ triggers.
 >             (HCons (LVPair Cr.Allegiance String)
 >              (HCons (LVPair Cr.Tag Int) HNil)))
 
+> type Game_completed_table_v =
+>     Record (HCons (LVPair Game_completed Bool) HNil)
+
+
+> makePiece :: String -> String -> Int -> Int -> Int -> Pieces_v
+> makePiece p a t xp yp = ptype .=. p
+>                         .*. allegiance .=. a
+>                         .*. tag .=. t
+>                         .*. x .=. xp
+>                         .*. y .=. yp
+>                         .*. emptyRecord
+> makeImag :: String -> String -> Int -> Imaginary_pieces_v
+> makeImag p a t = I.ptype .=. p
+>                  .*. I.allegiance .=. a
+>                  .*. I.tag .=. t
+>                  .*. emptyRecord
+> makeCrime :: String -> String -> Int -> Crimes_against_nature_v
+> makeCrime p a t = Cr.ptype .=. p
+>                   .*. Cr.allegiance .=. a
+>                   .*. Cr.tag .=. t
+>                   .*. emptyRecord
+
+
 > type Cursor_position_v =
 >     Record (HCons (LVPair C.X Int)
 >             (HCons (LVPair C.Y Int) HNil))
@@ -155,7 +195,9 @@ triggers.
 >     ,crimesAgainstNature :: [Crimes_against_nature_v]
 >     ,cursorPosition :: Cursor_position_v
 >     ,wizardDisplayInfo :: [Wizard_display_info_v]
+>     ,gameCompleted :: [Game_completed_table_v]
 >     }
+>                  deriving Show
 
 > defaultGameState :: GameState
 > defaultGameState =
@@ -170,27 +212,7 @@ triggers.
 >                            .*. emptyRecord)
 >             ,turnPhase = (turn_phase .=. "choose"
 >                            .*. emptyRecord)
->             ,wezards = let defaults n p = wizard_name .=. n
->                                           .*. shadow_form .=. False
->                                           .*. magic_sword .=. False
->                                           .*. magic_knife .=. False
->                                           .*. magic_shield .=. False
->                                           .*. magic_wings .=. False
->                                           .*. magic_armour .=. False
->                                           .*. magic_bow .=. False
->                                           .*. computer_controlled .=. False
->                                           .*. original_place .=. p
->                                           .*. expired .=. False
->                                           .*. emptyRecord
->                        in map (uncurry defaults) $ zip
->                               ["Buddha"
->                               ,"Kong Fuzi"
->                               ,"Laozi"
->                               ,"Moshe"
->                               ,"Muhammad"
->                               ,"Shiva"
->                               ,"Yeshua"
->                               ,"Zarathushthra"] [0..]
+>             ,wezards = defaultWizardList
 >             ,peeces = map (\(p,a,t,xp,yp) ->
 >                                ptype .=. p
 >                            .*. allegiance .=. a
@@ -222,22 +244,32 @@ triggers.
 >                                      ,("Shiva", "wizard5", "red")
 >                                      ,("Yeshua", "wizard6", "white")
 >                                      ,("Zarathushthra", "wizard7", "orange")]
+>             ,gameCompleted = []
 >             }
 
 > setupGame :: IConnection conn => Database -> conn -> GameState -> IO ()
 > setupGame db conn gs = withConstraintsDisabled conn $ transaction db $ do
->   setRelvarT db board_size $ boardSize gs
->   setRelvarT db world_alignment_table $ worldAlignment gs
->   setRelvarT db turn_number_table $ turnNumber gs
->   setRelvar db wizards $ wezards gs
->   setRelvarT db Cw.current_wizard_table $ currentWizard gs
->   setRelvarT db turn_phase_table $ turnPhase gs
->   setRelvar db pieces $ peeces gs
->   setRelvar db Sb.spell_books $ spellBooks gs
->   setRelvar db I.imaginary_pieces $ imaginaryPieces gs
->   setRelvar db Cr.crimes_against_nature $ crimesAgainstNature gs
->   setRelvarT db C.cursor_position $ cursorPosition gs
->   setRelvar db Wd.wizard_display_info $ wizardDisplayInfo gs
+>     setRelvarT db board_size $ boardSize gs
+>     setRelvarT db world_alignment_table $ worldAlignment gs
+>     setRelvarT db turn_number_table $ turnNumber gs
+>     setRelvar db wizards $ wezards gs
+>     setRelvarT db Cw.current_wizard_table $ currentWizard gs
+>     setRelvarT db turn_phase_table $ turnPhase gs
+>     setRelvar db pieces $ peeces gs
+>     setRelvar db Sb.spell_books $ spellBooks gs
+>     setRelvar db I.imaginary_pieces $ imaginaryPieces gs
+>     setRelvar db Cr.crimes_against_nature $ crimesAgainstNature gs
+>     setRelvarT db C.cursor_position $ cursorPosition gs
+>     setRelvar db Wd.wizard_display_info $ wizardDisplayInfo gs
+>     setRelvar db game_completed_table $ gameCompleted gs
+>     clearTable db cast_alignment_table
+>     clearTable db remaining_walk_table
+>     clearTable db Sp.selected_piece
+>     clearTable db Pm.pieces_moved
+>     clearTable db spell_parts_to_cast_table
+>     clearTable db Wc.wizard_spell_choices_mr
+>     clearTable db Ah.action_history_mr
+>     clearTable db cast_success_checked_table
 
 > setRelvarT :: (RecordLabels er ls,
 >               HLabelSet ls,
@@ -268,6 +300,29 @@ triggers.
 > clearTable :: Database -> Table r -> IO ()
 > clearTable db t =
 >    delete db t (const $ constant True)
+
+> defaultWizardList :: [Wizards_v]
+> defaultWizardList = let defaults n p = wizard_name .=. n
+>                                           .*. shadow_form .=. False
+>                                           .*. magic_sword .=. False
+>                                           .*. magic_knife .=. False
+>                                           .*. magic_shield .=. False
+>                                           .*. magic_wings .=. False
+>                                           .*. magic_armour .=. False
+>                                           .*. magic_bow .=. False
+>                                           .*. computer_controlled .=. False
+>                                           .*. original_place .=. p
+>                                           .*. expired .=. False
+>                                           .*. emptyRecord
+>                     in map (uncurry defaults) $ flip zip [0..]
+>                               ["Buddha"
+>                               ,"Kong Fuzi"
+>                               ,"Laozi"
+>                               ,"Moshe"
+>                               ,"Muhammad"
+>                               ,"Shiva"
+>                               ,"Yeshua"
+>                               ,"Zarathushthra"]
 
 > defaultSpellBookValue :: [Spell_books_v]
 > defaultSpellBookValue =
@@ -437,3 +492,33 @@ triggers.
 >     ,(115520, "Zarathushthra", "shadow_form")
 >     ,(115521, "Zarathushthra", "shadow_form")]
 
+
+> removeWizardN :: Int -> GameState -> GameState
+> removeWizardN n gs =
+>     let wizardName = (head (restrictTable (wezards gs)
+>                                    (\r -> r # original_place == n)))
+>                        # wizard_name
+>         a = gs
+>           {wezards = updateTable (wezards gs)
+>                                  (\r -> r # original_place == n)
+>                                  (\r -> expired .=. True .@. r)
+>           ,peeces = restrictTable (peeces gs)
+>                                   (\r -> r # allegiance /= wizardName)
+>           ,spellBooks = restrictTable (spellBooks gs)
+>                                       (\r -> r # Sb.wizard_name /= wizardName)
+>           ,wizardDisplayInfo = restrictTable (wizardDisplayInfo gs)
+>                                              (\r -> r # Wd.wizard_name /= wizardName)
+>           }
+>     in a
+>           {currentWizard = let liveWizards = restrictTable (wezards a)
+>                                                            (\r -> r # expired == False)
+>                                f = (head liveWizards) # wizard_name
+>                            in Cw.current_wizard .=. f
+>                               .*. emptyRecord
+>           }
+>   where
+>     updateTable t w u =
+>         flip map t $ \r -> if w r
+>                            then u r
+>                            else r
+>     restrictTable t w = flip filter t $ \r -> w r

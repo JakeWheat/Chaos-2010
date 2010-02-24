@@ -17,6 +17,7 @@ Test utilities for reading and setting pieces.
 >     ,makePD
 >     ,liftPl
 >     ,assertTopPiecesEquals
+>     ,newSetupGame
 >     ) where
 
 > import Data.Maybe
@@ -252,7 +253,25 @@ on each square
 >                            ,[Crimes_against_nature_v])
 
 > toNewBoardDescription :: BoardDiagram -> NewBoardDescription
-> toNewBoardDescription (diagram, key) = undefined
+> toNewBoardDescription bd =
+>     let bd1 = toBoardDescription bd
+>         items = map (\(((PieceDescription p a i u),xp,yp),t) ->
+>                       (p,a,t,i,u,xp,yp)) $ zip bd1 [0..]
+>         pieces = flip map items $ \(p,a,t,_,_,xp,yp)
+>                                 -> makePiece p a t xp yp
+>         im_pieces = flip map (filter isImag items)
+>                          $ \(p,a,t,_,_,_,_)
+>                              -> makeImag p a t
+>         crimes = flip map (filter isCrime items)
+>                       $ \(p,a,t,_,_,_,_)
+>                           -> makeCrime p a t
+>     in (defaultWizardList -- todo: fix if needed
+>        ,pieces
+>        ,im_pieces
+>        ,crimes)
+>     where
+>       isImag (_,_,_,i,_,_,_) = i == Imaginary
+>       isCrime (_,_,_,_,u,_,_) = u== Undead
 
 > newSetupGame :: IConnection conn => Database -> conn -> BoardDiagram -> IO ()
 > newSetupGame db conn bd = do
