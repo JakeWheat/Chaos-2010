@@ -21,6 +21,13 @@ numty relational algebra thing, needs work
 
 > union hls hls1 = hls ++ hls1
 
+> update u w hls = map u1 hls
+>     where
+>       u1 = \r -> if w r
+>                  then u r
+>                  else r
+
+
  > join hls hls1 = -- check for compatibility
  >                 -- sort on common columns
  >                 -- do the join

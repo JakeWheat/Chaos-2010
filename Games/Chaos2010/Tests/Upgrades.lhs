@@ -10,7 +10,6 @@
 > import Database.HaskellDB hiding (insert, update)
 > import Database.HDBC (IConnection)
 
-> import qualified Games.Chaos2010.Tests.BoardUtils as B
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.Database.Pieces_mr
 > import Games.Chaos2010.Tests.SetupGameState

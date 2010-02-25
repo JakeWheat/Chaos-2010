@@ -20,16 +20,15 @@
 > import Test.HUnit
 > import Test.Framework
 > import Test.Framework.Providers.HUnit
-> import Control.Monad
+> --import Control.Monad
 > --import Control.Exception
-> import Data.List
+> --import Data.List
 
 > import Database.HDBC (IConnection, withTransaction)
 > import Database.HaskellDB
 
 > import Games.Chaos2010.DBUpdates hiding (rigActionSuccess)
-> import qualified Games.Chaos2010.DBUpdates as DBu
-> import Games.Chaos2010.Tests.BoardUtils
+> --import qualified Games.Chaos2010.DBUpdates as DBu
 > import qualified Games.Chaos2010.Database.Selected_piece as Sp
 > import qualified Games.Chaos2010.Database.Pieces_moved as Pm
 > import Games.Chaos2010.Database.Turn_phase_table
@@ -174,7 +173,7 @@ m pieces moved
 create wrappers around the key press stuff to make the tests easier to
 understand
 
-> lookupChooseSpellKeys :: [([Char], [Char])]
+> {-lookupChooseSpellKeys :: [([Char], [Char])]
 > lookupChooseSpellKeys = [("goblin", "m")
 >                         ,("disbelieve", "Q")
 >                         ,("magic_wood", "G")
@@ -197,4 +196,4 @@ understand
 > keyChooseSpell :: String -> String
 > keyChooseSpell spellName = U.safeLookup
 >                              "get key for spell" spellName
->                              lookupChooseSpellKeys
+>                              lookupChooseSpellKeys-}

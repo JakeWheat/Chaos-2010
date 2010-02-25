@@ -4,20 +4,29 @@ Test utilities for reading and setting pieces.
 
 > {-# LANGUAGE TemplateHaskell,EmptyDataDecls,TypeSynonymInstances,DeriveDataTypeable#-}
 > module Games.Chaos2010.Tests.BoardUtils
->     (PieceDescription(..)
+>     (PieceDescription
+>     ,PieceDescriptionPos
 >     ,wizardPiecesList
 >     ,wizardNames
 >     ,parseBoardDiagram
 >     ,parseValidSquares
+>     ,BoardDiagram
+>     ,BoardDescription
+>     ,ptype
+>     ,allegiance
+>     ,imaginary
+>     ,undead
+>     ,x
+>     ,y
 >     {-,toBoardDescription
 >     ,PieceDescription(..)
 >     ,wizardNames
 >     ,assertValidSquaresEquals
 >     ,assertBoardEquals
 >     ,wizardPiecesList
->     ,makePD
+>     ,makePD-}
 >     ,liftPl
->     ,assertTopPiecesEquals
+>     {-,assertTopPiecesEquals
 >     ,newSetupGame
 >     ,newGameReadyToCast1-}
 >     ) where
@@ -37,8 +46,8 @@ Test utilities for reading and setting pieces.
 > import Games.Chaos2010.Utils
 > import Games.Chaos2010.HaskellDBUtils
 > import Games.Chaos2010.ThHdb
+> import Games.Chaos2010.Tests.TableValueTypes
 
-> parseBoardDiagram = undefined
 > parseValidSquares = undefined
 
 ================================================================================
@@ -171,12 +180,20 @@ out each test since most tests have all eight wizards remaining at the
 end
 
 
-> $(makeLabels ["Ptype", "Allegiance", "Imaginary", "Undead"])
+> $(makeLabels ["Ptype", "Allegiance", "Imaginary", "Undead", "X", "Y"])
 
 > type PieceDescription = $(makeRecord [("Ptype", "String")
 >                                      ,("Allegiance", "String")
 >                                      ,("Imaginary", "Bool")
 >                                      ,("Undead", "Bool")])
+
+> type PieceDescriptionPos = $(makeRecord [("Ptype", "String")
+>                                         ,("Allegiance", "String")
+>                                         ,("X", "Int")
+>                                         ,("Y", "Int")
+>                                         ,("Imaginary", "Bool")
+>                                         ,("Undead", "Bool")])
+
 
 The piece tag holds a bit of extra information about that piece to
 shorten the tests and avoid having to read out lots of tables when
@@ -228,6 +245,39 @@ The full board diagram is the diagram string plus the key
 
 > type BoardDiagram = (String, [KeyEntry])
 
+> parseBoardDiagram :: BoardDiagram -> ([PieceDescriptionPos]
+>                                      ,[String])
+
+> parseBoardDiagram (diagram, key) = (pds, wzs)
+>   where
+>     pds :: [PieceDescriptionPos]
+>     pds = concatMap expandKey keyPositionList
+>     wzs = filter (/= "dead") $ nub $ map (# allegiance) pds
+>     keyPositionList = parseDiagram diagram
+>     expandKey :: (Char,Int,Int) -> [PieceDescriptionPos]
+>     expandKey (k,xp,yp) = let ps = safeLookup "board diagram parse" k key
+>                           in flip map ps $ \p -> ptype .=. (p # ptype)
+>                                                  .*. allegiance .=. (p # allegiance)
+>                                                  .*. x .=. xp
+>                                                  .*. y .=. yp
+>                                                  .*. imaginary .=. (p # imaginary)
+>                                                  .*. undead .=. (p # undead)
+>                                                  .*. emptyRecord
+>   {-let keyPositionList = parseDiagram diagram
+>   in flip concatMap keyPositionList
+>               (\(k,x,y) ->
+>                    let ps = safeLookup "board diagram parse" k key
+>                    in map (\p -> (p,x,y)) ps)
+>   where
+>     piueces
+>     wz = 
+>     makeKeys 
+>     pd p a i u = ptype .=. p
+>                  .*. allegiance .=. a
+>                  .*. imaginary .=. i
+>                  .*. undead .=. u
+>                  .*. emptyRecord-}
+
 A board description is what we read out of the database and parse the
 board diagram to for comparison and loading into the database.
 
@@ -256,9 +306,9 @@ on each square
 > toBoardDescription (diagram, key) =
 >   let keyPositionList = parseDiagram diagram
 >   in flip concatMap keyPositionList
->               (\(k,x,y) ->
+>               (\(k,xp,yp) ->
 >                    let ps = safeLookup "board diagram parse" k key
->                    in map (\p -> (p,x,y)) ps)
+>                    in map (\p -> (p,xp,yp)) ps)
 
 > {-type NewBoardDescription = ([Wizards_v]
 >                            ,[Pieces_v]

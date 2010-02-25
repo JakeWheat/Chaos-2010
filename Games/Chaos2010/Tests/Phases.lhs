@@ -6,7 +6,6 @@
 > import Database.HaskellDB
 > import Database.HDBC (IConnection)
 
-> import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.DBUpdates
 > import Games.Chaos2010.Utils

@@ -25,22 +25,25 @@ to setup in various tables - want to do this automatically.
 >     (setupGame
 >     ,setPhase
 >     ,setCurrentWizard
->     --,setFromBoardDiagram
 >     ,addSpell
 >     ,chooseSpell
->     --,setWizards
+>     ,B.wizardPiecesList
+>     ,setWizards
+>     ,useBoard
+>     ,B.liftPl
 >     ) where
 
 > import Database.HaskellDB
 > import Database.HDBC (IConnection)
 
-> --import Games.Chaos2010.Tests.BoardUtils
+> import qualified Games.Chaos2010.Tests.BoardUtils as B
 > --import Games.Chaos2010.Tests.TestUtils
 > --import Games.Chaos2010.Database.Cursor_position
 > import Games.Chaos2010.DBUpdates
 > import Games.Chaos2010.HaskellDBUtils
 > --import Games.Chaos2010.Tests.DBUpdates
 > import Games.Chaos2010.ThHdb
+> import Games.Chaos2010.Tests.RelationalAlgebra as R
 
 > -- tables
 > import Games.Chaos2010.Database.Board_size
@@ -65,6 +68,8 @@ to setup in various tables - want to do this automatically.
 > import qualified Games.Chaos2010.Database.Action_history_mr as Ah
 > import Games.Chaos2010.Database.Cast_success_checked_table
 > import Games.Chaos2010.Database.Test_action_overrides
+
+> import Games.Chaos2010.Tests.TableValueTypes
 
 = game state
 
@@ -106,22 +111,6 @@ these are the tricky ones which get set with all sorts of weird values during th
  new_game_widget_state      | Chaos.Client.NewGameWidget
 
 == the GameState type and defaultGameState value
-
-> $(makeValueTypes [[t|Board_size|]
->                  ,[t|World_alignment_table|]
->                  ,[t|Turn_number_table|]
->                  ,[t|Cw.Current_wizard_table|]
->                  ,[t|Turn_phase_table|]
->                  ,[t|Wizards|]
->                  ,[t|Pieces|]
->                  ,[t|Sb.Spell_books|]
->                  ,[t|I.Imaginary_pieces|]
->                  ,[t|Cr.Crimes_against_nature|]
->                  ,[t|Game_completed_table|]
->                  ,[t|Wc.Wizard_spell_choices_mr|]
->                  ,[t|C.Cursor_position|]
->                  ,[t|Wd.Wizard_display_info|]
->                  ])
 
 > data GameState = GameState
 >     {boardSize :: Board_size_v
@@ -413,6 +402,53 @@ the combinators for altering the default game state value
 >             .*. Wc.spell_name .=. s
 >             .*. Wc.imaginary .=. i
 >             .*. emptyRecord
+
+
+set the wizards to the given list of names, by killing the others
+basically does the foreign key cascading
+
+> setWizards :: [String] -> GameState -> GameState
+> setWizards wz gs =
+>         gs {wezards = expireWizards $ wezards gs
+>            ,currentWizard = Cw.current_wizard .=. (head wz)
+>                             .*. emptyRecord
+>            ,spellBooks = R.restrict (\r -> r # Sb.wizard_name `elem` wz) $ spellBooks gs
+>            ,peeces = R.restrict (\r -> r # allegiance `elem` als) $ peeces gs
+>            }
+>   where
+>     als = "dead" : wz
+>     expireWizards = R.update (\r -> expired .=. True .@. r)
+>                              (\r -> r # wizard_name `notElem` wz)
+
+> useBoard :: B.BoardDiagram -> GameState -> GameState
+> useBoard bd =
+>   let (pdp,wzs) = B.parseBoardDiagram bd
+>       pdpts = zip pdp [5..]
+>       makePiece :: (B.PieceDescriptionPos,Int) -> Pieces_v
+>       makePiece (r,t) = ptype .=. (r # B.ptype)
+>                         .*. allegiance .=. (r # B.allegiance)
+>                         .*. tag .=. t
+>                         .*. x .=. (r # B.x)
+>                         .*. y .=. (r # B.y)
+>                         .*. emptyRecord
+>       ps = map makePiece pdpts
+>       ims = let i1 = R.restrict (# B.imaginary) pdp
+>                 makeI (r,t) = I.ptype .=. (r # B.ptype)
+>                               .*. I.allegiance .=. (r # B.allegiance)
+>                               .*. I.tag .=. t
+>                               .*. emptyRecord
+>             in map makeI $ pdpts
+>       crs = let i1 = R.restrict (# B.undead) pdp
+>                 makeI (r,t) = Cr.ptype .=. (r # B.ptype)
+>                               .*. Cr.allegiance .=. (r # B.allegiance)
+>                               .*. Cr.tag .=. t
+>                               .*. emptyRecord
+>             in map makeI $ pdpts
+>   in (\gs ->
+>       gs {peeces = ps
+>          ,imaginaryPieces = ims
+>          ,crimesAgainstNature = crs})
+>       . setWizards wzs
 
 
 > {-newGameReadyToCast :: IConnection conn =>

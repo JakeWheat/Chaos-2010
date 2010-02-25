@@ -8,7 +8,6 @@
 > import Database.HaskellDB
 > import Database.HDBC (IConnection)
 
-> import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.HaskellDBUtils
 > import Games.Chaos2010.Utils
@@ -52,8 +51,7 @@ magic tree or castle; add test for these.
 
 > testPiecesOnTop :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testPiecesOnTop db = tctor "testPiecesOnTop" $ \conn -> do
->                        undefined
->   {-newSetupGame db conn id ("\n\
+>   setupGame db conn [useBoard ("\n\
 >                   \b      c      d\n\
 >                   \               \n\
 >                   \ aghi          \n\
@@ -84,8 +82,8 @@ magic tree or castle; add test for these.
 >                           ,("gooey_blob", "Buddha")])
 >                    ,('i', [("goblin", "Kong Fuzi")
 >                           ,("gooey_blob", "Buddha")
->                           ,("elf", "dead")])]))
->   assertTopPiecesEquals db ("\n\
+>                           ,("elf", "dead")])]))]
+>   {-assertRelvarEquals db ("\n\
 >                   \b      c      d\n\
 >                   \               \n\
 >                   \ aghi          \n\
@@ -105,7 +103,7 @@ magic tree or castle; add test for these.
 >                     ('f', [("magic_tree","Muhammad")]),
 >                     ('g', [("gooey_blob","Buddha")]),
 >                     ('h', [("gooey_blob","Buddha")]),
->                     ('i', [("gooey_blob","Buddha")])])) -}
+>                     ('i', [("gooey_blob","Buddha")])]))-}
 
 
 == cursor movement
