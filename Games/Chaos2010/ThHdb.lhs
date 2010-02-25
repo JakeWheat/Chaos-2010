@@ -8,15 +8,16 @@
 
 -- robbed from the darcs version of hlist
 
-> module Games.Chaos2010.ThHdb (makeLabels) where
+> module Games.Chaos2010.ThHdb (makeLabels,makeValueTypes) where
 
+> --import qualified Language.Haskell.Exts as Exts
 > import Database.HaskellDB
-
 > import Language.Haskell.TH.Syntax
+> import Data.Char
+> --import Language.Haskell.TH.Ppr
+> --import Debug.Trace
 
-> import Data.Char (toUpper, toLower)
-
-> import Data.Typeable ()
+> --import Data.Typeable ()
 > import Data.Generics.Uniplate.Data
 
 > capitalize, uncapitalize :: String -> String
@@ -57,4 +58,65 @@
 >     repl :: String -> Q [Dec]
 >     repl n = dcl_template >>= replace n
 
+
+> makeValueTypes :: [Q Type] -> Q [Dec]
+> makeValueTypes =
+>   liftM concat . sequence . map makeValueType
+>   where
+>     makeValueType t = do
+>         t1 <- t
+>         case t1 of
+>                 ConT n -> lac n
+>                 _ -> fail "wrong sort of type used in makeValueRecord"
+>     lac tn = let i = reify tn
+>             in do
+>               TyConI (TySynD n ns t) <- i
+>               let n1 = nameBase n ++ "_v"
+>               t1 <- conv t
+>               return [TySynD (mkName n1) ns t1]
+>     conv = transformBiM $ \x ->
+>                    case x of
+>                      (AppT (ConT e) ti) | nameBase e == "Expr" -> return ti
+>                      x1 -> return x1
+
+[TySynD Activate_spells []
+   (AppT (ConT Data.HList.Record.Record)
+      (AppT
+         (AppT (ConT Data.HList.HListPrelude.HCons)
+            (AppT
+               (AppT (ConT Data.HList.Record.LVPair)
+                  (ConT Games.Chaos2010.ThHdb.Spell_name))
+               (AppT (ConT Database.HaskellDB.Query.Expr)
+                  (ConT GHC.Base.String))))
+         (ConT Data.HList.HListPrelude.HNil)))]
+
 > --testMkLabel = runQ (makeLabels ["Test"]) >>= putStrLn . pprint
+
+> {-ppExpr :: Show s => s -> String
+> ppExpr s =
+>   case Exts.parseExp (show s) of
+>     Exts.ParseOk ast -> Exts.prettyPrint ast
+>     x -> error $ show x-}
+
+> {-aaa :: Q [Dec]
+> aaa = [d| type Activate_spells =
+>             Record (HCons (LVPair Spell_name (Expr String)) HNil) |]
+
+
+> data Spell_nameTag deriving Typeable
+> type Spell_name = Proxy Spell_nameTag
+> spell_name :: Spell_name
+> spell_name = proxy
+> instance ShowLabel Spell_name where showLabel _ = "spell_name"
+
+
+> type Activate_spells =
+>     Record (HCons (LVPair Spell_name (Expr String)) HNil)
+
+type Activate_spells_v =
+    Record (HCons (LVPair Spell_name String) HNil)
+
+
+> testMkVT = runQ (makeValueTypes [[t|Activate_spells|]]) >>= putStrLn . pprint
+
+> txxx = [t|Activate_spells|]-}

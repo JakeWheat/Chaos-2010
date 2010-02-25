@@ -36,6 +36,7 @@ Test utilities for reading and setting pieces.
 > import qualified Games.Chaos2010.Database.Pieces_on_top_view as Ptv
 > --import Games.Chaos2010.Database.Wizards
 > import Games.Chaos2010.Utils
+> import Games.Chaos2010.HaskellDBUtils
 
 > parseBoardDiagram = undefined
 > parseValidSquares = undefined
@@ -187,7 +188,7 @@ shorten the tests and avoid having to read out lots of tables when
 e.g. if a creature is imaginary or undead, etc. Will probably rethink
 this when the tests are expanded in scope.
 
-> makePD :: Ptype -> Allegiance -> PieceDescription
+> makePD :: String -> String -> PieceDescription
 > makePD ptype allegiance = PieceDescription ptype allegiance Real Alive
 
 > wizardStuff :: [(Char, Int,Int, PieceDescription)]
@@ -206,7 +207,7 @@ this when the tests are expanded in scope.
 > wizardNames :: [String]
 > wizardNames = map (\(_, _, _,PieceDescription _ w _ _) -> w) wizardStuff
 
-> liftPl :: [(Char, [(Ptype, Allegiance)])] -> [(Char, [PieceDescription])]
+> liftPl :: [(Char, [(String, String)])] -> [(Char, [PieceDescription])]
 > liftPl = map (\(c,l) -> (c, flip map l $ \(p,a) -> PieceDescription p a Real Alive))
 
 These are our type alias for the board
