@@ -3,6 +3,8 @@
 
 > --import System.Time
 > import Database.HaskellDB
+> import Database.HaskellDB.Query
+> import Database.HaskellDB.PrimQuery
 > --import Control.Exception
 > import Database.HaskellDB.Database
 > import Test.HUnit
@@ -20,6 +22,35 @@
 >   return $ getSingleValue rel
 >   --return $ (head rel) # xcount
 >   --undefined
+
+> setRelvarT :: (RecordLabels er ls,
+>               HLabelSet ls,
+>               HRearrange ls r r',
+>               RecordValues r' vs',
+>               HMapOut
+>               ToPrimExprsOp vs' Database.HaskellDB.PrimQuery.PrimExpr,
+>               InsertRec r' er,
+>               HMap ConstantRecordOp r1 r) =>
+>              Database -> Table (Record er) -> Record r1 -> IO ()
+> setRelvarT db t v = setRelvar db t [v]
+
+> setRelvar :: (RecordLabels er ls,
+>               HLabelSet ls,
+>               HRearrange ls r r',
+>               RecordValues r' vs',
+>               HMapOut ToPrimExprsOp vs' PrimExpr,
+>               InsertRec r' er,
+>               HMap ConstantRecordOp r1 r) =>
+>              Database -> Table (Record er) -> [Record r1] -> IO ()
+> setRelvar db t v = do
+>   clearTable db t
+>   forM_ v $ insert db t . constantRecord
+
+
+> clearTable :: Database -> Table r -> IO ()
+> clearTable db t =
+>    delete db t (const $ constant True)
+
 
 > assertRelvarValue :: (Database.HaskellDB.Database.GetRec er vr,
 >                       Eq vr,

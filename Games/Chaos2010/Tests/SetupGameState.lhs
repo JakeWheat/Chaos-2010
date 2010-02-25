@@ -32,11 +32,9 @@ to setup in various tables - want to do this automatically.
 >     ) where
 
 > import Database.HaskellDB
-> import Database.HaskellDB.Query
-> import Database.HaskellDB.PrimQuery
 > import Database.HDBC (IConnection)
 
-> import Games.Chaos2010.Tests.BoardUtils
+> --import Games.Chaos2010.Tests.BoardUtils
 > --import Games.Chaos2010.Tests.TestUtils
 > --import Games.Chaos2010.Database.Cursor_position
 > import Games.Chaos2010.DBUpdates
@@ -436,8 +434,15 @@ the combinators for altering the default game state value
 the function which takes the final game state and sets the database up
 using it
 
-> setupGame :: IConnection conn => Database -> conn -> GameState -> IO ()
-> setupGame db conn gs = withConstraintsDisabled conn $ transaction db $ do
+> setupGame :: IConnection conn => Database -> conn -> [(GameState -> GameState)] -> IO ()
+> setupGame db conn ls = setupGame1 db conn $ applyEm ls defaultGameState
+
+> applyEm :: [a->a] -> a -> a
+> applyEm (f:fs) a = applyEm fs $ f a
+> applyEm [] a = a
+
+> setupGame1 :: IConnection conn => Database -> conn -> GameState -> IO ()
+> setupGame1 db conn gs = withConstraintsDisabled conn $ transaction db $ do
 >     setRelvarT db board_size $ boardSize gs
 >     setRelvarT db world_alignment_table $ worldAlignment gs
 >     setRelvarT db turn_number_table $ turnNumber gs
@@ -464,35 +469,6 @@ using it
 >     clearTable db cast_success_checked_table
 >     clearTable db test_action_overrides
 
-> setRelvarT :: (RecordLabels er ls,
->               HLabelSet ls,
->               HRearrange ls r r',
->               RecordValues r' vs',
->               HMapOut
->               ToPrimExprsOp vs' Database.HaskellDB.PrimQuery.PrimExpr,
->               InsertRec r' er,
->               HMap ConstantRecordOp r1 r) =>
->              Database -> Table (Record er) -> Record r1 -> IO ()
-> setRelvarT db t v = do
->   clearTable db t
->   insert db t $ constantRecord v
-
-> setRelvar :: (RecordLabels er ls,
->               HLabelSet ls,
->               HRearrange ls r r',
->               RecordValues r' vs',
->               HMapOut ToPrimExprsOp vs' PrimExpr,
->               InsertRec r' er,
->               HMap ConstantRecordOp r1 r) =>
->              Database -> Table (Record er) -> [Record r1] -> IO ()
-> setRelvar db t v = do
->   clearTable db t
->   forM_ v $ insert db t . constantRecord
-
-
-> clearTable :: Database -> Table r -> IO ()
-> clearTable db t =
->    delete db t (const $ constant True)
 
 
 

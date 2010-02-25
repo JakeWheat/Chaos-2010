@@ -2,10 +2,9 @@ Copyright 2010 Jake Wheat
 
 Test utilities for reading and setting pieces.
 
+> {-# LANGUAGE TemplateHaskell,EmptyDataDecls,TypeSynonymInstances,DeriveDataTypeable#-}
 > module Games.Chaos2010.Tests.BoardUtils
 >     (PieceDescription(..)
->     ,Imaginary(..)
->     ,Undead(..)
 >     ,wizardPiecesList
 >     ,wizardNames
 >     ,parseBoardDiagram
@@ -37,6 +36,7 @@ Test utilities for reading and setting pieces.
 > --import Games.Chaos2010.Database.Wizards
 > import Games.Chaos2010.Utils
 > import Games.Chaos2010.HaskellDBUtils
+> import Games.Chaos2010.ThHdb
 
 > parseBoardDiagram = undefined
 > parseValidSquares = undefined
@@ -171,44 +171,51 @@ out each test since most tests have all eight wizards remaining at the
 end
 
 
-> data PieceDescription =
->     PieceDescription String String Imaginary Undead
->     deriving (Show,Eq,Ord)
+> $(makeLabels ["Ptype", "Allegiance", "Imaginary", "Undead"])
 
-> data Imaginary = Imaginary | Real
->                  deriving (Show,Eq,Ord)
-> data Undead = Undead | Alive
->               deriving (Show,Eq,Ord)
-
- > data PieceTag = PImaginary | PUndead
- >     deriving (Show,Eq,Ord)
+> type PieceDescription = $(makeRecord [("Ptype", "String")
+>                                      ,("Allegiance", "String")
+>                                      ,("Imaginary", "Bool")
+>                                      ,("Undead", "Bool")])
 
 The piece tag holds a bit of extra information about that piece to
 shorten the tests and avoid having to read out lots of tables when
 e.g. if a creature is imaginary or undead, etc. Will probably rethink
 this when the tests are expanded in scope.
 
-> makePD :: String -> String -> PieceDescription
-> makePD ptype allegiance = PieceDescription ptype allegiance Real Alive
+ > makePD :: String -> String -> PieceDescription
+ > makePD ptype allegiance = PieceDescription ptype allegiance Real Alive
 
 > wizardStuff :: [(Char, Int,Int, PieceDescription)]
-> wizardStuff =  [('1', 0,0, makePD "wizard" "Buddha")
->                ,('2', 7,0, makePD "wizard" "Kong Fuzi")
->                ,('3', 14,0, makePD "wizard" "Laozi")
->                ,('4', 0,4, makePD "wizard" "Moshe")
->                ,('5', 14,4, makePD "wizard" "Muhammad")
->                ,('6', 0,9, makePD "wizard" "Shiva")
->                ,('7', 7,9, makePD "wizard" "Yeshua")
->                ,('8', 14,9, makePD "wizard" "Zarathushthra")]
+> wizardStuff = [('1', 0,0, l "wizard" "Buddha")
+>                ,('2', 7,0, l "wizard" "Kong Fuzi")
+>                ,('3', 14,0, l "wizard" "Laozi")
+>                ,('4', 0,4, l "wizard" "Moshe")
+>                ,('5', 14,4, l "wizard" "Muhammad")
+>                ,('6', 0,9, l "wizard" "Shiva")
+>                ,('7', 7,9, l "wizard" "Yeshua")
+>                ,('8', 14,9, l "wizard" "Zarathushthra")]
+>               where
+>                 l p a = ptype .=. p
+>                        .*. allegiance .=. a
+>                        .*. imaginary .=. False
+>                        .*. undead .=.False
+>                        .*. emptyRecord
 
 > wizardPiecesList :: [(Char, [PieceDescription])]
 > wizardPiecesList = map (\(a,_,_,c) -> (a,[c])) wizardStuff
 
 > wizardNames :: [String]
-> wizardNames = map (\(_, _, _,PieceDescription _ w _ _) -> w) wizardStuff
+> wizardNames = map (\(_, _, _,p) -> p # allegiance) wizardStuff
 
 > liftPl :: [(Char, [(String, String)])] -> [(Char, [PieceDescription])]
-> liftPl = map (\(c,l) -> (c, flip map l $ \(p,a) -> PieceDescription p a Real Alive))
+> liftPl = map (\(c,l) -> (c, flip map l $ \(p,a) -> pd p a))
+>          where
+>            pd p a = ptype .=. p
+>                     .*. allegiance .=. a
+>                     .*. imaginary .=. False
+>                     .*. undead .=.False
+>                     .*. emptyRecord
 
 These are our type alias for the board
 
@@ -233,7 +240,7 @@ board string and a key, and check it against what is in the database:
 > assertBoardEquals db bd = do
 >   actualBoard <- queryBoard db
 >   let expectedBoard = toBoardDescription bd
->   assertEqual "board pieces" (sort expectedBoard) (sort actualBoard)
+>   assertEqual "board pieces" expectedBoard actualBoard
 
 Like with check board, but we are only want to check the topmost piece
 on each square
@@ -242,7 +249,7 @@ on each square
 > assertTopPiecesEquals db bd = do
 >   actualBoard <- queryPiecesOnTop db
 >   let expectedBoard = toBoardDescription bd
->   assertEqual "board pieces on top" (sort expectedBoard) (sort actualBoard)
+>   assertEqual "board pieces on top" expectedBoard actualBoard
 
 
 > toBoardDescription :: BoardDiagram -> BoardDescription
@@ -339,12 +346,17 @@ now the code to read the board from the database and get it in the same format:
 >                        .*. emptyRecord
 >   return $ map conv rel
 >   where
->     conv t = (PieceDescription (mv $ t # Pd.ptype)
->                                (mv $ t # Pd.allegiance)
->                                (if mb (t # Pd.imaginary) then Imaginary else Real)
->                                (if mb (t # Pd.undead) then Undead else Alive)
+>     conv t = (pd (mv $ t # Pd.ptype)
+>                  (mv $ t # Pd.allegiance)
+>                  (mb $ t # Pd.imaginary)
+>                  (mb $ t # Pd.undead)
 >              ,mn $ t # Pd.x
 >              ,mn $ t # Pd.y)
+>     pd p a i u = ptype .=. p
+>                  .*. allegiance .=. a
+>                  .*. imaginary .=. i
+>                  .*. undead .=. u
+>                  .*. emptyRecord
 
 The variant for only the topmost pieces:
 
@@ -361,9 +373,14 @@ The variant for only the topmost pieces:
 >                        .*. emptyRecord
 >   return $ map conv rel
 >   where
->     conv t = (PieceDescription (mv $ t # Ptv.ptype)
->                                (mv $ t # Ptv.allegiance)
->                                (if mb (t # Ptv.imaginary) then Imaginary else Real)
->                                (if mb (t # Ptv.undead) then Undead else Alive)
+>     conv t = (pd (mv $ t # Ptv.ptype)
+>                  (mv $ t # Ptv.allegiance)
+>                  (mb $ t # Ptv.imaginary)
+>                  (mb $ t # Ptv.undead)
 >              ,mn $ t # Ptv.x
 >              ,mn $ t # Ptv.y)
+>     pd p a i u = ptype .=. p
+>                  .*. allegiance .=. a
+>                  .*. imaginary .=. i
+>                  .*. undead .=. u
+>                  .*. emptyRecord

@@ -10,7 +10,9 @@
 
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
+> import Games.Chaos2010.HaskellDBUtils
 > import Games.Chaos2010.Utils
+> import Games.Chaos2010.DBUpdates
 > import Games.Chaos2010.Database.Cursor_position
 > import Games.Chaos2010.Tests.SetupGameState
 > --import Games.Chaos2010.DBUpdates
@@ -50,7 +52,8 @@ magic tree or castle; add test for these.
 
 > testPiecesOnTop :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testPiecesOnTop db = tctor "testPiecesOnTop" $ \conn -> do
->   newSetupGame db conn id ("\n\
+>                        undefined
+>   {-newSetupGame db conn id ("\n\
 >                   \b      c      d\n\
 >                   \               \n\
 >                   \ aghi          \n\
@@ -102,7 +105,7 @@ magic tree or castle; add test for these.
 >                     ('f', [("magic_tree","Muhammad")]),
 >                     ('g', [("gooey_blob","Buddha")]),
 >                     ('h', [("gooey_blob","Buddha")]),
->                     ('i', [("gooey_blob","Buddha")])]))
+>                     ('i', [("gooey_blob","Buddha")])])) -}
 
 
 == cursor movement
@@ -114,7 +117,7 @@ the cursor to a given position, also check the moveto code
 > testCursorMovement db = tctor "testCursorMovement" $ \conn -> do
 >   --make sure there is a game running:
 >   --startNewGame db conn
->   setupGame db conn defaultGameState
+>   setupGame db conn []
 >   let moveAndCheck m xp yp = do
 >         sendKeyPress conn $ cursorShorthand m
 >         assertCursorPosition db xp yp

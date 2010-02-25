@@ -109,7 +109,7 @@ m pieces moved
 01 remaining walk
 01 cast alignment
 
-> assertSelectedPiece :: Database -> Ptype -> Allegiance -> IO()
+> assertSelectedPiece :: Database -> String -> String -> IO()
 > assertSelectedPiece db ptype allegiance = do
 >   rel <- query db $ table Sp.selected_piece
 >   let t = head rel

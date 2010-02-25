@@ -7,25 +7,25 @@
 > import Database.HDBC (IConnection)
 
 > import Games.Chaos2010.Tests.Basics
-> import Games.Chaos2010.Tests.Phases
+> {-import Games.Chaos2010.Tests.Phases
 > import Games.Chaos2010.Tests.Casting
 > import Games.Chaos2010.Tests.Upgrades
 > import Games.Chaos2010.Tests.Subphases
 > import Games.Chaos2010.Tests.MoveMisc
 > import Games.Chaos2010.Tests.Autonomous
-> import Games.Chaos2010.Tests.Complete
+> import Games.Chaos2010.Tests.Complete-}
 
 >
 > allTests :: IConnection conn => Database -> conn -> [Test]
 > allTests db conn = map (\x -> x db conn)
 >                    [basics
->                    ,phases
+>                    {-,phases
 >                    ,casting
 >                    ,upgrades
 >                    ,subphases
 >                    ,moveMisc
 >                    ,autonomous
->                    ,complete]
+>                    ,complete-}]
 
 
 postgresql.conf  #track_functions = none # none, pl, all

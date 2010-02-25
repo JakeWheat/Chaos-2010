@@ -21,16 +21,18 @@ numty relational algebra thing, needs work
 
 > union hls hls1 = hls ++ hls1
 
-> join hls hls1 = -- check for compatibility
->                 -- sort on common columns
->                 -- do the join
->                 undefined
-
-join
+ > join hls hls1 = -- check for compatibility
+ >                 -- sort on common columns
+ >                 -- do the join
+ >                 undefined
 
 union
 not matching
-sort tuples?
-sort attributes?
 matching
-...
+compose
+aggregates
+aggregates and nested relations
+summarize
+group, ungroup
+wrap, unwrap
+relation comparison

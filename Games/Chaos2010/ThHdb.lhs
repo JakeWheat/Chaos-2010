@@ -8,12 +8,13 @@
 
 -- robbed from the darcs version of hlist
 
-> module Games.Chaos2010.ThHdb (makeLabels,makeValueTypes) where
+> module Games.Chaos2010.ThHdb (makeLabels,makeValueTypes, makeRecord) where
 
 > --import qualified Language.Haskell.Exts as Exts
 > import Database.HaskellDB
 > import Language.Haskell.TH.Syntax
 > import Data.Char
+> import Language.Haskell.TH
 > --import Language.Haskell.TH.Ppr
 > --import Debug.Trace
 
@@ -76,8 +77,26 @@
 >               return [TySynD (mkName n1) ns t1]
 >     conv = transformBiM $ \x ->
 >                    case x of
->                      (AppT (ConT e) ti) | nameBase e == "Expr" -> return ti
+>                      (AppT (ConT e) ti) | e == ''Expr -> return ti
 >                      x1 -> return x1
+
+
+> makeRecord :: [(String,String)] -> Q Type
+> makeRecord lvs = [t| Record $(sequence ps >>= foldIt) |]
+>     where
+>       foldIt :: [Type] -> Q Type
+>       foldIt [] = [t|HNil|]
+>       foldIt (t:ts) = [t| HCons $(return t) $(foldIt ts)|]
+>       ps = map mkPair lvs
+>       mkPair (l,v) = [t| LVPair $(conT $ mkName l) $(conT $ mkName v) |]
+
+ > type PieceDescription =
+ >     Record (HCons (LVPair Ptype String)
+ >             (HCons (LVPair Allegiance String)
+ >               (HCons (LVPair Imaginary Bool)
+ >                (HCons (LVPair Undead Bool) HNil))))
+
+
 
 [TySynD Activate_spells []
    (AppT (ConT Data.HList.Record.Record)
