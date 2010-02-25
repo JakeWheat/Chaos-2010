@@ -116,23 +116,22 @@ the cursor to a given position, also check the moveto code
 > testCursorMovement :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCursorMovement db = tctor "testCursorMovement" $ \conn -> do
 >   --make sure there is a game running:
->   --startNewGame db conn
 >   setupGame db conn []
 >   let moveAndCheck m xp yp = do
->         sendKeyPress conn $ cursorShorthand m
+>         actionMoveCursor db conn m
 >         assertCursorPosition db xp yp
 >   --move to our starting position then move in a circle
 
->   moveAndCheck "dr" 1 1
->   moveAndCheck "dr" 2 2
->   moveAndCheck "dr" 3 3
->   moveAndCheck "r" 4 3
->   moveAndCheck "ur" 5 2
->   moveAndCheck "u" 5 1
->   moveAndCheck "ul" 4 0
->   moveAndCheck "l" 3 0
->   moveAndCheck "dl" 2 1
->   moveAndCheck "d" 2 2
+>   moveAndCheck CursorDownRight 1 1
+>   moveAndCheck CursorDownRight 2 2
+>   moveAndCheck CursorDownRight 3 3
+>   moveAndCheck CursorRight 4 3
+>   moveAndCheck CursorUpRight 5 2
+>   moveAndCheck CursorUp 5 1
+>   moveAndCheck CursorUpLeft 4 0
+>   moveAndCheck CursorLeft 3 0
+>   moveAndCheck CursorDownLeft 2 1
+>   moveAndCheck CursorDown 2 2
 >   --now test the move cursor to straight up, left, down, right,
 >   let moveToAndCheck xp yp = do
 >           moveCursorToK db conn xp yp
@@ -163,16 +162,7 @@ start with a few helper functions
 avoid writing out the full key press names:
 
 
-> cursorShorthand :: String -> String
-> cursorShorthand m = safeLookup "cursor shorthand" m
->                      [("d", "Down"),
->                       ("l", "Left"),
->                       ("u", "Up"),
->                       ("r", "Right"),
->                       ("dl", "KP_End"),
->                       ("dr", "KP_Page_Down"),
->                       ("ul", "KP_Home"),
->                       ("ur", "KP_Page_Up")]
+ > cursorShorthand :: String -> String
 
 get the current cursor position from the database
 
@@ -200,27 +190,27 @@ move the cursor to x,y, using key presses
 >         let (dx,dy) = (xp - cx, yp - cy)
 >             diagonalMoves = minimum [abs dx, abs dy]
 >             diagonalDirection = case True of
->                                 _ | dx == 0 && dy == 0 -> "ul"
->                                   | dx < 0 && dy < 0 -> "ul"
->                                   | dx < 0 && dy > 0 -> "dl"
->                                   | dx > 0 && dy < 0 -> "ur"
->                                   | dx > 0 && dy > 0 -> "dr"
+>                                 _ | dx == 0 && dy == 0 -> CursorUpLeft
+>                                   | dx < 0 && dy < 0 -> CursorUpLeft
+>                                   | dx < 0 && dy > 0 -> CursorDownLeft
+>                                   | dx > 0 && dy < 0 -> CursorUpRight
+>                                   | dx > 0 && dy > 0 -> CursorDownRight
 >                                   | otherwise -> error
 >                                        "pattern match: something \
 >                                        \wrong in moveCursorTo"
 >         -- do it in two stages cos I'm not smart enough
 >         sequence_ (replicate diagonalMoves
->                    (sendKeyPress conn $ cursorShorthand diagonalDirection))
+>                    (actionMoveCursor db conn diagonalDirection))
 >         (ncx,ncy) <- queryCursorPosition db
 >         unless ((cx,cy) == (xp,yp)) $ do
 >           let (dir,amount) = case True of
->                            _ | ncx < xp -> ("r", xp - ncx)
->                              | ncx > xp -> ("l", ncx - xp)
->                              | ncy < yp -> ("d", yp - ncy)
->                              | ncy > yp -> ("u", ncy - yp)
->                              | otherwise -> ("u", 0)
+>                            _ | ncx < xp -> (CursorRight, xp - ncx)
+>                              | ncx > xp -> (CursorLeft, ncx - xp)
+>                              | ncy < yp -> (CursorDown, yp - ncy)
+>                              | ncy > yp -> (CursorUp, ncy - yp)
+>                              | otherwise -> (CursorUp, 0)
 >           sequence_ (replicate amount
->                        (sendKeyPress conn $ cursorShorthand dir))
+>                        (actionMoveCursor db conn dir))
 
 > assertCursorPosition :: Database
 >                      -> Int

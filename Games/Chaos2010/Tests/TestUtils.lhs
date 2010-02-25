@@ -49,7 +49,7 @@
 > goSquare :: IConnection conn => Database -> conn -> Int -> Int -> IO ()
 > goSquare db conn x y = do
 >   setCursorPos db conn x y
->   sendKeyPress conn "Return"
+>   actionGo db conn --sendKeyPress conn "Return"
 
 
 ================================================================================

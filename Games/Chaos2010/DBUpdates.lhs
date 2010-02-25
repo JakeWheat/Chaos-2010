@@ -1,7 +1,7 @@
 > module Games.Chaos2010.DBUpdates
 >     (resetNewGameWidgetState
 >     ,newGame
->     ,sendKeyPress
+>     --,sendKeyPress
 >     ,rollback
 >     ,updateNewGameState
 >     --testing stuff
@@ -21,6 +21,9 @@
 >     ,nextPhaseChooseIf
 >     ,nextPhase
 >     ,skipToPhase
+>     ,actionGo
+>     ,actionMoveCursor
+>     ,CursorDirection(..)
 >     --,disableConstraints
 >     --,enableConstraints
 >     ) where
@@ -42,7 +45,7 @@
 >     callSp conn "action_setup_test_board" [t]
 
 > updateNewGameState :: IConnection conn => Database -> conn -> Int -> String -> IO ()
-> updateNewGameState db conn l s =
+> updateNewGameState db _ l s =
 >   transaction db $
 >     update db Ng.new_game_widget_state
 >       (\r -> r # Ng.line .==. constant l)
@@ -56,7 +59,7 @@
 > resetNewGameWidgetState conn = callSp conn "action_reset_new_game_widget_state" []
 
 > setAllHuman :: IConnection conn => Database -> conn -> IO ()
-> setAllHuman db conn =
+> setAllHuman db _ =
 >   transaction db $
 >     update db Ng.new_game_widget_state
 >       (\_ -> constant True)
@@ -67,7 +70,7 @@
 > newGame conn = callSp conn "action_client_new_game_using_new_game_widget_state" []
 
 > setCursorPos :: IConnection conn => Database -> conn -> Int -> Int -> IO ()
-> setCursorPos db conn xp yp =
+> setCursorPos db _ xp yp =
 >   transaction db $
 >     update db C.cursor_position
 >       (\_ -> constant True)
@@ -79,7 +82,7 @@
 >       callSp conn "kill_wizard" [wiz]
 
 > setWizardPosition :: IConnection conn => Database -> conn -> String -> Int -> Int -> IO ()
-> setWizardPosition db conn allegiance xp yp =
+> setWizardPosition db _ allegiance xp yp =
 >   transaction db $
 >     update db P.pieces
 >       (\r ->  (r # P.ptype .==. constant "wizard")
@@ -114,7 +117,7 @@
 >   callSp conn "action_rig_action_success" [override, show setting]
 
 > addMagicSword :: IConnection conn => Database -> conn -> String -> IO ()
-> addMagicSword db conn wiz = do
+> addMagicSword db _ wiz = do
 >   transaction db $
 >     update db wizards
 >       (\r -> r # wizard_name .==. constant wiz)
@@ -140,12 +143,12 @@
 >          \values (?, ?);" [toSql spellName, toSql wiz]
 >   commit conn
 
-> sendKeyPress :: IConnection conn => conn -> String -> IO ()
+> {-sendKeyPress :: IConnection conn => conn -> String -> IO ()
 > sendKeyPress conn k = do
->   callSp conn "action_key_pressed" [k]
+>   callSp conn "action_key_pressed" [k]-}
 
 > disableSpreading :: IConnection conn => Database -> conn -> IO ()
-> disableSpreading db conn =
+> disableSpreading db _ =
 >   transaction db $
 >     update db D.disable_spreading_table
 >       (\_ -> constant True)
@@ -162,6 +165,33 @@
 
 > nextPhase :: IConnection conn => conn -> IO ()
 > nextPhase conn = callSp conn "action_next_phase" []
+
+> actionGo :: IConnection conn => Database -> conn -> IO ()
+> actionGo _ conn = callSp conn "action_go" []
+
+> data CursorDirection = CursorUp
+>                      | CursorUpLeft
+>                      | CursorLeft
+>                      | CursorDownLeft
+>                      | CursorDown
+>                      | CursorDownRight
+>                      | CursorRight
+>                      | CursorUpRight
+
+> actionMoveCursor :: IConnection conn => Database -> conn -> CursorDirection -> IO()
+> actionMoveCursor _ conn cd = callSp conn "action_move_cursor" [c]
+>                           where
+>                             c = case cd of
+>                                   CursorUp -> "up"
+>                                   CursorUpLeft -> "up-left"
+>                                   CursorLeft -> "left"
+>                                   CursorDownLeft -> "down-left"
+>                                   CursorDown -> "down"
+>                                   CursorDownRight -> "down-right"
+>                                   CursorRight -> "right"
+>                                   CursorUpRight -> "up-right"
+
+
 
 > skipToPhase :: IConnection conn => Database -> conn -> String -> IO ()
 > skipToPhase _ conn phase =
