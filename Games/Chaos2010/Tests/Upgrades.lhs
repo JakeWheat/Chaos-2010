@@ -13,6 +13,7 @@
 > import qualified Games.Chaos2010.Tests.BoardUtils as B
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.Database.Pieces_mr
+> import Games.Chaos2010.Tests.SetupGameState
 
 > upgrades :: IConnection conn => Database -> conn -> Test.Framework.Test
 > upgrades db conn = testGroup "upgrades" $
@@ -96,7 +97,7 @@
 >               -> (Pieces_mr_v -> Pieces_mr_v)
 >               -> IO ()
 > doUpgradeTest conn db spell attrChange = do
->   newGameReadyToCast db conn spell
+>   newGameReadyToCast db conn spell Nothing defaultGameState
 >   oldStats <- getStats
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"

@@ -9,6 +9,7 @@
 
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
+> import Games.Chaos2010.Tests.SetupGameState
 > import Games.Chaos2010.Database.Pieces_mr
 > --import Games.Chaos2010.Database.Wizards
 >
@@ -37,7 +38,7 @@
 > testAttackWizard :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testAttackWizard db = tctor "testAttackWizard" $
 >                           \conn -> do
->   startNewGameReadyToMove db conn ("\n\
+>   newSetupGame db conn (setPhase "move") ("\n\
 >                   \1G     2      3\n\
 >                   \ H             \n\
 >                   \               \n\
@@ -71,7 +72,7 @@
 
 > testFlyAttack :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testFlyAttack db = tctor "testFlyAttack" $ \conn -> do
->   startNewGameReadyToMove db conn ("\n\
+>   newSetupGame db conn (setPhase "move") ("\n\
 >                   \1 E    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -109,7 +110,7 @@
 >   let pl = wizardPiecesList ++ [('P', [makePD "pegasus" "Buddha"]),
 >             ('M', [makePD "wizard" "Buddha",
 >                    makePD "pegasus" "Buddha"])]
->   startNewGameReadyToMove db conn ("\n\
+>   newSetupGame db conn (setPhase "move") ("\n\
 >                   \1P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -148,7 +149,7 @@ is mounted here.
 > testMoveWhenMounted :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testMoveWhenMounted db = tctor "testMoveWhenMounted" $
 >                              \conn -> do
->   startNewGameReadyToMove db conn ("\n\
+>   newSetupGame db conn (setPhase "move") ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -189,7 +190,7 @@ dismount then move
 
 > testDismount :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testDismount db = tctor "testDismount" $ \conn -> do
->   startNewGameReadyToMove db conn ("\n\
+>   newSetupGame db conn (setPhase "move") ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -226,7 +227,7 @@ move when already mounted
 > testMoveWhenAlreadyMounted :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testMoveWhenAlreadyMounted db = tctor "testMoveWhenAlreadyMounted" $
 >                                     \conn -> do
->   startNewGameReadyToMove db conn ("\n\
+>   newSetupGame db conn (setPhase "move") ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -263,7 +264,7 @@ todo: attack when dismounting, dismounting when flying
 
 > testExit :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testExit db = tctor "testExit" $ \conn -> do
->   startNewGameReadyToMove db conn ("\n\
+>   newSetupGame db conn (setPhase "move") ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -296,7 +297,7 @@ todo: attack when dismounting, dismounting when flying
 
 > testEnter :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testEnter db = tctor "testEnter" $ \conn -> do
->   startNewGameReadyToMove db conn ("\n\
+>   newSetupGame db conn (setPhase "move") ("\n\
 >                   \1P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -328,7 +329,7 @@ todo: attack when dismounting, dismounting when flying
 
 > testAttackShadowForm :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testAttackShadowForm db = tctor "testAttackShadowForm" $ \conn -> do
->   newGameWithBoardReadyToCast db conn "shadow_form"
+>   newGameReadyToCast1 db conn id "shadow_form" Nothing
 >                  ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -365,7 +366,7 @@ todo: attack when dismounting, dismounting when flying
 >   let pl = wizardPiecesList ++
 >            [('G', [PieceDescription "ghost" "Kong Fuzi" Real Undead]),
 >             ('S', [PieceDescription "goblin" "Buddha" Real Undead])]
->   startNewGameReadyToMove db conn ("\n\
+>   newSetupGame db conn (setPhase "move") ("\n\
 >                   \1S     2      3\n\
 >                   \ G             \n\
 >                   \               \n\
@@ -396,7 +397,7 @@ todo: attack when dismounting, dismounting when flying
 >   let pl = wizardPiecesList ++
 >            [('G', [PieceDescription "ghost" "Kong Fuzi" Real Undead]),
 >             ('S', [PieceDescription "goblin" "Buddha" Real Alive])]
->   startNewGameReadyToMove db conn ("\n\
+>   newSetupGame db conn (setPhase "move") ("\n\
 >                   \1S     2      3\n\
 >                   \ G             \n\
 >                   \               \n\
@@ -427,7 +428,7 @@ todo: attack when dismounting, dismounting when flying
 >   let pl = wizardPiecesList ++
 >            [('G', [PieceDescription "ghost" "Kong Fuzi" Real Undead]),
 >             ('S', [PieceDescription "spectre" "Buddha" Real Undead])]
->   startNewGameReadyToMove db conn ("\n\
+>   newSetupGame db conn (setPhase "move") ("\n\
 >                   \1S     2      3\n\
 >                   \ G             \n\
 >                   \               \n\
@@ -473,7 +474,7 @@ todo: attack when dismounting, dismounting when flying
 > testNoMoveEngaged db = tctor "testNoMoveEngaged" $ \conn -> do
 >   let pl = wizardPiecesList ++
 >            [('G', [PieceDescription "goblin" "Kong Fuzi" Real Undead])]
->   startNewGameReadyToMove db conn ("\n\
+>   newSetupGame db conn (setPhase "move") ("\n\
 >                   \1      2      3\n\
 >                   \ G             \n\
 >                   \               \n\
@@ -503,7 +504,7 @@ todo: attack when dismounting, dismounting when flying
 > testBreakEngaged db = tctor "testBreakEngaged" $ \conn -> do
 >   let pl = wizardPiecesList ++
 >            [('G', [PieceDescription "goblin" "Kong Fuzi" Real Undead])]
->   startNewGameReadyToMove db conn ("\n\
+>   newSetupGame db conn (setPhase "move") ("\n\
 >                   \1      2      3\n\
 >                   \ G             \n\
 >                   \               \n\
@@ -560,7 +561,7 @@ moved if free'd that turn
 >            [('O', [makePD "goblin" "Buddha",
 >                    makePD "gooey_blob" "Kong Fuzi"]),
 >             ('g', [makePD "goblin" "Buddha"])]
->   startNewGameReadyToMoveNoSpread db conn ("\n\
+>   newSetupGame db conn (setPhase "move") ("\n\
 >                   \1O     2      3\n\
 >                   \               \n\
 >                   \               \n\

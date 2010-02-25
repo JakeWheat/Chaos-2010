@@ -12,6 +12,7 @@
 > import Games.Chaos2010.Utils
 > import Games.Chaos2010.Database.World_alignment_table
 > import qualified Games.Chaos2010.Database.Monster_pieces as Mp
+> import Games.Chaos2010.Tests.SetupGameState
 
 > casting :: IConnection conn => Database -> conn -> Test.Framework.Test
 > casting db conn = testGroup "casting" $
@@ -43,8 +44,9 @@
 setup the game, get to cast phase with the first wizard having
 chosen goblin
 
->   startNewGame db conn
->   addSpell conn "Buddha" "goblin"
+>   setupGame db conn defaultGameState
+
+>   addSpell1 conn "Buddha" "goblin"
 >   sendKeyPress conn $ keyChooseSpell "goblin"
 >   --get the next wizard to select disbelieve so we can check the
 >   --auto next phase works
@@ -88,7 +90,7 @@ cast it and check the resulting board
 
 > testFailCastGoblin :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testFailCastGoblin db = tctor "testFailCastGoblin" $ \conn -> do
->   newGameReadyToCast db conn "goblin"
+>   newGameReadyToCast db conn "goblin" (Just False) defaultGameState
 >   rigActionSuccess conn "cast" False
 >   goSquare db conn 1 0
 >   assertBoardEquals db ("\n\
@@ -106,7 +108,7 @@ cast it and check the resulting board
 
 > testCastMagicWood :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastMagicWood db = tctor "testCastMagicWood" $ \conn -> do
->   newGameReadyToCast db conn "magic_wood"
+>   newGameReadyToCast db conn "magic_wood" Nothing defaultGameState
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
 >   assertBoardEquals db ("\n\
@@ -125,7 +127,7 @@ cast it and check the resulting board
 
 > testCastShadowWood :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastShadowWood db = tctor "testCastShadowWood" $ \conn -> do
->   newGameReadyToCast db conn "shadow_wood"
+>   newGameReadyToCast db conn "shadow_wood" Nothing defaultGameState
 >   assertValidSquaresEquals db "\n\
 >                          \1XXXXXX2X     3\n\
 >                          \XXXXXXXXX      \n\
@@ -156,7 +158,7 @@ cast it and check the resulting board
 
 > testCastMagicBolt :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastMagicBolt db = tctor "testCastMagicBolt" $ \conn -> do
->   newGameReadyToCast db conn "magic_bolt"
+>   newGameReadyToCast db conn "magic_bolt" Nothing defaultGameState
 >   assertValidSquaresEquals db "\n\
 >                          \1      2      3\n\
 >                          \               \n\
@@ -186,7 +188,7 @@ cast it and check the resulting board
 
 > testCastMagicBoltResisted :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastMagicBoltResisted db = tctor "testCastMagicBoltResisted" $ \conn -> do
->   newGameReadyToCast db conn "magic_bolt"
+>   newGameReadyToCast db conn "magic_bolt" Nothing defaultGameState
 >   assertValidSquaresEquals db "\n\
 >                          \1      2      3\n\
 >                          \               \n\
@@ -216,7 +218,7 @@ cast it and check the resulting board
 
 > testCastVengeanceWizard :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastVengeanceWizard db = tctor "testCastVengeanceWizard" $ \conn -> do
->   newGameWithBoardReadyToCast db conn "vengeance"
+>   newGameReadyToCast1 db conn id "vengeance" Nothing
 >                  ("\n\
 >                   \1G     2      3\n\
 >                   \G              \n\
@@ -259,7 +261,7 @@ cast it and check the resulting board
 
 > testCastVengeanceMonster :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastVengeanceMonster db = tctor "testCastVengeanceMonster" $ \conn -> do
->   newGameWithBoardReadyToCast db conn "vengeance"
+>   newGameReadyToCast1 db conn id "vengeance" Nothing
 >                 ("\n\
 >                   \1G     2      3\n\
 >                   \G              \n\
@@ -304,7 +306,7 @@ cast it and check the resulting board
 > testCastVengeanceMonsterResisted :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastVengeanceMonsterResisted db =
 >     tctor "testCastVengeanceMonsterResisted" $ \conn -> do
->   newGameWithBoardReadyToCast db conn "vengeance"
+>   newGameReadyToCast1 db conn id "vengeance" Nothing
 >                   ("\n\
 >                   \1G     2      3\n\
 >                   \G              \n\
@@ -348,7 +350,7 @@ cast it and check the resulting board
 
 > testCastSubversion :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastSubversion db = tctor "testCastSubversion" $ \conn -> do
->   newGameWithBoardReadyToCast db conn "subversion"
+>   newGameReadyToCast1 db conn id "subversion" Nothing
 >                  ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -392,7 +394,7 @@ cast it and check the resulting board
 
 > testCastSubversionResisted :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastSubversionResisted db = tctor "testCastSubversionResisted" $ \conn -> do
->   newGameWithBoardReadyToCast db conn "subversion"
+>   newGameReadyToCast1 db conn id "subversion" Nothing
 >                  ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -436,7 +438,7 @@ cast it and check the resulting board
 
 > testCastDisbelieveReal :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastDisbelieveReal db = tctor "testCastDisbelieveReal" $ \conn -> do
->   newGameWithBoardReadyToCast db conn "disbelieve"
+>   newGameReadyToCast1 db conn id "disbelieve" Nothing
 >                 ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -478,7 +480,7 @@ cast it and check the resulting board
 
 > testCastDisbelieveImaginary :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastDisbelieveImaginary db = tctor "testCastDisbelieveImaginary" $ \conn -> do
->   newGameWithBoardReadyToCast db conn "disbelieve"
+>   newGameReadyToCast1 db conn id "disbelieve" Nothing
 >                   ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -520,7 +522,7 @@ cast it and check the resulting board
 
 > testCastRaiseDead :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastRaiseDead db = tctor "testCastRaiseDead" $ \conn -> do
->   newGameWithBoardReadyToCast db conn "raise_dead"
+>   newGameReadyToCast1 db conn id "raise_dead" Nothing
 >                   ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -564,7 +566,7 @@ cast it and check the resulting board
 
 > testCastLaw :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastLaw db = tctor "testCastLaw" $ \conn -> do
->   newGameReadyToCast db conn "law"
+>   newGameReadyToCast db conn "law" Nothing defaultGameState
 >   rigActionSuccess conn "cast" True
 >   sendKeyPress conn "Return"
 >   align <- getWorldAlignment db
@@ -578,8 +580,8 @@ cast it and check the resulting board
 > testImaginary db = tctor "testImaginary" $ \conn -> do
 
 >   let setStuffUp1 = do
->                     startNewGame db conn
->                     addSpell conn "Buddha" "goblin"
+>                     setupGame db conn defaultGameState
+>                     addSpell1 conn "Buddha" "goblin"
 >                     sendKeyPress conn $ keyChooseSpell "goblin"
 >   let setStuffUp2 = do
 >                     skipToPhase db conn "cast"

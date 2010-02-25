@@ -32,6 +32,8 @@ twice, check the turn_phase and current_wizard each time
 >   setupGame db conn defaultGameState
 >   testPhases db conn wizardNames
 
+> testPhases :: IConnection conn =>
+>               Database -> conn -> [String] -> IO ()
 > testPhases db conn wizs =
 >   forM_ ["choose","cast","move","choose","cast","move"] $ \phase ->
 >   forM_ wizs $ \wiz -> do

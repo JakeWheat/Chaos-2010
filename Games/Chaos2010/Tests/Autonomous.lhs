@@ -8,6 +8,7 @@
 > import Database.HDBC (IConnection)
 
 > import Games.Chaos2010.Tests.BoardUtils
+> import Games.Chaos2010.Tests.SetupGameState
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.Utils
 > import Games.Chaos2010.Database.Spell_books
@@ -41,7 +42,8 @@ castles disappearing
 >            [('O', [makePD "wizard" "Buddha",
 >                    makePD "dark_citadel" "Buddha"]),
 >             ('C', [makePD "dark_citadel" "Buddha"])]
->   startNewGameReadyToAuto db conn ("\n\
+>   newSetupGame db conn (setPhase "cast"
+>                         . setCurrentWizard "Zarathushthra") ("\n\
 >                   \O      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -72,7 +74,8 @@ castles disappearing
 >            [('O', [makePD "wizard" "Buddha",
 >                    makePD "dark_citadel" "Buddha"]),
 >             ('C', [makePD "dark_citadel" "Buddha"])]
->   startNewGameReadyToAuto db conn ("\n\
+>   newSetupGame db conn (setPhase "cast"
+>                         . setCurrentWizard "Zarathushthra") ("\n\
 >                   \O      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -103,7 +106,8 @@ castles disappearing
 >   let pl = wizardPiecesList ++
 >            [('T', [makePD "wizard" "Buddha",
 >                    makePD "magic_tree" "Buddha"])]
->   startNewGameReadyToAuto db conn ("\n\
+>   newSetupGame db conn (setPhase "cast"
+>                         . setCurrentWizard "Zarathushthra") ("\n\
 >                   \T      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -142,7 +146,8 @@ castles disappearing
 >   let pl = wizardPiecesList ++
 >            [('T', [makePD "wizard" "Buddha",
 >                    makePD "magic_tree" "Buddha"])]
->   startNewGameReadyToAuto db conn ("\n\
+>   newSetupGame db conn (setPhase "cast"
+>                         . setCurrentWizard "Zarathushthra") ("\n\
 >                   \T      2      3\n\
 >                   \               \n\
 >                   \               \n\

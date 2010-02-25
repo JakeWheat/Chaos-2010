@@ -10,6 +10,7 @@
 > import Database.HaskellDB.Database
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
+> import Games.Chaos2010.Tests.SetupGameState
 > import Games.Chaos2010.Utils
 > import Games.Chaos2010.Database.Action_history_mr
 > import Games.Chaos2010.Database.Client_valid_activate_actions
@@ -33,7 +34,8 @@ and target action views are empty.
 
 > testWizardWin :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testWizardWin db = tctor "testWizardWin" $ \conn -> do
->   startNewGameReadyToMove db conn ("\n\
+>   newSetupGame db conn (setPhase "move"
+>                         . setCurrentWizard "Kong Fuzi") ("\n\
 >                   \1G     2       \n\
 >                   \               \n\
 >                   \               \n\
@@ -89,7 +91,8 @@ are no wizards left.
 
 > testGameDraw :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testGameDraw db = tctor "testGameDraw" $ \conn -> do
->   startNewGameReadyToMove db conn ("\n\
+>   newSetupGame db conn (setPhase "move"
+>                         . setCurrentWizard "Kong Fuzi") ("\n\
 >                   \1G 2           \n\
 >                   \               \n\
 >                   \               \n\

@@ -50,7 +50,7 @@ magic tree or castle; add test for these.
 
 > testPiecesOnTop :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testPiecesOnTop db = tctor "testPiecesOnTop" $ \conn -> do
->   newSetupGame db conn ("\n\
+>   newSetupGame db conn id ("\n\
 >                   \b      c      d\n\
 >                   \               \n\
 >                   \ aghi          \n\

@@ -11,7 +11,7 @@
 >     ,setWizardPosition
 >     ,createCorpse
 >     ,createPieceInternal
->     ,addSpell
+>     ,addSpell1
 >     ,rigActionSuccess
 >     ,disableSpreading
 >     ,addMagicSword
@@ -19,6 +19,8 @@
 >     ,setupTestBoard
 >     ,withConstraintsDisabled
 >     ,nextPhaseChooseIf
+>     ,nextPhase
+>     ,skipToPhase
 >     --,disableConstraints
 >     --,enableConstraints
 >     ) where
@@ -125,8 +127,8 @@
 
 
 
-> addSpell :: IConnection conn => conn -> String -> String -> IO ()
-> addSpell conn wiz spellName = do
+> addSpell1 :: IConnection conn => conn -> String -> String -> IO ()
+> addSpell1 conn wiz spellName = do
 >   {-insert db Sb.spell_books r
 >   where
 >     r :: Sb.Spell_books
@@ -160,6 +162,10 @@
 
 > nextPhase :: IConnection conn => conn -> IO ()
 > nextPhase conn = callSp conn "action_next_phase" []
+
+> skipToPhase :: IConnection conn => Database -> conn -> String -> IO ()
+> skipToPhase _ conn phase =
+>   callSp conn "action_skip_to_phase" [phase]
 
 > rollback :: IConnection conn => conn -> IO ()
 > rollback conn = run conn "rollback" [] >> return ()

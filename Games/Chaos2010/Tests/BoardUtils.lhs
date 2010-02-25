@@ -3,14 +3,16 @@ Copyright 2010 Jake Wheat
 Test utilities for reading and setting pieces.
 
 > module Games.Chaos2010.Tests.BoardUtils
->     (BoardDiagram
->     ,toBoardDescription
->     ,PieceDescription(..)
->     ,wizardNames
+>     (PieceDescription(..)
 >     ,Imaginary(..)
 >     ,Undead(..)
->     ,Ptype
->     ,Allegiance
+>     ,wizardPiecesList
+>     ,wizardNames
+>     ,parseBoardDiagram
+>     ,parseValidSquares
+>     {-,toBoardDescription
+>     ,PieceDescription(..)
+>     ,wizardNames
 >     ,assertValidSquaresEquals
 >     ,assertBoardEquals
 >     ,wizardPiecesList
@@ -18,6 +20,7 @@ Test utilities for reading and setting pieces.
 >     ,liftPl
 >     ,assertTopPiecesEquals
 >     ,newSetupGame
+>     ,newGameReadyToCast1-}
 >     ) where
 
 > import Data.Maybe
@@ -26,12 +29,16 @@ Test utilities for reading and setting pieces.
 > import Test.HUnit
 > import Database.HDBC (IConnection)
 
-> import Games.Chaos2010.Tests.SetupGameState
+> --import Games.Chaos2010.Tests.SetupGameState
 
 > import qualified Games.Chaos2010.Database.Current_wizard_spell_squares as Cwss
 > import qualified Games.Chaos2010.Database.Piece_details as Pd
 > import qualified Games.Chaos2010.Database.Pieces_on_top_view as Ptv
+> --import Games.Chaos2010.Database.Wizards
 > import Games.Chaos2010.Utils
+
+> parseBoardDiagram = undefined
+> parseValidSquares = undefined
 
 ================================================================================
 
@@ -162,11 +169,9 @@ wizardPiecesList is a list of the wizard pieces to avoid writing them
 out each test since most tests have all eight wizards remaining at the
 end
 
-> type Allegiance = String
-> type Ptype = String
 
 > data PieceDescription =
->     PieceDescription Ptype Allegiance Imaginary Undead
+>     PieceDescription String String Imaginary Undead
 >     deriving (Show,Eq,Ord)
 
 > data Imaginary = Imaginary | Real
@@ -247,13 +252,13 @@ on each square
 >                    let ps = safeLookup "board diagram parse" k key
 >                    in map (\p -> (p,x,y)) ps)
 
-> type NewBoardDescription = ([Wizards_v]
+> {-type NewBoardDescription = ([Wizards_v]
 >                            ,[Pieces_v]
 >                            ,[Imaginary_pieces_v]
->                            ,[Crimes_against_nature_v])
+>                            ,[Crimes_against_nature_v])-}
 
-> toNewBoardDescription :: BoardDiagram -> NewBoardDescription
-> toNewBoardDescription bd =
+> {-setFromBoardDiagram :: BoardDiagram -> GameState -> GameState
+> setFromBoardDiagram bd gs =
 >     let bd1 = toBoardDescription bd
 >         items = map (\(((PieceDescription p a i u),xp,yp),t) ->
 >                       (p,a,t,i,u,xp,yp)) $ zip bd1 [0..]
@@ -265,22 +270,57 @@ on each square
 >         crimes = flip map (filter isCrime items)
 >                       $ \(p,a,t,_,_,_,_)
 >                           -> makeCrime p a t
->     in (defaultWizardList -- todo: fix if needed
->        ,pieces
->        ,im_pieces
->        ,crimes)
+>         allegs = catMaybes $ flip map items
+>                            $ \(p,a,_,_,_,_,_) ->
+>                                if p == "wizard"
+>                                then Just a
+>                                else Nothing
+>         deadWizNos = flip map (restrictTable defaultWizardList
+>                                (\r -> r # wizard_name `notElem` allegs))
+>                         $ \r -> r # original_place
+>     in (gs {peeces = pieces
+>           ,imaginaryPieces = im_pieces
+>           ,crimesAgainstNature = crimes
+>           })
 >     where
 >       isImag (_,_,_,i,_,_,_) = i == Imaginary
 >       isCrime (_,_,_,_,u,_,_) = u== Undead
+>       updateTable t w u =
+>         flip map t $ \r -> if w r
+>                            then u r
+>                            else r
+>       restrictTable t w = flip filter t $ \r -> w r-}
 
-> newSetupGame :: IConnection conn => Database -> conn -> BoardDiagram -> IO ()
-> newSetupGame db conn bd = do
+> {-newSetupGame :: IConnection conn => Database
+>              -> conn
+>              -> (GameState -> GameState)
+>              -> BoardDiagram
+>              -> IO ()
+> newSetupGame db conn gsm bd = do
 >   let (w,p,i,c) = toNewBoardDescription bd
->   setupGame db conn $ defaultGameState {wezards = w
->                                        ,peeces = p
->                                        ,imaginaryPieces = i
->                                        ,crimesAgainstNature = c
->                                        }
+>   setupGame db conn $ gsm $ defaultGameState {wezards = w
+>                                              ,peeces = p
+>                                              ,imaginaryPieces = i
+>                                              ,crimesAgainstNature = c
+>                                              }
+
+> newGameReadyToCast1 :: IConnection conn => Database
+>                     -> conn
+>                     -> (GameState -> GameState)
+>                     -> String
+>                     -> Maybe Bool
+>                     -> BoardDiagram
+>                     -> IO ()
+> newGameReadyToCast1 db conn gsm sp im bd = do
+>   let (w,p,i,c) = toNewBoardDescription bd
+>       gs = gsm $ defaultGameState{wezards = w
+>                                  ,peeces = p
+>                                  ,imaginaryPieces = i
+>                                  ,crimesAgainstNature = c
+>                                  }
+>   newGameReadyToCast db conn sp im gs-}
+
+
 
 
 now the code to read the board from the database and get it in the same format:

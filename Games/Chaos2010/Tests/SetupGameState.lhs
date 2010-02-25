@@ -1,39 +1,48 @@
+Copyright 2010 Jake Wheat
 
-Utility to help with tests, maybe use for save games as well?
+Utility to help with setting up new games.
 
-Describe the complete game state by listing the contents of all
-relevant tables. Use defaults to make this as concise as possible.
+The idea is to start with a default game state which is a set of
+[recs], one for each data table, e.g. a list for the wizards table,
+pieces table, etc.. There is a routine to initialize the database from
+this collection, which does this by disabling all the constraints,
+wiping then loading all the tables.
+
+This is then modified by a bunch of operators which can change this
+default game state, e.g so we can start with a default starting game,
+then say, add goblin spell to the first wizard's spell book, make it
+his choice, and start in the cast phase.
+
+Some of these operators just modify the default game state value, but
+some need to be more clever - if we want to remove a wizard this is a
+bit tedious since we don't have cascading foreign keys in the default
+game state type, if we want to set the turn phase to cast or somewhere
+in the middle of a piece's move, there is a bunch of additional state
+to setup in various tables - want to do this automatically.
 
 > {-# LANGUAGE FlexibleContexts #-}
 > module Games.Chaos2010.Tests.SetupGameState
->     (defaultGameState
->     ,GameState(..)
->     ,setupGame
->     ,Wizards_v
->     ,Pieces_v
->     ,Imaginary_pieces_v
->     ,Crimes_against_nature_v
->     ,defaultWizardList
->     ,makePiece
->     ,makeImag
->     ,makeCrime
->     ,removeWizardN
+>     (setupGame
+>     ,setPhase
+>     ,setCurrentWizard
+>     ,setFromBoardDiagram
+>     ,addSpell
+>     ,chooseSpell
+>     ,setWizards
 >     ) where
-
-> --import Test.HUnit
-> --import Test.Framework
-> --import Control.Monad
-> --import Debug.Trace
 
 > import Database.HaskellDB
 > import Database.HaskellDB.Query
 > import Database.HaskellDB.PrimQuery
 > import Database.HDBC (IConnection)
 
-> --import Games.Chaos2010.Tests.BoardUtils
+> import Games.Chaos2010.Tests.BoardUtils
 > --import Games.Chaos2010.Tests.TestUtils
 > --import Games.Chaos2010.Database.Cursor_position
 > import Games.Chaos2010.DBUpdates
+> --import Games.Chaos2010.Tests.DBUpdates
+
+> -- tables
 > import Games.Chaos2010.Database.Board_size
 > import Games.Chaos2010.Database.World_alignment_table
 > import Games.Chaos2010.Database.Turn_number_table
@@ -47,7 +56,6 @@ relevant tables. Use defaults to make this as concise as possible.
 > import qualified Games.Chaos2010.Database.Cursor_position as C
 > import qualified Games.Chaos2010.Database.Wizard_display_info as Wd
 > import Games.Chaos2010.Database.Game_completed_table
-
 > import Games.Chaos2010.Database.Cast_alignment_table
 > import Games.Chaos2010.Database.Remaining_walk_table
 > import qualified Games.Chaos2010.Database.Selected_piece as Sp
@@ -56,6 +64,9 @@ relevant tables. Use defaults to make this as concise as possible.
 > import qualified Games.Chaos2010.Database.Wizard_spell_choices_mr as Wc
 > import qualified Games.Chaos2010.Database.Action_history_mr as Ah
 > import Games.Chaos2010.Database.Cast_success_checked_table
+> import Games.Chaos2010.Database.Test_action_overrides
+
+= game state
 
 tables to possibly set:
 
@@ -71,18 +82,20 @@ pieces  imaginary_pieces           | Chaos.Server.Pieces
 pieces  crimes_against_nature      | Chaos.Server.Pieces
 pieces  wizards                    | Chaos.Server.Wizards
 ?       spell_books                | Chaos.Server.Wizards
-
 ?       wizard_spell_choices_mr    | Chaos.Server.TurnSequence
-?       spell_parts_to_cast_table  | Chaos.Server.TurnSequence
-?       cast_success_checked_table | Chaos.Server.TurnSequence
+
 ?       pieces_moved               | Chaos.Server.TurnSequence
 ?       selected_piece             | Chaos.Server.TurnSequence
-?       remaining_walk_table       | Chaos.Server.TurnSequence
 
 ?       wizard_display_info        | Chaos.Client.WizardDisplayInfo
 single  cursor_position            | Chaos.Client.BoardWidget
 
-probably don't care about: (* useful for savegames)
+these are the tricky ones which get set with all sorts of weird values during the turn progression. We don't want the test code to have to worry about all this, so we just provide combinators to set the turn phase or sub phase, and all this is handled automatically
+
+?       spell_parts_to_cast_table  | Chaos.Server.TurnSequence
+?       cast_success_checked_table | Chaos.Server.TurnSequence
+?       remaining_walk_table       | Chaos.Server.TurnSequence
+
 
  test_action_overrides      | Chaos.Server.Actions.TestSupport
 * game_completed_table       | Chaos.Server.TurnSequence
@@ -92,95 +105,7 @@ probably don't care about: (* useful for savegames)
  spell_book_show_all_table  | Chaos.Client.SpellBookWidget
  new_game_widget_state      | Chaos.Client.NewGameWidget
 
-the idea is to create a default value which is a set of haskelldb
-records, one for each table. Then we can disable all the constraint
-triggers, wipe then insert into each table, then reenable all the
-triggers.
-
-> type Board_size_v =
->    Record (HCons (LVPair Width Int)
->            (HCons (LVPair Height Int) HNil))
-
-> type World_alignment_table_v =
->    Record (HCons (LVPair World_alignment Int) HNil)
-
-> type Turn_number_table_v =
->    Record (HCons (LVPair Turn_number Int) HNil)
-
-> type Current_wizard_table_v =
->    Record (HCons (LVPair Cw.Current_wizard String) HNil)
-
-> type Turn_phase_table_v =
->    Record (HCons (LVPair Turn_phase String) HNil)
-
-> type Wizards_v =
->     Record (HCons (LVPair Wizard_name String)
->             (HCons (LVPair Shadow_form Bool)
->              (HCons (LVPair Magic_sword Bool)
->               (HCons (LVPair Magic_knife Bool)
->                (HCons (LVPair Magic_shield Bool)
->                 (HCons (LVPair Magic_wings Bool)
->                  (HCons (LVPair Magic_armour Bool)
->                   (HCons (LVPair Magic_bow Bool)
->                    (HCons (LVPair Computer_controlled Bool)
->                     (HCons (LVPair Original_place Int)
->                      (HCons (LVPair Expired Bool) HNil)))))))))))
-
-> type Pieces_v =
->    Record (HCons (LVPair Ptype String)
->            (HCons (LVPair Allegiance String)
->             (HCons (LVPair Tag Int)
->              (HCons (LVPair X Int)
->               (HCons (LVPair Y Int) HNil)))))
-
-> type Spell_books_v =
->     Record (HCons (LVPair Sb.Id Int)
->             (HCons (LVPair Sb.Wizard_name String)
->              (HCons (LVPair Sb.Spell_name String) HNil)))
-
-> type Imaginary_pieces_v =
->     Record (HCons (LVPair I.Ptype String)
->             (HCons (LVPair I.Allegiance String)
->              (HCons (LVPair I.Tag Int) HNil)))
-
-> type Crimes_against_nature_v =
->     Record (HCons (LVPair Cr.Ptype String)
->             (HCons (LVPair Cr.Allegiance String)
->              (HCons (LVPair Cr.Tag Int) HNil)))
-
-> type Game_completed_table_v =
->     Record (HCons (LVPair Game_completed Bool) HNil)
-
-
-> makePiece :: String -> String -> Int -> Int -> Int -> Pieces_v
-> makePiece p a t xp yp = ptype .=. p
->                         .*. allegiance .=. a
->                         .*. tag .=. t
->                         .*. x .=. xp
->                         .*. y .=. yp
->                         .*. emptyRecord
-> makeImag :: String -> String -> Int -> Imaginary_pieces_v
-> makeImag p a t = I.ptype .=. p
->                  .*. I.allegiance .=. a
->                  .*. I.tag .=. t
->                  .*. emptyRecord
-> makeCrime :: String -> String -> Int -> Crimes_against_nature_v
-> makeCrime p a t = Cr.ptype .=. p
->                   .*. Cr.allegiance .=. a
->                   .*. Cr.tag .=. t
->                   .*. emptyRecord
-
-
-> type Cursor_position_v =
->     Record (HCons (LVPair C.X Int)
->             (HCons (LVPair C.Y Int) HNil))
-
-> type Wizard_display_info_v =
->     Record (HCons (LVPair Wd.Wizard_name String)
->             (HCons (LVPair Wd.Default_sprite String)
->              (HCons (LVPair Wd.Colour String) HNil)))
-
-
+== the GameState type and defaultGameState value
 
 > data GameState = GameState
 >     {boardSize :: Board_size_v
@@ -196,6 +121,7 @@ triggers.
 >     ,cursorPosition :: Cursor_position_v
 >     ,wizardDisplayInfo :: [Wizard_display_info_v]
 >     ,gameCompleted :: [Game_completed_table_v]
+>     ,wizardSpellChoices :: [Wizard_spell_choices_mr_v]
 >     }
 >                  deriving Show
 
@@ -245,61 +171,8 @@ triggers.
 >                                      ,("Yeshua", "wizard6", "white")
 >                                      ,("Zarathushthra", "wizard7", "orange")]
 >             ,gameCompleted = []
+>             ,wizardSpellChoices = []
 >             }
-
-> setupGame :: IConnection conn => Database -> conn -> GameState -> IO ()
-> setupGame db conn gs = withConstraintsDisabled conn $ transaction db $ do
->     setRelvarT db board_size $ boardSize gs
->     setRelvarT db world_alignment_table $ worldAlignment gs
->     setRelvarT db turn_number_table $ turnNumber gs
->     setRelvar db wizards $ wezards gs
->     setRelvarT db Cw.current_wizard_table $ currentWizard gs
->     setRelvarT db turn_phase_table $ turnPhase gs
->     setRelvar db pieces $ peeces gs
->     setRelvar db Sb.spell_books $ spellBooks gs
->     setRelvar db I.imaginary_pieces $ imaginaryPieces gs
->     setRelvar db Cr.crimes_against_nature $ crimesAgainstNature gs
->     setRelvarT db C.cursor_position $ cursorPosition gs
->     setRelvar db Wd.wizard_display_info $ wizardDisplayInfo gs
->     setRelvar db game_completed_table $ gameCompleted gs
->     clearTable db cast_alignment_table
->     clearTable db remaining_walk_table
->     clearTable db Sp.selected_piece
->     clearTable db Pm.pieces_moved
->     clearTable db spell_parts_to_cast_table
->     clearTable db Wc.wizard_spell_choices_mr
->     clearTable db Ah.action_history_mr
->     clearTable db cast_success_checked_table
-
-> setRelvarT :: (RecordLabels er ls,
->               HLabelSet ls,
->               HRearrange ls r r',
->               RecordValues r' vs',
->               HMapOut
->               ToPrimExprsOp vs' Database.HaskellDB.PrimQuery.PrimExpr,
->               InsertRec r' er,
->               HMap ConstantRecordOp r1 r) =>
->              Database -> Table (Record er) -> Record r1 -> IO ()
-> setRelvarT db t v = do
->   clearTable db t
->   insert db t $ constantRecord v
-
-> setRelvar :: (RecordLabels er ls,
->               HLabelSet ls,
->               HRearrange ls r r',
->               RecordValues r' vs',
->               HMapOut ToPrimExprsOp vs' PrimExpr,
->               InsertRec r' er,
->               HMap ConstantRecordOp r1 r) =>
->              Database -> Table (Record er) -> [Record r1] -> IO ()
-> setRelvar db t v = do
->   clearTable db t
->   forM_ v $ insert db t . constantRecord
-
-
-> clearTable :: Database -> Table r -> IO ()
-> clearTable db t =
->    delete db t (const $ constant True)
 
 > defaultWizardList :: [Wizards_v]
 > defaultWizardList = let defaults n p = wizard_name .=. n
@@ -492,6 +365,118 @@ triggers.
 >     ,(115520, "Zarathushthra", "shadow_form")
 >     ,(115521, "Zarathushthra", "shadow_form")]
 
+===============================================================================
+
+the combinators for altering the default game state value
+
+
+> setPhase :: String -> GameState -> GameState
+> setPhase p gs =
+>     gs {turnPhase = (turn_phase .=. p .*. emptyRecord)}
+
+
+> setCurrentWizard :: String -> GameState -> GameState
+> setCurrentWizard w gs =
+>     gs {currentWizard = (Cw.current_wizard .=. w
+>                            .*. emptyRecord)}
+
+> addSpell :: String -> String -> GameState -> GameState
+> addSpell w s gs =
+>     gs {spellBooks = entry : spellBooks gs}
+>     where
+>       entry = Sb.xid .=. 32409
+>               .*. Sb.wizard_name .=. w
+>               .*. Sb.spell_name .=. s
+>               .*. emptyRecord
+
+> chooseSpell :: String -> String -> Maybe Bool -> GameState -> GameState
+> chooseSpell w s i gs = gs {
+>   wizardSpellChoices = entry : wizardSpellChoices gs}
+>   where
+>     entry = Wc.wizard_name .=. w
+>             .*. Wc.spell_name .=. s
+>             .*. Wc.imaginary .=. i
+>             .*. emptyRecord
+
+
+> {-newGameReadyToCast :: IConnection conn =>
+>                       Database
+>                    -> conn
+>                    -> String
+>                    -> Maybe Bool
+>                    -> GameState
+>                    -> IO ()
+> newGameReadyToCast db conn spellName im gs = do
+>   setupGame db conn ((setPhase "choose"
+>                      . setCurrentWizard "Zarathushthra"
+>                      . addSpell "Buddha" spellName
+>                      . addSpellChoice "Buddha" spellName im) gs)
+>   nextPhase conn-}
+
+===============================================================================
+
+the function which takes the final game state and sets the database up
+using it
+
+> setupGame :: IConnection conn => Database -> conn -> GameState -> IO ()
+> setupGame db conn gs = withConstraintsDisabled conn $ transaction db $ do
+>     setRelvarT db board_size $ boardSize gs
+>     setRelvarT db world_alignment_table $ worldAlignment gs
+>     setRelvarT db turn_number_table $ turnNumber gs
+>     setRelvar db wizards $ wezards gs
+>     setRelvarT db Cw.current_wizard_table $ currentWizard gs
+>     setRelvarT db turn_phase_table $ turnPhase gs
+>     setRelvar db pieces $ peeces gs
+>     setRelvar db Sb.spell_books $ spellBooks gs
+>     setRelvar db I.imaginary_pieces $ imaginaryPieces gs
+>     setRelvar db Cr.crimes_against_nature $ crimesAgainstNature gs
+>     setRelvarT db C.cursor_position $ cursorPosition gs
+>     setRelvar db Wd.wizard_display_info $ wizardDisplayInfo gs
+>     setRelvar db game_completed_table $ gameCompleted gs
+>     setRelvar db Wc.wizard_spell_choices_mr $ wizardSpellChoices gs
+>     {-if (turnPhase gs) # turn_phase == "cast"
+>       then setRelvarT db cast_alignment_table $ cast_alignment .=. 0 .*. emptyRecord
+>       else clearTable db cast_alignment_table-}
+>     clearTable db cast_alignment_table
+>     clearTable db remaining_walk_table
+>     clearTable db Sp.selected_piece
+>     clearTable db Pm.pieces_moved
+>     clearTable db spell_parts_to_cast_table
+>     clearTable db Ah.action_history_mr
+>     clearTable db cast_success_checked_table
+>     clearTable db test_action_overrides
+
+> setRelvarT :: (RecordLabels er ls,
+>               HLabelSet ls,
+>               HRearrange ls r r',
+>               RecordValues r' vs',
+>               HMapOut
+>               ToPrimExprsOp vs' Database.HaskellDB.PrimQuery.PrimExpr,
+>               InsertRec r' er,
+>               HMap ConstantRecordOp r1 r) =>
+>              Database -> Table (Record er) -> Record r1 -> IO ()
+> setRelvarT db t v = do
+>   clearTable db t
+>   insert db t $ constantRecord v
+
+> setRelvar :: (RecordLabels er ls,
+>               HLabelSet ls,
+>               HRearrange ls r r',
+>               RecordValues r' vs',
+>               HMapOut ToPrimExprsOp vs' PrimExpr,
+>               InsertRec r' er,
+>               HMap ConstantRecordOp r1 r) =>
+>              Database -> Table (Record er) -> [Record r1] -> IO ()
+> setRelvar db t v = do
+>   clearTable db t
+>   forM_ v $ insert db t . constantRecord
+
+
+> clearTable :: Database -> Table r -> IO ()
+> clearTable db t =
+>    delete db t (const $ constant True)
+
+
 
 > removeWizardN :: Int -> GameState -> GameState
 > removeWizardN n gs =
@@ -522,3 +507,101 @@ triggers.
 >                            then u r
 >                            else r
 >     restrictTable t w = flip filter t $ \r -> w r
+
+> makePiece :: String -> String -> Int -> Int -> Int -> Pieces_v
+> makePiece p a t xp yp = ptype .=. p
+>                         .*. allegiance .=. a
+>                         .*. tag .=. t
+>                         .*. x .=. xp
+>                         .*. y .=. yp
+>                         .*. emptyRecord
+> makeImag :: String -> String -> Int -> Imaginary_pieces_v
+> makeImag p a t = I.ptype .=. p
+>                  .*. I.allegiance .=. a
+>                  .*. I.tag .=. t
+>                  .*. emptyRecord
+> makeCrime :: String -> String -> Int -> Crimes_against_nature_v
+> makeCrime p a t = Cr.ptype .=. p
+>                   .*. Cr.allegiance .=. a
+>                   .*. Cr.tag .=. t
+>                   .*. emptyRecord
+
+
+
+
+===============================================================================
+
+= types of tables
+
+just a copy of the types generated by haskell db, but stripped of the
+expr wrappers on the values. This is really tedious and could be done
+much better e.g. by using template haskell.
+
+> type Board_size_v =
+>    Record (HCons (LVPair Width Int)
+>            (HCons (LVPair Height Int) HNil))
+
+> type World_alignment_table_v =
+>    Record (HCons (LVPair World_alignment Int) HNil)
+
+> type Turn_number_table_v =
+>    Record (HCons (LVPair Turn_number Int) HNil)
+
+> type Current_wizard_table_v =
+>    Record (HCons (LVPair Cw.Current_wizard String) HNil)
+
+> type Turn_phase_table_v =
+>    Record (HCons (LVPair Turn_phase String) HNil)
+
+> type Wizards_v =
+>     Record (HCons (LVPair Wizard_name String)
+>             (HCons (LVPair Shadow_form Bool)
+>              (HCons (LVPair Magic_sword Bool)
+>               (HCons (LVPair Magic_knife Bool)
+>                (HCons (LVPair Magic_shield Bool)
+>                 (HCons (LVPair Magic_wings Bool)
+>                  (HCons (LVPair Magic_armour Bool)
+>                   (HCons (LVPair Magic_bow Bool)
+>                    (HCons (LVPair Computer_controlled Bool)
+>                     (HCons (LVPair Original_place Int)
+>                      (HCons (LVPair Expired Bool) HNil)))))))))))
+
+> type Pieces_v =
+>    Record (HCons (LVPair Ptype String)
+>            (HCons (LVPair Allegiance String)
+>             (HCons (LVPair Tag Int)
+>              (HCons (LVPair X Int)
+>               (HCons (LVPair Y Int) HNil)))))
+
+> type Spell_books_v =
+>     Record (HCons (LVPair Sb.Id Int)
+>             (HCons (LVPair Sb.Wizard_name String)
+>              (HCons (LVPair Sb.Spell_name String) HNil)))
+
+> type Imaginary_pieces_v =
+>     Record (HCons (LVPair I.Ptype String)
+>             (HCons (LVPair I.Allegiance String)
+>              (HCons (LVPair I.Tag Int) HNil)))
+
+> type Crimes_against_nature_v =
+>     Record (HCons (LVPair Cr.Ptype String)
+>             (HCons (LVPair Cr.Allegiance String)
+>              (HCons (LVPair Cr.Tag Int) HNil)))
+
+> type Game_completed_table_v =
+>     Record (HCons (LVPair Game_completed Bool) HNil)
+
+
+> type Wizard_spell_choices_mr_v =
+>     Record (HCons (LVPair Wc.Wizard_name String)
+>             (HCons (LVPair Wc.Spell_name String)
+>              (HCons (LVPair Wc.Imaginary (Maybe Bool)) HNil)))
+
+> type Cursor_position_v =
+>     Record (HCons (LVPair C.X Int)
+>             (HCons (LVPair C.Y Int) HNil))
+
+> type Wizard_display_info_v =
+>     Record (HCons (LVPair Wd.Wizard_name String)
+>             (HCons (LVPair Wd.Default_sprite String)
+>              (HCons (LVPair Wd.Colour String) HNil)))

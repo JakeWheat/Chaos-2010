@@ -8,6 +8,7 @@
 
 > import Games.Chaos2010.Tests.BoardUtils
 > import Games.Chaos2010.Tests.TestUtils
+> import Games.Chaos2010.Tests.SetupGameState
 >
 > subphases :: IConnection conn => Database -> conn -> Test.Framework.Test
 > subphases db conn = testGroup "subphases" $
@@ -162,7 +163,7 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "goblin" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1G R   2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -199,7 +200,7 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "goblin" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -233,7 +234,7 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "goblin" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1G  R  2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -268,7 +269,7 @@ variations, so we don't need to test them elsewhere.
 >                ('R', [makePD "giant_rat" "Kong Fuzi"]),
 >                ('E', [makePD "goblin" "Buddha",
 >                       makePD "giant_rat" "dead"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -302,7 +303,7 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('B', [makePD "bear" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1B   R 2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -350,7 +351,7 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('B', [makePD "bear" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1B R   2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -389,7 +390,7 @@ variations, so we don't need to test them elsewhere.
 >                ('R', [makePD "giant_rat" "Kong Fuzi"]),
 >                ('H', [makePD "eagle" "Buddha",
 >                       makePD "giant_rat" "dead"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1G  R  2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -436,7 +437,7 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "eagle" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1G  R  2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -471,7 +472,7 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "eagle" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -505,7 +506,7 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "eagle" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1G    R2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -545,7 +546,7 @@ variations, so we don't need to test them elsewhere.
 >                ('H', [makePD "elf" "Buddha",
 >                       makePD "giant_rat" "dead"]),
 >                ('r', [makePD "giant_rat" "dead"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1G R   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -609,7 +610,7 @@ variations, so we don't need to test them elsewhere.
 >                ('R', [makePD "giant_rat" "Kong Fuzi"]),
 >                ('H', [makePD "elf" "Buddha",
 >                       makePD "giant_rat" "dead"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1G R   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -670,7 +671,7 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "elf" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1G R   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -732,7 +733,7 @@ variations, so we don't need to test them elsewhere.
 >               [('G', [makePD "elf" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"]),
 >                ('r', [makePD "giant_rat" "dead"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -780,7 +781,7 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "elf" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1G  R  2      3\n\
 >                   \    R          \n\
 >                   \               \n\
@@ -839,7 +840,7 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "elf" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1G  R  2      3\n\
 >                   \   RR          \n\
 >                   \               \n\
@@ -898,7 +899,7 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "elf" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1G  R  2      3\n\
 >                   \  R R          \n\
 >                   \               \n\
@@ -948,7 +949,7 @@ variations, so we don't need to test them elsewhere.
 >               [('W', [makePD "shadow_tree" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"]),
 >                ('r', [makePD "giant_rat" "dead"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1WR    2      3\n\
 >                   \    R          \n\
 >                   \               \n\
@@ -983,7 +984,7 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('W', [makePD "shadow_tree" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     startNewGameReadyToMove db conn ("\n\
+>     newSetupGame db conn (setPhase "move") ("\n\
 >                   \1W     2      3\n\
 >                   \    R          \n\
 >                   \               \n\
