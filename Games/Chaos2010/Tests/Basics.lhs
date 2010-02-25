@@ -15,6 +15,10 @@
 > import Games.Chaos2010.Database.Cursor_position
 > import Games.Chaos2010.Tests.SetupGameState
 > --import Games.Chaos2010.DBUpdates
+> import qualified Games.Chaos2010.Database.Pieces as P
+> import Games.Chaos2010.Database.Imaginary_pieces
+> import Games.Chaos2010.Database.Crimes_against_nature
+
 
 > basics :: IConnection conn => Database -> conn -> Test.Framework.Test
 > basics db conn = testGroup "basics" [
@@ -83,7 +87,7 @@ magic tree or castle; add test for these.
 >                    ,('i', [("goblin", "Kong Fuzi")
 >                           ,("gooey_blob", "Buddha")
 >                           ,("elf", "dead")])]))]
->   {-assertRelvarEquals db ("\n\
+>   assertPiecesEquals db ("\n\
 >                   \b      c      d\n\
 >                   \               \n\
 >                   \ aghi          \n\
@@ -103,7 +107,16 @@ magic tree or castle; add test for these.
 >                     ('f', [("magic_tree","Muhammad")]),
 >                     ('g', [("gooey_blob","Buddha")]),
 >                     ('h', [("gooey_blob","Buddha")]),
->                     ('i', [("gooey_blob","Buddha")])]))-}
+>                     ('i', [("gooey_blob","Buddha")])]))
+
+> assertPiecesEquals :: Database
+>                    -> BoardDiagram
+>                    -> IO ()
+> assertPiecesEquals db dg = do
+>   let (_,p,i,c) = diagramToRVs dg
+>   assertRelvarValue db (table P.pieces) p
+>   assertRelvarValue db (table imaginary_pieces) i
+>   assertRelvarValue db (table crimes_against_nature) c
 
 
 == cursor movement

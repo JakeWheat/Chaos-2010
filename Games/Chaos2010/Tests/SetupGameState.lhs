@@ -32,6 +32,8 @@ to setup in various tables - want to do this automatically.
 >     ,useBoard
 >     ,B.liftPl
 >     ,B.wizardNames
+>     ,diagramToRVs
+>     ,B.BoardDiagram
 >     ) where
 
 > import Database.HaskellDB
@@ -423,8 +425,25 @@ basically does the foreign key cascading
 
 > useBoard :: B.BoardDiagram -> GameState -> GameState
 > useBoard bd =
+>   let (wzs,ps,ims,crs) = diagramToRVs bd
+>   in (\gs ->
+>       gs {peeces = ps
+>          ,imaginaryPieces = ims
+>          ,crimesAgainstNature = crs})
+>       . setWizards wzs
+
+> diagramToRVs :: B.BoardDiagram -> ([String]
+>                                   ,[Pieces_v]
+>                                   ,[Imaginary_pieces_v]
+>                                   ,[Crimes_against_nature_v])
+> diagramToRVs bd =
 >   let (pdp,wzs) = B.parseBoardDiagram bd
 >       pdpts = zip pdp [5..]
+>   in (wzs
+>      ,map makePiece pdpts
+>      ,map makeI $ filter ((# B.imaginary) . fst) pdpts
+>      ,map makeC $ filter ((# B.undead) . fst) pdpts)
+>   where
 >       makePiece :: (B.PieceDescriptionPos,Int) -> Pieces_v
 >       makePiece (r,t) = ptype .=. (r # B.ptype)
 >                         .*. allegiance .=. (r # B.allegiance)
@@ -432,24 +451,14 @@ basically does the foreign key cascading
 >                         .*. x .=. (r # B.x)
 >                         .*. y .=. (r # B.y)
 >                         .*. emptyRecord
->       ps = map makePiece pdpts
->       ims = let i1 = R.restrict (# B.imaginary) pdp
->                 makeI (r,t) = I.ptype .=. (r # B.ptype)
->                               .*. I.allegiance .=. (r # B.allegiance)
->                               .*. I.tag .=. t
->                               .*. emptyRecord
->             in map makeI $ pdpts
->       crs = let i1 = R.restrict (# B.undead) pdp
->                 makeI (r,t) = Cr.ptype .=. (r # B.ptype)
->                               .*. Cr.allegiance .=. (r # B.allegiance)
->                               .*. Cr.tag .=. t
->                               .*. emptyRecord
->             in map makeI $ pdpts
->   in (\gs ->
->       gs {peeces = ps
->          ,imaginaryPieces = ims
->          ,crimesAgainstNature = crs})
->       . setWizards wzs
+>       makeI (r,t) = I.ptype .=. (r # B.ptype)
+>                     .*. I.allegiance .=. (r # B.allegiance)
+>                     .*. I.tag .=. t
+>                     .*. emptyRecord
+>       makeC (r,t) = Cr.ptype .=. (r # B.ptype)
+>                     .*. Cr.allegiance .=. (r # B.allegiance)
+>                     .*. Cr.tag .=. t
+>                     .*. emptyRecord
 
 
 > {-newGameReadyToCast :: IConnection conn =>

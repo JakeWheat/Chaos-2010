@@ -43,7 +43,7 @@
 setup the game, get to cast phase with the first wizard having
 chosen goblin
 
->   setupGame db conn defaultGameState
+>   setupGame db conn []
 
 >   addSpell1 conn "Buddha" "goblin"
 >   sendKeyPress conn $ keyChooseSpell "goblin"
