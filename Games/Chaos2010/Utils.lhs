@@ -25,11 +25,11 @@
  > whenA1 :: IO a -> (a -> Bool) -> IO () -> IO ()
  > whenA1 feed cond f = (cond `liftM` feed) >>= flip when f
 
- > dropItemN :: [a] -> Int -> [a]
- > dropItemN [] _ = []
- > dropItemN (x:xs) i = if i == 0
- >                        then xs
- >                        else x: dropItemN xs (i - 1)
+> dropItemN :: [a] -> Int -> [a]
+> dropItemN [] _ = []
+> dropItemN (x:xs) i = if i == 0
+>                        then xs
+>                        else x: dropItemN xs (i - 1)
 
 
 > time :: IO c -> IO c

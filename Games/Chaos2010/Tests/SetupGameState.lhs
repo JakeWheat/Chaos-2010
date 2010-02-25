@@ -31,6 +31,7 @@ to setup in various tables - want to do this automatically.
 >     ,setWizards
 >     ,useBoard
 >     ,B.liftPl
+>     ,B.wizardNames
 >     ) where
 
 > import Database.HaskellDB
