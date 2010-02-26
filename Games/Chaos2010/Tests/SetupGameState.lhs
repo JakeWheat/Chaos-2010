@@ -39,7 +39,7 @@ to setup in various tables - want to do this automatically.
 > import Database.HaskellDB
 > import Database.HDBC (IConnection)
 
-> import qualified Games.Chaos2010.Tests.BoardUtils as B
+> import Games.Chaos2010.Tests.BoardUtils as B
 > --import Games.Chaos2010.Tests.TestUtils
 > --import Games.Chaos2010.Database.Cursor_position
 > import Games.Chaos2010.DBUpdates
@@ -56,8 +56,9 @@ to setup in various tables - want to do this automatically.
 > import Games.Chaos2010.Database.Turn_phase_table
 > import Games.Chaos2010.Database.Wizards
 > import Games.Chaos2010.Database.Pieces
-> import qualified Games.Chaos2010.Database.Imaginary_pieces as I
-> import qualified Games.Chaos2010.Database.Crimes_against_nature as Cr
+> import Games.Chaos2010.Database.Fields
+> import Games.Chaos2010.Database.Imaginary_pieces
+> import Games.Chaos2010.Database.Crimes_against_nature
 > import qualified Games.Chaos2010.Database.Spell_books as Sb
 > import qualified Games.Chaos2010.Database.Cursor_position as C
 > import qualified Games.Chaos2010.Database.Wizard_display_info as Wd
@@ -441,23 +442,23 @@ basically does the foreign key cascading
 >       pdpts = zip pdp [5..]
 >   in (wzs
 >      ,map makePiece pdpts
->      ,map makeI $ filter ((# B.imaginary) . fst) pdpts
->      ,map makeC $ filter ((# B.undead) . fst) pdpts)
+>      ,map makeI $ filter ((# imaginary) . fst) pdpts
+>      ,map makeC $ filter ((# undead) . fst) pdpts)
 >   where
 >       makePiece :: (B.PieceDescriptionPos,Int) -> Pieces_v
->       makePiece (r,t) = ptype .=. (r # B.ptype)
->                         .*. allegiance .=. (r # B.allegiance)
+>       makePiece (r,t) = ptype .=. (r # ptype)
+>                         .*. allegiance .=. (r # allegiance)
 >                         .*. tag .=. t
->                         .*. x .=. (r # B.x)
->                         .*. y .=. (r # B.y)
+>                         .*. x .=. (r # x)
+>                         .*. y .=. (r # y)
 >                         .*. emptyRecord
->       makeI (r,t) = I.ptype .=. (r # B.ptype)
->                     .*. I.allegiance .=. (r # B.allegiance)
->                     .*. I.tag .=. t
+>       makeI (r,t) = ptype .=. (r # ptype)
+>                     .*. allegiance .=. (r # allegiance)
+>                     .*. tag .=. t
 >                     .*. emptyRecord
->       makeC (r,t) = Cr.ptype .=. (r # B.ptype)
->                     .*. Cr.allegiance .=. (r # B.allegiance)
->                     .*. Cr.tag .=. t
+>       makeC (r,t) = ptype .=. (r # ptype)
+>                     .*. allegiance .=. (r # allegiance)
+>                     .*. tag .=. t
 >                     .*. emptyRecord
 
 
@@ -497,8 +498,8 @@ using it
 >     setRelvarT db turn_phase_table $ turnPhase gs
 >     setRelvar db pieces $ peeces gs
 >     setRelvar db Sb.spell_books $ spellBooks gs
->     setRelvar db I.imaginary_pieces $ imaginaryPieces gs
->     setRelvar db Cr.crimes_against_nature $ crimesAgainstNature gs
+>     setRelvar db imaginary_pieces $ imaginaryPieces gs
+>     setRelvar db crimes_against_nature $ crimesAgainstNature gs
 >     setRelvarT db C.cursor_position $ cursorPosition gs
 >     setRelvar db Wd.wizard_display_info $ wizardDisplayInfo gs
 >     setRelvar db game_completed_table $ gameCompleted gs
@@ -556,14 +557,14 @@ using it
 >                         .*. y .=. yp
 >                         .*. emptyRecord
 > makeImag :: String -> String -> Int -> Imaginary_pieces_v
-> makeImag p a t = I.ptype .=. p
->                  .*. I.allegiance .=. a
->                  .*. I.tag .=. t
+> makeImag p a t = ptype .=. p
+>                  .*. allegiance .=. a
+>                  .*. tag .=. t
 >                  .*. emptyRecord
 > makeCrime :: String -> String -> Int -> Crimes_against_nature_v
-> makeCrime p a t = Cr.ptype .=. p
->                   .*. Cr.allegiance .=. a
->                   .*. Cr.tag .=. t
+> makeCrime p a t = ptype .=. p
+>                   .*. allegiance .=. a
+>                   .*. tag .=. t
 >                   .*. emptyRecord
 
 

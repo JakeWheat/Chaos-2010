@@ -12,12 +12,6 @@ Test utilities for reading and setting pieces.
 >     ,parseValidSquares
 >     ,BoardDiagram
 >     ,BoardDescription
->     ,ptype
->     ,allegiance
->     ,imaginary
->     ,undead
->     ,x
->     ,y
 >     {-,toBoardDescription
 >     ,PieceDescription(..)
 >     ,wizardNames
@@ -29,6 +23,10 @@ Test utilities for reading and setting pieces.
 >     {-,assertTopPiecesEquals
 >     ,newSetupGame
 >     ,newGameReadyToCast1-}
+>     ,Imaginary
+>     ,Undead
+>     ,imaginary
+>     ,undead
 >     ) where
 
 > import Data.Maybe
@@ -37,11 +35,13 @@ Test utilities for reading and setting pieces.
 > import Test.HUnit
 > import Database.HDBC (IConnection)
 
+
 > --import Games.Chaos2010.Tests.SetupGameState
 
 > import qualified Games.Chaos2010.Database.Current_wizard_spell_squares as Cwss
 > import qualified Games.Chaos2010.Database.Piece_details as Pd
 > import qualified Games.Chaos2010.Database.Pieces_on_top_view as Ptv
+> import Games.Chaos2010.Database.Fields
 > --import Games.Chaos2010.Database.Wizards
 > import Games.Chaos2010.Utils
 > import Games.Chaos2010.HaskellDBUtils
@@ -180,7 +180,7 @@ out each test since most tests have all eight wizards remaining at the
 end
 
 
-> $(makeLabels ["Ptype", "Allegiance", "Imaginary", "Undead", "X", "Y"])
+> $(makeLabels ["Imaginary", "Undead"])
 
 > type PieceDescription = $(makeRecord [("Ptype", "String")
 >                                      ,("Allegiance", "String")

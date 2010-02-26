@@ -38,6 +38,7 @@
 > import qualified Games.Chaos2010.Database.New_game_widget_state as Ng
 > import qualified Games.Chaos2010.Database.Cursor_position as C
 > import qualified Games.Chaos2010.Database.Pieces as P
+> import qualified Games.Chaos2010.Database.Fields as P
 > import qualified Games.Chaos2010.Database.Disable_spreading_table as D
 
 > setupTestBoard :: IConnection conn => conn -> String -> IO ()

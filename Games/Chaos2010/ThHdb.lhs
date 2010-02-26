@@ -29,7 +29,7 @@
 
 
 > dcl_template :: Q [Dec]
-> dcl_template = [d| data FooTag deriving Typeable
+> dcl_template = [d| data FooTag --deriving Typeable
 >                    type Foo = Proxy FooTag
 >                    foo :: Foo
 >                    foo = proxy

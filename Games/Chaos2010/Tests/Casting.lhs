@@ -43,9 +43,7 @@
 setup the game, get to cast phase with the first wizard having
 chosen goblin
 
->   setupGame db conn []
-
->   addSpell1 conn "Buddha" "goblin"
+>   setupGame db conn [addSpell conn "Buddha" "goblin"]
 >   sendKeyPress conn $ keyChooseSpell "goblin"
 >   --get the next wizard to select disbelieve so we can check the
 >   --auto next phase works
