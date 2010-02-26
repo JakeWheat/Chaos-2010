@@ -29,11 +29,12 @@
 
 > import Games.Chaos2010.DBUpdates hiding (rigActionSuccess)
 > --import qualified Games.Chaos2010.DBUpdates as DBu
-> import qualified Games.Chaos2010.Database.Selected_piece as Sp
-> import qualified Games.Chaos2010.Database.Pieces_moved as Pm
+> import Games.Chaos2010.Database.Selected_piece
+> import Games.Chaos2010.Database.Pieces_moved
 > import Games.Chaos2010.Database.Turn_phase_table
 > import Games.Chaos2010.Database.Current_wizard_table
 > import Games.Chaos2010.Database.Turn_number_table
+> import Games.Chaos2010.Database.Fields
 > import qualified Games.Chaos2010.Utils as U
 
 ====================================================================
@@ -46,8 +47,8 @@
 >   testCase l $ withTransaction conn $ \c -> U.time $ f c
 
 > goSquare :: IConnection conn => Database -> conn -> Int -> Int -> IO ()
-> goSquare db conn x y = do
->   setCursorPos db conn x y
+> goSquare db conn xp yp = do
+>   setCursorPos db conn xp yp
 >   actionGo db conn --sendKeyPress conn "Return"
 
 
@@ -86,14 +87,14 @@
 >   return r1
 
 > type Selected_piece_v =
->     Record (HCons (LVPair Sp.Ptype String)
->             (HCons (LVPair Sp.Allegiance String)
->              (HCons (LVPair Sp.Tag Int)
->               (HCons (LVPair Sp.Move_phase String)
->                (HCons (LVPair Sp.Engaged Bool) HNil)))))
+>     Record (HCons (LVPair Ptype String)
+>             (HCons (LVPair Allegiance String)
+>              (HCons (LVPair Tag Int)
+>               (HCons (LVPair Move_phase String)
+>                (HCons (LVPair Engaged Bool) HNil)))))
 > querySelectedPiece :: Database -> IO [Selected_piece_v]
 > querySelectedPiece db =
->   query db $ table Sp.selected_piece
+>   query db $ table selected_piece
 
 
 1 turn number
@@ -109,11 +110,11 @@ m pieces moved
 01 cast alignment
 
 > assertSelectedPiece :: Database -> String -> String -> IO()
-> assertSelectedPiece db ptype allegiance = do
->   rel <- query db $ table Sp.selected_piece
+> assertSelectedPiece db pt al = do
+>   rel <- query db $ table selected_piece
 >   let t = head rel
->   assertEqual "selected piece" (ptype,allegiance)
->               (t # Sp.ptype, t # Sp.allegiance)
+>   assertEqual "selected piece" (pt,al)
+>               (t # ptype, t # allegiance)
 
 > assertCurrentWizardPhase :: Database -> String -> String -> IO()
 > assertCurrentWizardPhase db wiz phase = do
@@ -138,31 +139,31 @@ m pieces moved
 
 
 > assertPieceDoneSelection :: Database -> String -> String -> IO ()
-> assertPieceDoneSelection db ptype allegiance = do
+> assertPieceDoneSelection db pt al = do
 >     assertNoSelectedPiece db
 >     rel <- query db $ do
->              t1 <- table Pm.pieces_moved
->              restrict ((t1 .!. Pm.ptype) .==. constant ptype)
->              restrict ((t1 .!. Pm.allegiance) .==. constant allegiance)
+>              t1 <- table pieces_moved
+>              restrict ((t1 .!. ptype) .==. constant pt)
+>              restrict ((t1 .!. allegiance) .==. constant al)
 >              project $ copyAll t1
 >     assertBool "piece in ptm" (not $ null rel)
 
 > assertMoveSubphase :: Database -> [Char] -> IO ()
-> assertMoveSubphase db sp = do
+> assertMoveSubphase db sph = do
 >   rel <- query db $ do
->            t1 <- table Sp.selected_piece
->            project $ copy Sp.move_phase t1
+>            t1 <- table selected_piece
+>            project $ copy move_phase t1
 >                      .*. emptyRecord
 >   let t = head rel
->   assertEqual "move subphase" sp (t # Sp.move_phase)
+>   assertEqual "move subphase" sph (t # move_phase)
 
 > assertNoSelectedPiece :: Database -> IO ()
 > assertNoSelectedPiece db = do
->   rel <- query db $ table Sp.selected_piece
+>   rel <- query db $ table selected_piece
 >   assertBool ("there should be no selected piece, got " ++
 >               let r = head rel
->               in r # Sp.ptype ++ " - " ++ r # Sp.allegiance ++
->                  " " ++ r # Sp.move_phase)
+>               in r # ptype ++ " - " ++ r # allegiance ++
+>                  " " ++ r # move_phase)
 >              (null rel)
 
 

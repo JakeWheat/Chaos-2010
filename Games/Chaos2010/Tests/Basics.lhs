@@ -10,14 +10,15 @@
 
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.HaskellDBUtils
-> import Games.Chaos2010.Utils
+> --import Games.Chaos2010.Utils
 > import Games.Chaos2010.DBUpdates
 > import Games.Chaos2010.Database.Cursor_position
 > import Games.Chaos2010.Tests.SetupGameState
 > --import Games.Chaos2010.DBUpdates
-> import qualified Games.Chaos2010.Database.Pieces as P
+> import Games.Chaos2010.Database.Pieces
 > import Games.Chaos2010.Database.Imaginary_pieces
 > import Games.Chaos2010.Database.Crimes_against_nature
+> import Games.Chaos2010.Database.Fields
 
 
 > basics :: IConnection conn => Database -> conn -> Test.Framework.Test
@@ -114,7 +115,7 @@ magic tree or castle; add test for these.
 >                    -> IO ()
 > assertPiecesEquals db dg = do
 >   let (_,p,i,c) = diagramToRVs dg
->   assertRelvarValue db (table P.pieces) p
+>   assertRelvarValue db (table pieces) p
 >   assertRelvarValue db (table imaginary_pieces) i
 >   assertRelvarValue db (table crimes_against_nature) c
 

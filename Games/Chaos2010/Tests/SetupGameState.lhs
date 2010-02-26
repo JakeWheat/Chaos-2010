@@ -27,19 +27,19 @@ to setup in various tables - want to do this automatically.
 >     ,setCurrentWizard
 >     ,addSpell
 >     ,chooseSpell
->     ,B.wizardPiecesList
+>     ,wizardPiecesList
 >     ,setWizards
 >     ,useBoard
->     ,B.liftPl
->     ,B.wizardNames
+>     ,liftPl
+>     ,wizardNames
 >     ,diagramToRVs
->     ,B.BoardDiagram
+>     ,BoardDiagram
 >     ) where
 
 > import Database.HaskellDB
 > import Database.HDBC (IConnection)
 
-> import Games.Chaos2010.Tests.BoardUtils as B
+> import Games.Chaos2010.Tests.BoardUtils
 > --import Games.Chaos2010.Tests.TestUtils
 > --import Games.Chaos2010.Database.Cursor_position
 > import Games.Chaos2010.DBUpdates
@@ -52,24 +52,24 @@ to setup in various tables - want to do this automatically.
 > import Games.Chaos2010.Database.Board_size
 > import Games.Chaos2010.Database.World_alignment_table
 > import Games.Chaos2010.Database.Turn_number_table
-> import qualified Games.Chaos2010.Database.Current_wizard_table as Cw
+> import Games.Chaos2010.Database.Current_wizard_table
 > import Games.Chaos2010.Database.Turn_phase_table
 > import Games.Chaos2010.Database.Wizards
 > import Games.Chaos2010.Database.Pieces
 > import Games.Chaos2010.Database.Fields
 > import Games.Chaos2010.Database.Imaginary_pieces
 > import Games.Chaos2010.Database.Crimes_against_nature
-> import qualified Games.Chaos2010.Database.Spell_books as Sb
-> import qualified Games.Chaos2010.Database.Cursor_position as C
-> import qualified Games.Chaos2010.Database.Wizard_display_info as Wd
+> import Games.Chaos2010.Database.Spell_books
+> import Games.Chaos2010.Database.Cursor_position
+> import Games.Chaos2010.Database.Wizard_display_info
 > import Games.Chaos2010.Database.Game_completed_table
 > import Games.Chaos2010.Database.Cast_alignment_table
 > import Games.Chaos2010.Database.Remaining_walk_table
-> import qualified Games.Chaos2010.Database.Selected_piece as Sp
-> import qualified Games.Chaos2010.Database.Pieces_moved as Pm
+> import Games.Chaos2010.Database.Selected_piece
+> import Games.Chaos2010.Database.Pieces_moved
 > import Games.Chaos2010.Database.Spell_parts_to_cast_table
-> import qualified Games.Chaos2010.Database.Wizard_spell_choices_mr as Wc
-> import qualified Games.Chaos2010.Database.Action_history_mr as Ah
+> import Games.Chaos2010.Database.Wizard_spell_choices_mr
+> import Games.Chaos2010.Database.Action_history_mr
 > import Games.Chaos2010.Database.Cast_success_checked_table
 > import Games.Chaos2010.Database.Test_action_overrides
 
@@ -143,7 +143,7 @@ these are the tricky ones which get set with all sorts of weird values during th
 >                                .*. emptyRecord)
 >             ,turnNumber = (turn_number .=. 0
 >                            .*. emptyRecord)
->             ,currentWizard = (Cw.current_wizard .=. "Buddha"
+>             ,currentWizard = (current_wizard .=. "Buddha"
 >                            .*. emptyRecord)
 >             ,turnPhase = (turn_phase .=. "choose"
 >                            .*. emptyRecord)
@@ -166,10 +166,10 @@ these are the tricky ones which get set with all sorts of weird values during th
 >             ,spellBooks = defaultSpellBookValue
 >             ,imaginaryPieces = []
 >             ,crimesAgainstNature = []
->             ,cursorPosition = C.x .=. 0 .*. C.y .=. 0 .*. emptyRecord
->             ,wizardDisplayInfo = map (\(n,s,c) -> Wd.wizard_name .=. n
->                                                   .*. Wd.default_sprite .=. s
->                                                   .*. Wd.colour .=. c
+>             ,cursorPosition = x .=. 0 .*. y .=. 0 .*. emptyRecord
+>             ,wizardDisplayInfo = map (\(n,s,c) -> wizard_name .=. n
+>                                                   .*. default_sprite .=. s
+>                                                   .*. colour .=. c
 >                                                   .*. emptyRecord)
 >                                      [("Buddha", "wizard0", "blue")
 >                                      ,("Kong Fuzi", "wizard1", "purple")
@@ -209,9 +209,9 @@ these are the tricky ones which get set with all sorts of weird values during th
 > defaultSpellBookValue :: [Spell_books_v]
 > defaultSpellBookValue =
 >   map (\(i,n,s) ->
->            (Sb.xid .=. i
->             .*. Sb.wizard_name .=. n
->             .*. Sb.spell_name .=. s
+>            (xid .=. i
+>             .*. wizard_name .=. n
+>             .*. spell_name .=. s
 >             .*. emptyRecord))
 >     [(115362, "Buddha", "disbelieve")
 >     ,(115363, "Kong Fuzi", "disbelieve")
@@ -386,25 +386,25 @@ the combinators for altering the default game state value
 
 > setCurrentWizard :: String -> GameState -> GameState
 > setCurrentWizard w gs =
->     gs {currentWizard = (Cw.current_wizard .=. w
+>     gs {currentWizard = (current_wizard .=. w
 >                            .*. emptyRecord)}
 
 > addSpell :: String -> String -> GameState -> GameState
 > addSpell w s gs =
 >     gs {spellBooks = entry : spellBooks gs}
 >     where
->       entry = Sb.xid .=. 32409
->               .*. Sb.wizard_name .=. w
->               .*. Sb.spell_name .=. s
+>       entry = xid .=. 32409
+>               .*. wizard_name .=. w
+>               .*. spell_name .=. s
 >               .*. emptyRecord
 
 > chooseSpell :: String -> String -> Maybe Bool -> GameState -> GameState
 > chooseSpell w s i gs = gs {
 >   wizardSpellChoices = entry : wizardSpellChoices gs}
 >   where
->     entry = Wc.wizard_name .=. w
->             .*. Wc.spell_name .=. s
->             .*. Wc.imaginary .=. i
+>     entry = wizard_name .=. w
+>             .*. spell_name .=. s
+>             .*. imaginary .=. i
 >             .*. emptyRecord
 
 
@@ -414,9 +414,9 @@ basically does the foreign key cascading
 > setWizards :: [String] -> GameState -> GameState
 > setWizards wz gs =
 >         gs {wezards = expireWizards $ wezards gs
->            ,currentWizard = Cw.current_wizard .=. (head wz)
+>            ,currentWizard = current_wizard .=. (head wz)
 >                             .*. emptyRecord
->            ,spellBooks = R.restrict (\r -> r # Sb.wizard_name `elem` wz) $ spellBooks gs
+>            ,spellBooks = R.restrict (\r -> r # wizard_name `elem` wz) $ spellBooks gs
 >            ,peeces = R.restrict (\r -> r # allegiance `elem` als) $ peeces gs
 >            }
 >   where
@@ -424,7 +424,7 @@ basically does the foreign key cascading
 >     expireWizards = R.update (\r -> expired .=. True .@. r)
 >                              (\r -> r # wizard_name `notElem` wz)
 
-> useBoard :: B.BoardDiagram -> GameState -> GameState
+> useBoard :: BoardDiagram -> GameState -> GameState
 > useBoard bd =
 >   let (wzs,ps,ims,crs) = diagramToRVs bd
 >   in (\gs ->
@@ -433,19 +433,19 @@ basically does the foreign key cascading
 >          ,crimesAgainstNature = crs})
 >       . setWizards wzs
 
-> diagramToRVs :: B.BoardDiagram -> ([String]
+> diagramToRVs :: BoardDiagram -> ([String]
 >                                   ,[Pieces_v]
 >                                   ,[Imaginary_pieces_v]
 >                                   ,[Crimes_against_nature_v])
 > diagramToRVs bd =
->   let (pdp,wzs) = B.parseBoardDiagram bd
+>   let (pdp,wzs) = parseBoardDiagram bd
 >       pdpts = zip pdp [5..]
 >   in (wzs
 >      ,map makePiece pdpts
 >      ,map makeI $ filter ((# imaginary) . fst) pdpts
 >      ,map makeC $ filter ((# undead) . fst) pdpts)
 >   where
->       makePiece :: (B.PieceDescriptionPos,Int) -> Pieces_v
+>       makePiece :: (PieceDescriptionPos,Int) -> Pieces_v
 >       makePiece (r,t) = ptype .=. (r # ptype)
 >                         .*. allegiance .=. (r # allegiance)
 >                         .*. tag .=. t
@@ -494,25 +494,25 @@ using it
 >     setRelvarT db world_alignment_table $ worldAlignment gs
 >     setRelvarT db turn_number_table $ turnNumber gs
 >     setRelvar db wizards $ wezards gs
->     setRelvarT db Cw.current_wizard_table $ currentWizard gs
+>     setRelvarT db current_wizard_table $ currentWizard gs
 >     setRelvarT db turn_phase_table $ turnPhase gs
 >     setRelvar db pieces $ peeces gs
->     setRelvar db Sb.spell_books $ spellBooks gs
+>     setRelvar db spell_books $ spellBooks gs
 >     setRelvar db imaginary_pieces $ imaginaryPieces gs
 >     setRelvar db crimes_against_nature $ crimesAgainstNature gs
->     setRelvarT db C.cursor_position $ cursorPosition gs
->     setRelvar db Wd.wizard_display_info $ wizardDisplayInfo gs
+>     setRelvarT db cursor_position $ cursorPosition gs
+>     setRelvar db wizard_display_info $ wizardDisplayInfo gs
 >     setRelvar db game_completed_table $ gameCompleted gs
->     setRelvar db Wc.wizard_spell_choices_mr $ wizardSpellChoices gs
+>     setRelvar db wizard_spell_choices_mr $ wizardSpellChoices gs
 >     {-if (turnPhase gs) # turn_phase == "cast"
 >       then setRelvarT db cast_alignment_table $ cast_alignment .=. 0 .*. emptyRecord
 >       else clearTable db cast_alignment_table-}
 >     clearTable db cast_alignment_table
 >     clearTable db remaining_walk_table
->     clearTable db Sp.selected_piece
->     clearTable db Pm.pieces_moved
+>     clearTable db selected_piece
+>     clearTable db pieces_moved
 >     clearTable db spell_parts_to_cast_table
->     clearTable db Ah.action_history_mr
+>     clearTable db action_history_mr
 >     clearTable db cast_success_checked_table
 >     clearTable db test_action_overrides
 
@@ -531,15 +531,15 @@ using it
 >           ,peeces = restrictTable (peeces gs)
 >                                   (\r -> r # allegiance /= wizardName)
 >           ,spellBooks = restrictTable (spellBooks gs)
->                                       (\r -> r # Sb.wizard_name /= wizardName)
+>                                       (\r -> r # wizard_name /= wizardName)
 >           ,wizardDisplayInfo = restrictTable (wizardDisplayInfo gs)
->                                              (\r -> r # Wd.wizard_name /= wizardName)
+>                                              (\r -> r # wizard_name /= wizardName)
 >           }
 >     in a
 >           {currentWizard = let liveWizards = restrictTable (wezards a)
 >                                                            (\r -> r # expired == False)
 >                                f = (head liveWizards) # wizard_name
->                            in Cw.current_wizard .=. f
+>                            in current_wizard .=. f
 >                               .*. emptyRecord
 >           }
 >   where

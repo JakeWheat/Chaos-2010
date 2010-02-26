@@ -38,9 +38,9 @@ Test utilities for reading and setting pieces.
 
 > --import Games.Chaos2010.Tests.SetupGameState
 
-> import qualified Games.Chaos2010.Database.Current_wizard_spell_squares as Cwss
-> import qualified Games.Chaos2010.Database.Piece_details as Pd
-> import qualified Games.Chaos2010.Database.Pieces_on_top_view as Ptv
+> import Games.Chaos2010.Database.Current_wizard_spell_squares
+> import Games.Chaos2010.Database.Piece_details
+> import Games.Chaos2010.Database.Pieces_on_top_view
 > import Games.Chaos2010.Database.Fields
 > --import Games.Chaos2010.Database.Wizards
 > import Games.Chaos2010.Utils
@@ -128,11 +128,11 @@ as well.
 > queryValidSquares :: Database -> IO ValidSquares
 > queryValidSquares db = do
 >   res <- query db $ do
->            tb <- table Cwss.current_wizard_spell_squares
->            project $ copy Cwss.x tb
->                       .*. copy Cwss.y tb
+>            tb <- table current_wizard_spell_squares
+>            project $ copy x tb
+>                       .*. copy y tb
 >                       .*. emptyRecord
->   return $ map (\t -> (mn $ t # Cwss.x, mn $ t # Cwss.y)) res
+>   return $ map (\t -> (mn $ t # x, mn $ t # y)) res
 
 ================================================================================
 
@@ -179,8 +179,6 @@ wizardPiecesList is a list of the wizard pieces to avoid writing them
 out each test since most tests have all eight wizards remaining at the
 end
 
-
-> $(makeLabels ["Imaginary", "Undead"])
 
 > type PieceDescription = $(makeRecord [("Ptype", "String")
 >                                      ,("Allegiance", "String")
@@ -386,22 +384,22 @@ now the code to read the board from the database and get it in the same format:
 > queryBoard :: Database -> IO BoardDescription
 > queryBoard db = do
 >   rel <- query db $ do
->            tb <- table Pd.piece_details
->            project $ copy Pd.ptype tb
->                        .*. copy Pd.allegiance tb
->                        .*. copy Pd.x tb
->                        .*. copy Pd.y tb
->                        .*. copy Pd.undead tb
->                        .*. copy Pd.imaginary tb
+>            tb <- table piece_details
+>            project $ copy ptype tb
+>                        .*. copy allegiance tb
+>                        .*. copy x tb
+>                        .*. copy y tb
+>                        .*. copy undead tb
+>                        .*. copy imaginary tb
 >                        .*. emptyRecord
 >   return $ map conv rel
 >   where
->     conv t = (pd (mv $ t # Pd.ptype)
->                  (mv $ t # Pd.allegiance)
->                  (mb $ t # Pd.imaginary)
->                  (mb $ t # Pd.undead)
->              ,mn $ t # Pd.x
->              ,mn $ t # Pd.y)
+>     conv t = (pd (mv $ t # ptype)
+>                  (mv $ t # allegiance)
+>                  (mb $ t # imaginary)
+>                  (mb $ t # undead)
+>              ,mn $ t # x
+>              ,mn $ t # y)
 >     pd p a i u = ptype .=. p
 >                  .*. allegiance .=. a
 >                  .*. imaginary .=. i
@@ -413,22 +411,22 @@ The variant for only the topmost pieces:
 > queryPiecesOnTop :: Database -> IO BoardDescription
 > queryPiecesOnTop db = do
 >   rel <- query db $ do
->            tb <- table Ptv.pieces_on_top_view
->            project $ copy Ptv.ptype tb
->                        .*. copy Ptv.allegiance tb
->                        .*. copy Ptv.x tb
->                        .*. copy Ptv.y tb
->                        .*. copy Ptv.undead tb
->                        .*. copy Ptv.imaginary tb
+>            tb <- table pieces_on_top_view
+>            project $ copy ptype tb
+>                        .*. copy allegiance tb
+>                        .*. copy x tb
+>                        .*. copy y tb
+>                        .*. copy undead tb
+>                        .*. copy imaginary tb
 >                        .*. emptyRecord
 >   return $ map conv rel
 >   where
->     conv t = (pd (mv $ t # Ptv.ptype)
->                  (mv $ t # Ptv.allegiance)
->                  (mb $ t # Ptv.imaginary)
->                  (mb $ t # Ptv.undead)
->              ,mn $ t # Ptv.x
->              ,mn $ t # Ptv.y)
+>     conv t = (pd (mv $ t # ptype)
+>                  (mv $ t # allegiance)
+>                  (mb $ t # imaginary)
+>                  (mb $ t # undead)
+>              ,mn $ t # x
+>              ,mn $ t # y)
 >     pd p a i u = ptype .=. p
 >                  .*. allegiance .=. a
 >                  .*. imaginary .=. i
