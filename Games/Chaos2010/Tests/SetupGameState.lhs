@@ -41,6 +41,8 @@ to setup in various tables - want to do this automatically.
 >     ,assertPiecesEquals
 >     ,assertPiecesOnTopEquals
 >     ,assertValidSquaresEquals
+>     ,parseValidSquares
+>     ,Pos
 >     ,addAndChoose
 >     ,readyToCast
 >     ) where
@@ -540,13 +542,12 @@ using it
 >                          t <- table pieces_on_top_view
 >                          projectNNPieces t) pdp
 
-> type Nnp  = $(makeExprRecord [("Ptype", "String")
+> type Nnp = $(makeExprRecord [("Ptype", "String")
 >                             ,("Allegiance", "String")
 >                             ,("X", "Int")
 >                             ,("Y", "Int")
 >                             ,("Imaginary", "Bool")
 >                             ,("Undead", "Bool")])
-
 
 > projectNNPieces :: (HasField Undead r (Expr (Maybe Bool)),
 >                     HasField Imaginary r (Expr (Maybe Bool)),

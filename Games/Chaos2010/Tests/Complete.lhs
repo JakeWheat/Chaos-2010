@@ -10,7 +10,6 @@
 > import Database.HaskellDB.Database
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.Tests.SetupGameState
-> --import Games.Chaos2010.Utils
 > import Games.Chaos2010.DBUpdates
 > import Games.Chaos2010.Database.Action_history_mr
 > import Games.Chaos2010.Database.Client_valid_activate_actions

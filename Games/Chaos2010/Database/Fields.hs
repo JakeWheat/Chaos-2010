@@ -621,6 +621,12 @@ spell_parts_to_cast :: Spell_parts_to_cast
 spell_parts_to_cast = proxy
 instance ShowLabel Spell_parts_to_cast
     where showLabel _ = "spell_parts_to_cast"
+data CategoryTag
+type Category = Proxy CategoryTag
+category :: Category
+category = proxy
+instance ShowLabel Category
+    where showLabel _ = "category"
 data OverrideTag
 type Override = Proxy OverrideTag
 override :: Override

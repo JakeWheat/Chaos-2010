@@ -64,7 +64,7 @@
 >   r <- query db t
 >   let b = recsEq v r
 >   if not b
->     then putStrLn $ sh v ++ "\n--\n" ++ sh r
+>     then putStrLn $ "== missing\n" ++ sh (v \\ r) ++ "\n== extra\n" ++ sh (r \\ v)
 >     else return ()
 >   assertBool "" b
 >   where

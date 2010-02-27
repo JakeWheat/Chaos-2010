@@ -8,7 +8,6 @@
 > import Database.HDBC (IConnection)
 
 > import Games.Chaos2010.Tests.TestUtils
-> --import Games.Chaos2010.Utils
 > import Games.Chaos2010.DBUpdates
 > import Games.Chaos2010.Database.World_alignment_table
 > import Games.Chaos2010.Database.Monster_pieces
@@ -48,12 +47,9 @@ chosen goblin
 
 >   setupGame db conn [addSpell "Buddha" "goblin"]
 >   chooseSpell db conn "goblin"
->   --sendKeyPress conn $ keyChooseSpell "goblin"
 >   --get the next wizard to select disbelieve so we can check the
 >   --auto next phase works
->   --sendKeyPress conn "space"
 >   nextPhase conn
->   --sendKeyPress conn $ keyChooseSpell "disbelieve"
 >   chooseSpell db conn "disbelieve"
 >   skipToPhase db conn "cast"
 

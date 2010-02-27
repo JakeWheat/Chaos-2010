@@ -33,21 +33,23 @@ monster, gooey blob : blob on top
 wizard, stiff, mountable monster : mountable on top
 stiff, monster, blob : blob on top
 
+attackable needs undead field as well - >split
+
 
 > module Games.Chaos2010.Tests.SquaresValid (squaresValid) where
 
-> --import Test.HUnit
 > import Test.Framework
-> --import Control.Monad
 
 > import Database.HaskellDB
 > import Database.HDBC (IConnection)
 
+> import Games.Chaos2010.HaskellDBUtils
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.Tests.SetupGameState
-> --import Games.Chaos2010.DBUpdates
-> --import Games.Chaos2010.Database.Cursor_position
-> --import Games.Chaos2010.Database.Fields
+
+> import Games.Chaos2010.Database.Squares_valid_categories
+> import Games.Chaos2010.Database.Fields
+> import Games.Chaos2010.Tests.RelationalAlgebra
 
 > squaresValid :: IConnection conn => Database -> conn -> Test.Framework.Test
 > squaresValid db conn = testGroup "squaresValid" [
@@ -58,10 +60,10 @@ stiff, monster, blob : blob on top
 > testSquareCategories db = tctor "testSquareCategories" $ \conn -> do
 >     setupGame db conn [setPhase "move"
 >                       ,useBoard ("\n\
->                   \1G R   2      3\n\
->                   \               \n\
->                   \               \n\
->                   \               \n\
+>                   \   t      t    \n\
+>                   \ GCh m nDgHI   \n\
+>                   \ ct   t    t   \n\
+>                   \    t          \n\
 >                   \4             5\n\
 >                   \               \n\
 >                   \               \n\
@@ -69,8 +71,61 @@ stiff, monster, blob : blob on top
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('W', [makePD "magic_tree" "Buddha"])]))]
+>                   [('G', [makePD "goblin" "Buddha"])
+>                   ,('C', [makePD "magic_castle" "Buddha"])
+>                   ,('h', [makePD "goblin" "Buddha"
+>                          ,makePD "goblin" "dead"])
+>                   ,('m', [makePD "wizard" "Buddha"
+>                          ,makePD "horse" "Buddha"])
+>                   ,('n', [makePD "wizard" "Kong Fuzi"
+>                          ,makePD "horse" "Kong Fuzi"
+>                          ,makePD "goblin" "dead"])
+>                   ,('D', [makePD "wizard" "Laozi"
+>                          ,makePD "magic_castle" "Laozi"])
+>                   ,('g', [makePD "goblin" "Buddha"
+>                          ,makePD "gooey_blob" "Laozi"])
+>                   ,('H', [makePD "goblin" "dead"
+>                          ,makePD "gooey_blob" "Laozi"])
+>                   ,('I', [makePD "goblin" "dead"
+>                          ,makePD "goblin" "Buddha"
+>                          ,makePD "gooey_blob" "Laozi"])
+>                   ,('c', [makePD "goblin" "dead"])
+>                   ,('t', [makePD "magic_tree" "Laozi"])
+>                   ]))]
+>     let emptySquares =
+>           extend (const $ category .=. "empty")
+>             $ parseValidSquares "\n\
+>                   \XXX XXXXXX XXXX\n\
+>                   \X   X X     XXX\n\
+>                   \X  XXX XXXX XXX\n\
+>                   \XXXX XXXXXXXXXX\n\
+>                   \4XXXXXXXXXXXXX5\n\
+>                   \XXXXXXXXXXXXXXX\n\
+>                   \XXXXXXXXXXXXXXX\n\
+>                   \XXXXXXXXXXXXXXX\n\
+>                   \XXXXXXXXXXXXXXX\n\
+>                   \6XXXXXX7XXXXXX8"
+>         attackableSquares =
+>           extend (const $ category .=. "attackable")
+>             $ parseValidSquares "\n\
+>                   \   X      X    \n\
+>                   \ X X X X XXX   \n\
+>                   \  X   X    X   \n\
+>                   \    X          \n\
+>                   \X             X\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \X      X      X"
 
+>     let vs = do
+>              t1 <- table squares_valid_categories
+>              project $ category .=. fn "" (t1 # category)
+>                        .*. x .=. fn (-1) (t1 # x)
+>                        .*. y .=. fn (-1) (t1 # y)
+>                        .*. emptyRecord
+>     assertRelvarValue db vs (emptySquares ++ attackableSquares)
 
 
 stage 2:
