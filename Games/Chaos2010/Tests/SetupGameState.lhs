@@ -49,9 +49,10 @@ to setup in various tables - want to do this automatically.
 > import Database.HaskellDB
 > import Database.HaskellDB.Query
 > import Database.HDBC (IConnection)
-> import Data.List
-> import Data.Ord
+> --import Data.List
+> --import Data.Ord
 > import Test.HUnit
+> import Control.Applicative
 
 > import Games.Chaos2010.Tests.BoardUtils
 > --import Games.Chaos2010.Tests.TestUtils
@@ -60,7 +61,7 @@ to setup in various tables - want to do this automatically.
 > import Games.Chaos2010.HaskellDBUtils
 > --import Games.Chaos2010.Tests.DBUpdates
 > --import Games.Chaos2010.ThHdb
-> import Games.Chaos2010.Tests.RelationalAlgebra as R
+> import qualified Games.Chaos2010.Tests.RelationalAlgebra as R
 
 > -- tables
 > import Games.Chaos2010.Database.Board_size
@@ -89,6 +90,8 @@ to setup in various tables - want to do this automatically.
 > import Games.Chaos2010.Database.Cast_success_checked_table
 > import Games.Chaos2010.Database.Test_action_overrides
 > import Games.Chaos2010.Database.Current_wizard_spell_squares
+> import Games.Chaos2010.Database.Target_spells
+> import Games.Chaos2010.Database.Current_wizard_spell
 
 > import Games.Chaos2010.Tests.TableValueTypes
 
@@ -121,7 +124,7 @@ these are the tricky ones which get set with all sorts of weird values during th
 ?       spell_parts_to_cast_table  | Chaos.Server.TurnSequence
 ?       cast_success_checked_table | Chaos.Server.TurnSequence
 ?       remaining_walk_table       | Chaos.Server.TurnSequence
-
+cast_alignment_table
 
  test_action_overrides      | Chaos.Server.Actions.TestSupport
 * game_completed_table       | Chaos.Server.TurnSequence
@@ -526,16 +529,25 @@ using it
 >     setRelvar db wizard_display_info $ wizardDisplayInfo gs
 >     setRelvar db game_completed_table $ gameCompleted gs
 >     setRelvar db wizard_spell_choices_mr $ wizardSpellChoices gs
->     {-if (turnPhase gs) # turn_phase == "cast"
->       then setRelvarT db cast_alignment_table $ cast_alignment .=. 0 .*. emptyRecord
->       else clearTable db cast_alignment_table-}
->     clearTable db cast_alignment_table
+>     if (turnPhase gs) # turn_phase == "cast"
+>       then do
+>         setRelvarT db cast_alignment_table $ cast_alignment .=. 0 .*. emptyRecord
+>         sptc <- getMaybeSingleValue <$> query db (do
+>                   ts <- table target_spells
+>                   cws <- table current_wizard_spell
+>                   restrict $ ts # spell_name .==. cws # spell_name
+>                   project $ xcount .=. fn 0 (ts # numb) .*. emptyRecord)
+>         setRelvarT db spell_parts_to_cast_table $ spell_parts_to_cast .=. maybe 0 id sptc .*. emptyRecord
+>         setRelvarT db cast_success_checked_table $ cast_success_checked .=. False .*. emptyRecord
+>       else do
+>         clearTable db cast_alignment_table
+>         clearTable db spell_parts_to_cast_table
+>         clearTable db cast_success_checked_table
+
 >     clearTable db remaining_walk_table
 >     clearTable db selected_piece
 >     clearTable db pieces_moved
->     clearTable db spell_parts_to_cast_table
 >     clearTable db action_history_mr
->     clearTable db cast_success_checked_table
 >     clearTable db test_action_overrides
 
 > assertPiecesOnTopEquals :: Database

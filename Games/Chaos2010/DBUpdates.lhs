@@ -27,6 +27,7 @@
 >     ,setSpellChoiceReal
 >     ,setSpellChoiceImaginary
 >     ,CursorDirection(..)
+>     ,castActivateSpell
 >     --,disableConstraints
 >     --,enableConstraints
 >     ) where
@@ -154,6 +155,9 @@
 > {-sendKeyPress :: IConnection conn => conn -> String -> IO ()
 > sendKeyPress conn k = do
 >   callSp conn "action_key_pressed" [k]-}
+
+> castActivateSpell :: IConnection conn => Database -> conn -> IO ()
+> castActivateSpell _ conn = callSp conn "action_cast_activate_spell" []
 
 > disableSpreading :: IConnection conn => Database -> conn -> IO ()
 > disableSpreading db _ =

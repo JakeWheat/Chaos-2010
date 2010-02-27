@@ -113,9 +113,9 @@ cast it and check the resulting board
 
 > testCastMagicWood :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastMagicWood db = tctor "testCastMagicWood" $ \conn -> do
->   setupGame db conn $ readyToCast "goblin"
+>   setupGame db conn $ readyToCast "magic_wood"
 >   rigActionSuccess conn "cast" True
->   actionGo db conn -- sendKeyPress conn "Return"
+>   castActivateSpell db conn -- sendKeyPress conn "Return"
 >   assertPiecesEquals db ("\n\
 >                   \1W W W 2      3\n\
 >                   \               \n\
