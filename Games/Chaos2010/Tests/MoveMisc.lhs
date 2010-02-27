@@ -469,15 +469,6 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8", pl)
->   {-where
->     printWiz = do
->                rel <- query db $ do
->                                  t1 <- table wizards
->                                  --restrict $ t1 .!. wizard_name .==. constant "Buddha"
->                                  project $ copy wizard_name t1
->                                            .*. copy magic_sword t1
->                                            .*. emptyRecord
->                print rel-}
 
 == misc todo
 

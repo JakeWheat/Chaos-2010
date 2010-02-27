@@ -6,21 +6,11 @@
 > import Control.Monad
 
 > import Database.HaskellDB
-> import Database.HaskellDB.Database
 > import Database.HDBC (IConnection)
 
 > import Games.Chaos2010.Tests.TestUtils
-> import Games.Chaos2010.HaskellDBUtils
-> --import Games.Chaos2010.Utils
 > import Games.Chaos2010.DBUpdates
-> import Games.Chaos2010.Database.Cursor_position
 > import Games.Chaos2010.Tests.SetupGameState
-> --import Games.Chaos2010.DBUpdates
-> import Games.Chaos2010.Database.Pieces
-> import Games.Chaos2010.Database.Imaginary_pieces
-> import Games.Chaos2010.Database.Crimes_against_nature
-> import Games.Chaos2010.Database.Fields
-> import Games.Chaos2010.Database.Pieces_on_top_view
 
 
 > basics :: IConnection conn => Database -> conn -> Test.Framework.Test
@@ -123,7 +113,7 @@ the cursor to a given position, also check the moveto code
 >   setupGame db conn []
 >   let moveAndCheck m xp yp = do
 >         actionMoveCursor db conn m
->         assertCursorPosition db xp yp
+>         assertCursorPositionEquals db xp yp
 >   --move to our starting position then move in a circle
 
 >   moveAndCheck CursorDownRight 1 1
@@ -139,7 +129,7 @@ the cursor to a given position, also check the moveto code
 >   --now test the move cursor to straight up, left, down, right,
 >   let moveToAndCheck xp yp = do
 >           moveCursorToK db conn xp yp
->           assertCursorPosition db xp yp
+>           assertCursorPositionEquals db xp yp
 >   moveToAndCheck 5 5
 >   moveToAndCheck 5 1
 >   moveToAndCheck 5 6
@@ -163,25 +153,7 @@ the cursor to a given position, also check the moveto code
 
 start with a few helper functions
 
-avoid writing out the full key press names:
-
-
- > cursorShorthand :: String -> String
-
 get the current cursor position from the database
-
-> queryCursorPosition :: Database -> IO (Int,Int)
-> queryCursorPosition db = do
->   rel <- query db $ do
->            tb <- table cursor_position
->            project $ copy x tb
->                       .*. copy y tb
->                       .*. emptyRecord
->   let t = head rel
->   return (t # x, t # y)
-
->   --r <- selectTuple conn "select x,y from cursor_position" []
->   --return (read $ lk "x" r, read $ lk "y" r)
 
 move the cursor to x,y, using key presses
 
@@ -215,13 +187,3 @@ move the cursor to x,y, using key presses
 >                              | otherwise -> (CursorUp, 0)
 >           sequence_ (replicate amount
 >                        (actionMoveCursor db conn dir))
-
-> assertCursorPosition :: Database
->                      -> Int
->                      -> Int
->                      -> IO ()
-> assertCursorPosition db xp yp = do
->   let v = [x .=. xp
->        .*. y .=. yp
->        .*. emptyRecord]
->   assertRelvarValue db (table cursor_position) v

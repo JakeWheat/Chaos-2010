@@ -12,19 +12,9 @@ Test utilities for reading and setting pieces.
 >     ,parseValidSquares
 >     ,Pos
 >     ,BoardDiagram
->     ,BoardDescription
->     {-,toBoardDescription
->     ,PieceDescription(..)
->     ,wizardNames
->     ,assertValidSquaresEquals
->     ,assertBoardEquals
->     ,wizardPiecesList-}
 >     ,makePD
 >     ,makeFPD
 >     ,liftPl
->     {-,assertTopPiecesEquals
->     ,newSetupGame
->     ,newGameReadyToCast1-}
 >     ,Imaginary
 >     ,Undead
 >     ,imaginary
@@ -34,21 +24,10 @@ Test utilities for reading and setting pieces.
 > import Data.Maybe
 > import Database.HaskellDB
 > import Data.List
-> import Test.HUnit
-> import Database.HDBC (IConnection)
 
-
-> --import Games.Chaos2010.Tests.SetupGameState
-
-> import Games.Chaos2010.Database.Current_wizard_spell_squares
-> import Games.Chaos2010.Database.Piece_details
-> import Games.Chaos2010.Database.Pieces_on_top_view
-> import Games.Chaos2010.Database.Fields
-> --import Games.Chaos2010.Database.Wizards
 > import Games.Chaos2010.Utils
-> import Games.Chaos2010.HaskellDBUtils
 > import Games.Chaos2010.ThHdb
-> import Games.Chaos2010.Tests.TableValueTypes
+> import Games.Chaos2010.Database.Fields
 
 ================================================================================
 
@@ -233,14 +212,14 @@ The full board diagram is the diagram string plus the key
 
 > parseBoardDiagram :: BoardDiagram -> ([String]
 >                                      ,[PieceDescriptionPos])
-> parseBoardDiagram (diagram, key) = (wzs, pds)
+> parseBoardDiagram (diagram, ekey) = (wzs, pds)
 >   where
 >     pds :: [PieceDescriptionPos]
 >     pds = concatMap expandKey keyPositionList
 >     wzs = filter (/= "dead") $ nub $ map (# allegiance) pds
 >     keyPositionList = parseDiagram diagram
 >     expandKey :: (Char,Int,Int) -> [PieceDescriptionPos]
->     expandKey (k,xp,yp) = let ps = safeLookup "board diagram parse" k key
+>     expandKey (k,xp,yp) = let ps = safeLookup "board diagram parse" k ekey
 >                           in flip map ps $ \p -> ptype .=. (p # ptype)
 >                                                  .*. allegiance .=. (p # allegiance)
 >                                                  .*. x .=. xp
@@ -248,174 +227,3 @@ The full board diagram is the diagram string plus the key
 >                                                  .*. imaginary .=. (p # imaginary)
 >                                                  .*. undead .=. (p # undead)
 >                                                  .*. emptyRecord
->   {-let keyPositionList = parseDiagram diagram
->   in flip concatMap keyPositionList
->               (\(k,x,y) ->
->                    let ps = safeLookup "board diagram parse" k key
->                    in map (\p -> (p,x,y)) ps)
->   where
->     piueces
->     wz = 
->     makeKeys 
->     pd p a i u = ptype .=. p
->                  .*. allegiance .=. a
->                  .*. imaginary .=. i
->                  .*. undead .=. u
->                  .*. emptyRecord-}
-
-A board description is what we read out of the database and parse the
-board diagram to for comparison and loading into the database.
-
-> type BoardDescription = [(PieceDescription,Int,Int)]
-
-Top level fn, take the expected board description in the form of a
-board string and a key, and check it against what is in the database:
-
-> assertBoardEquals :: Database -> BoardDiagram -> IO ()
-> assertBoardEquals db bd = do
->   actualBoard <- queryBoard db
->   let expectedBoard = toBoardDescription bd
->   assertEqual "board pieces" expectedBoard actualBoard
-
-Like with check board, but we are only want to check the topmost piece
-on each square
-
-> assertTopPiecesEquals :: Database -> BoardDiagram -> IO ()
-> assertTopPiecesEquals db bd = do
->   actualBoard <- queryPiecesOnTop db
->   let expectedBoard = toBoardDescription bd
->   assertEqual "board pieces on top" expectedBoard actualBoard
-
-
-> toBoardDescription :: BoardDiagram -> BoardDescription
-> toBoardDescription (diagram, key) =
->   let keyPositionList = parseDiagram diagram
->   in flip concatMap keyPositionList
->               (\(k,xp,yp) ->
->                    let ps = safeLookup "board diagram parse" k key
->                    in map (\p -> (p,xp,yp)) ps)
-
-> {-type NewBoardDescription = ([Wizards_v]
->                            ,[Pieces_v]
->                            ,[Imaginary_pieces_v]
->                            ,[Crimes_against_nature_v])-}
-
-> {-setFromBoardDiagram :: BoardDiagram -> GameState -> GameState
-> setFromBoardDiagram bd gs =
->     let bd1 = toBoardDescription bd
->         items = map (\(((PieceDescription p a i u),xp,yp),t) ->
->                       (p,a,t,i,u,xp,yp)) $ zip bd1 [0..]
->         pieces = flip map items $ \(p,a,t,_,_,xp,yp)
->                                 -> makePiece p a t xp yp
->         im_pieces = flip map (filter isImag items)
->                          $ \(p,a,t,_,_,_,_)
->                              -> makeImag p a t
->         crimes = flip map (filter isCrime items)
->                       $ \(p,a,t,_,_,_,_)
->                           -> makeCrime p a t
->         allegs = catMaybes $ flip map items
->                            $ \(p,a,_,_,_,_,_) ->
->                                if p == "wizard"
->                                then Just a
->                                else Nothing
->         deadWizNos = flip map (restrictTable defaultWizardList
->                                (\r -> r # wizard_name `notElem` allegs))
->                         $ \r -> r # original_place
->     in (gs {peeces = pieces
->           ,imaginaryPieces = im_pieces
->           ,crimesAgainstNature = crimes
->           })
->     where
->       isImag (_,_,_,i,_,_,_) = i == Imaginary
->       isCrime (_,_,_,_,u,_,_) = u== Undead
->       updateTable t w u =
->         flip map t $ \r -> if w r
->                            then u r
->                            else r
->       restrictTable t w = flip filter t $ \r -> w r-}
-
-> {-newSetupGame :: IConnection conn => Database
->              -> conn
->              -> (GameState -> GameState)
->              -> BoardDiagram
->              -> IO ()
-> newSetupGame db conn gsm bd = do
->   let (w,p,i,c) = toNewBoardDescription bd
->   setupGame db conn $ gsm $ defaultGameState {wezards = w
->                                              ,peeces = p
->                                              ,imaginaryPieces = i
->                                              ,crimesAgainstNature = c
->                                              }
-
-> newGameReadyToCast1 :: IConnection conn => Database
->                     -> conn
->                     -> (GameState -> GameState)
->                     -> String
->                     -> Maybe Bool
->                     -> BoardDiagram
->                     -> IO ()
-> newGameReadyToCast1 db conn gsm sp im bd = do
->   let (w,p,i,c) = toNewBoardDescription bd
->       gs = gsm $ defaultGameState{wezards = w
->                                  ,peeces = p
->                                  ,imaginaryPieces = i
->                                  ,crimesAgainstNature = c
->                                  }
->   newGameReadyToCast db conn sp im gs-}
-
-
-
-
-now the code to read the board from the database and get it in the same format:
-
-> queryBoard :: Database -> IO BoardDescription
-> queryBoard db = do
->   rel <- query db $ do
->            tb <- table piece_details
->            project $ copy ptype tb
->                        .*. copy allegiance tb
->                        .*. copy x tb
->                        .*. copy y tb
->                        .*. copy undead tb
->                        .*. copy imaginary tb
->                        .*. emptyRecord
->   return $ map conv rel
->   where
->     conv t = (pd (mv $ t # ptype)
->                  (mv $ t # allegiance)
->                  (mb $ t # imaginary)
->                  (mb $ t # undead)
->              ,mn $ t # x
->              ,mn $ t # y)
->     pd p a i u = ptype .=. p
->                  .*. allegiance .=. a
->                  .*. imaginary .=. i
->                  .*. undead .=. u
->                  .*. emptyRecord
-
-The variant for only the topmost pieces:
-
-> queryPiecesOnTop :: Database -> IO BoardDescription
-> queryPiecesOnTop db = do
->   rel <- query db $ do
->            tb <- table pieces_on_top_view
->            project $ copy ptype tb
->                        .*. copy allegiance tb
->                        .*. copy x tb
->                        .*. copy y tb
->                        .*. copy undead tb
->                        .*. copy imaginary tb
->                        .*. emptyRecord
->   return $ map conv rel
->   where
->     conv t = (pd (mv $ t # ptype)
->                  (mv $ t # allegiance)
->                  (mb $ t # imaginary)
->                  (mb $ t # undead)
->              ,mn $ t # x
->              ,mn $ t # y)
->     pd p a i u = ptype .=. p
->                  .*. allegiance .=. a
->                  .*. imaginary .=. i
->                  .*. undead .=. u
->                  .*. emptyRecord

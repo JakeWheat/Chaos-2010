@@ -8,34 +8,34 @@
 >     ,queryTurnPhase
 >     ,queryTurnSequenceInfo
 >     ,querySelectedPiece
+>     ,queryCursorPosition
 >
 >     ,assertCurrentWizardPhase
 >     ,assertSelectedPiece
 >     ,assertMoveSubphase
 >     ,assertPieceDoneSelection
 >     ,assertNoSelectedPiece
->
+>     ,assertCursorPositionEquals
 >     ) where
 
 > import Test.HUnit
 > import Test.Framework
 > import Test.Framework.Providers.HUnit
-> --import Control.Monad
-> --import Control.Exception
-> --import Data.List
 
 > import Database.HDBC (IConnection, withTransaction)
 > import Database.HaskellDB
 
 > import Games.Chaos2010.DBUpdates hiding (rigActionSuccess)
-> --import qualified Games.Chaos2010.DBUpdates as DBu
+> import qualified Games.Chaos2010.Utils as U
+> import Games.Chaos2010.HaskellDBUtils
+
 > import Games.Chaos2010.Database.Selected_piece
 > import Games.Chaos2010.Database.Pieces_moved
 > import Games.Chaos2010.Database.Turn_phase_table
 > import Games.Chaos2010.Database.Current_wizard_table
 > import Games.Chaos2010.Database.Turn_number_table
+> import Games.Chaos2010.Database.Cursor_position
 > import Games.Chaos2010.Database.Fields
-> import qualified Games.Chaos2010.Utils as U
 
 ====================================================================
 
@@ -61,12 +61,6 @@
 >   rel <- query db $ table turn_phase_table
 >   let t = head rel
 >   return (t # turn_phase)
-
-> {-queryCurrentWizard :: Database -> IO String
-> queryCurrentWizard db = do
->   rel <- query db $ table current_wizard_table
->   let t = head rel
->   return (t # current_wizard)-}
 
 > queryTurnSequenceInfo :: Database
 >                       -> IO
@@ -95,6 +89,17 @@
 > querySelectedPiece :: Database -> IO [Selected_piece_v]
 > querySelectedPiece db =
 >   query db $ table selected_piece
+
+> queryCursorPosition :: Database -> IO (Int,Int)
+> queryCursorPosition db = do
+>   rel <- query db $ do
+>            tb <- table cursor_position
+>            project $ copy x tb
+>                       .*. copy y tb
+>                       .*. emptyRecord
+>   let t = head rel
+>   return (t # x, t # y)
+
 
 
 1 turn number
@@ -166,34 +171,12 @@ m pieces moved
 >                  " " ++ r # move_phase)
 >              (null rel)
 
-================================================================================
-
-= keyboard stuff
-
-create wrappers around the key press stuff to make the tests easier to
-understand
-
-> {-lookupChooseSpellKeys :: [([Char], [Char])]
-> lookupChooseSpellKeys = [("goblin", "m")
->                         ,("disbelieve", "Q")
->                         ,("magic_wood", "G")
->                         ,("shadow_wood", "M")
->                         ,("magic_bolt", "D")
->                         ,("vengeance", "E")
->                         ,("subversion", "R")
->                         ,("raise_dead", "V")
->                         ,("magic_knife", "1")
->                         ,("magic_shield", "2")
->                         ,("magic_armour", "3")
->                         ,("magic_bow", "4")
->                         ,("magic_sword", "5")
->                         ,("shadow_form", "6")
->                         ,("magic_wings", "7")
->                         ,("law", "O")
->                         ]
-
-
-> keyChooseSpell :: String -> String
-> keyChooseSpell spellName = U.safeLookup
->                              "get key for spell" spellName
->                              lookupChooseSpellKeys-}
+> assertCursorPositionEquals :: Database
+>                      -> Int
+>                      -> Int
+>                      -> IO ()
+> assertCursorPositionEquals db xp yp = do
+>   let v = [x .=. xp
+>        .*. y .=. yp
+>        .*. emptyRecord]
+>   assertRelvarValue db (table cursor_position) v

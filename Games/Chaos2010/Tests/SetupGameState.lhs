@@ -35,7 +35,6 @@ to setup in various tables - want to do this automatically.
 >     ,makeFPD
 >     ,wizardNames
 >     ,PieceDescription
->     --,diagramToRVs
 >     ,parseBoardDiagram
 >     ,PieceDescriptionPos
 >     ,BoardDiagram
@@ -47,20 +46,14 @@ to setup in various tables - want to do this automatically.
 >     ) where
 
 > import Database.HaskellDB
-> import Database.HaskellDB.Query
 > import Database.HDBC (IConnection)
-> --import Data.List
-> --import Data.Ord
 > import Test.HUnit
 > import Control.Applicative
 
 > import Games.Chaos2010.Tests.BoardUtils
-> --import Games.Chaos2010.Tests.TestUtils
-> --import Games.Chaos2010.Database.Cursor_position
 > import Games.Chaos2010.DBUpdates
+> import Games.Chaos2010.ThHdb
 > import Games.Chaos2010.HaskellDBUtils
-> --import Games.Chaos2010.Tests.DBUpdates
-> --import Games.Chaos2010.ThHdb
 > import qualified Games.Chaos2010.Tests.RelationalAlgebra as R
 
 > -- tables
@@ -489,21 +482,6 @@ basically does the foreign key cascading
 >                     .*. tag .=. t
 >                     .*. emptyRecord
 
-
-> {-newGameReadyToCast :: IConnection conn =>
->                       Database
->                    -> conn
->                    -> String
->                    -> Maybe Bool
->                    -> GameState
->                    -> IO ()
-> newGameReadyToCast db conn spellName im gs = do
->   setupGame db conn ((setPhase "choose"
->                      . setCurrentWizard "Zarathushthra"
->                      . addSpell "Buddha" spellName
->                      . addSpellChoice "Buddha" spellName im) gs)
->   nextPhase conn-}
-
 ===============================================================================
 
 the function which takes the final game state and sets the database up
@@ -562,34 +540,22 @@ using it
 >                          t <- table pieces_on_top_view
 >                          projectNNPieces t) pdp
 
+> type Nnp  = $(makeExprRecord [("Ptype", "String")
+>                             ,("Allegiance", "String")
+>                             ,("X", "Int")
+>                             ,("Y", "Int")
+>                             ,("Imaginary", "Bool")
+>                             ,("Undead", "Bool")])
+
+
 > projectNNPieces :: (HasField Undead r (Expr (Maybe Bool)),
 >                     HasField Imaginary r (Expr (Maybe Bool)),
->                     ShowConstant t1,
->                     HasField Y r (Expr (Maybe t1)),
->                     Num t1,
->                     ShowConstant t,
->                     HasField X r (Expr (Maybe t)),
->                     Num t,
->                     HasField Allegiance r (Expr (Maybe [Char])),
->                     HasField Ptype r (Expr (Maybe [Char]))) =>
+>                     HasField Allegiance r (Expr (Maybe String)),
+>                     HasField X r (Expr (Maybe Int)),
+>                     HasField Y r (Expr (Maybe Int)),
+>                     HasField Ptype r (Expr (Maybe String))) =>
 >                    r -> Query
->                         (Rel
->                          (Record
->                           (HCons
->                            (LVPair Ptype (Expr [Char]))
->                            (HCons
->                             (LVPair Allegiance (Expr [Char]))
->                             (HCons
->                              (LVPair X (Expr t))
->                              (HCons
->                               (LVPair Y (Expr t1))
->                               (HCons
->                                (LVPair
->                                 Imaginary (Expr Bool))
->                                (HCons
->                                 (LVPair
->                                  Undead (Expr Bool))
->                                 HNil))))))))
+>                         (Rel Nnp )
 > projectNNPieces t = project $ ptype .=. fn "" (t # ptype)
 >                                      .*. allegiance  .=. fn "" (t # allegiance)
 >                                      .*. x .=. fn 0 (t # x)

@@ -6,19 +6,18 @@
 >             ,DeriveDataTypeable
 >             ,TypeSynonymInstances #-}
 
--- robbed from the darcs version of hlist
+-- some of this was robbed from the darcs version of hlist
 
-> module Games.Chaos2010.ThHdb (makeLabels,makeValueTypes, makeRecord) where
+> module Games.Chaos2010.ThHdb
+>     (makeLabels
+>     ,makeValueTypes
+>     ,makeRecord
+>     ,makeExprRecord) where
 
-> --import qualified Language.Haskell.Exts as Exts
 > import Database.HaskellDB
 > import Language.Haskell.TH.Syntax
 > import Data.Char
 > import Language.Haskell.TH
-> --import Language.Haskell.TH.Ppr
-> --import Debug.Trace
-
-> --import Data.Typeable ()
 > import Data.Generics.Uniplate.Data
 
 > capitalize, uncapitalize :: String -> String
@@ -29,7 +28,7 @@
 
 
 > dcl_template :: Q [Dec]
-> dcl_template = [d| data FooTag --deriving Typeable
+> dcl_template = [d| data FooTag
 >                    type Foo = Proxy FooTag
 >                    foo :: Foo
 >                    foo = proxy
@@ -82,60 +81,15 @@
 
 
 > makeRecord :: [(String,String)] -> Q Type
-> makeRecord lvs = [t| Record $(sequence ps >>= foldIt) |]
+> makeRecord lvs = [t| Record $(sequence (map mkPair lvs) >>= foldIt) |]
 >     where
->       foldIt :: [Type] -> Q Type
->       foldIt [] = [t|HNil|]
->       foldIt (t:ts) = [t| HCons $(return t) $(foldIt ts)|]
->       ps = map mkPair lvs
 >       mkPair (l,v) = [t| LVPair $(conT $ mkName l) $(conT $ mkName v) |]
 
- > type PieceDescription =
- >     Record (HCons (LVPair Ptype String)
- >             (HCons (LVPair Allegiance String)
- >               (HCons (LVPair Imaginary Bool)
- >                (HCons (LVPair Undead Bool) HNil))))
+> makeExprRecord :: [(String,String)] -> Q Type
+> makeExprRecord lvs = [t| Record $(sequence (map mkPair lvs) >>= foldIt) |]
+>     where
+>       mkPair (l,v) = [t| LVPair $(conT $ mkName l) (Expr $(conT $ mkName v)) |]
 
-
-
-[TySynD Activate_spells []
-   (AppT (ConT Data.HList.Record.Record)
-      (AppT
-         (AppT (ConT Data.HList.HListPrelude.HCons)
-            (AppT
-               (AppT (ConT Data.HList.Record.LVPair)
-                  (ConT Games.Chaos2010.ThHdb.Spell_name))
-               (AppT (ConT Database.HaskellDB.Query.Expr)
-                  (ConT GHC.Base.String))))
-         (ConT Data.HList.HListPrelude.HNil)))]
-
-> --testMkLabel = runQ (makeLabels ["Test"]) >>= putStrLn . pprint
-
-> {-ppExpr :: Show s => s -> String
-> ppExpr s =
->   case Exts.parseExp (show s) of
->     Exts.ParseOk ast -> Exts.prettyPrint ast
->     x -> error $ show x-}
-
-> {-aaa :: Q [Dec]
-> aaa = [d| type Activate_spells =
->             Record (HCons (LVPair Spell_name (Expr String)) HNil) |]
-
-
-> data Spell_nameTag deriving Typeable
-> type Spell_name = Proxy Spell_nameTag
-> spell_name :: Spell_name
-> spell_name = proxy
-> instance ShowLabel Spell_name where showLabel _ = "spell_name"
-
-
-> type Activate_spells =
->     Record (HCons (LVPair Spell_name (Expr String)) HNil)
-
-type Activate_spells_v =
-    Record (HCons (LVPair Spell_name String) HNil)
-
-
-> testMkVT = runQ (makeValueTypes [[t|Activate_spells|]]) >>= putStrLn . pprint
-
-> txxx = [t|Activate_spells|]-}
+> foldIt :: [Type] -> Q Type
+> foldIt [] = [t|HNil|]
+> foldIt (t:ts) = [t| HCons $(return t) $(foldIt ts)|]

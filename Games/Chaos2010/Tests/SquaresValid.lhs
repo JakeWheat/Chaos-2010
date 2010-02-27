@@ -36,16 +36,18 @@ stiff, monster, blob : blob on top
 
 > module Games.Chaos2010.Tests.SquaresValid (squaresValid) where
 
-> import Test.HUnit
+> --import Test.HUnit
 > import Test.Framework
-> import Control.Monad
+> --import Control.Monad
 
 > import Database.HaskellDB
 > import Database.HDBC (IConnection)
 
 > import Games.Chaos2010.Tests.TestUtils
-> import Games.Chaos2010.Database.Cursor_position
-> import Games.Chaos2010.DBUpdates
+> import Games.Chaos2010.Tests.SetupGameState
+> --import Games.Chaos2010.DBUpdates
+> --import Games.Chaos2010.Database.Cursor_position
+> --import Games.Chaos2010.Database.Fields
 
 > squaresValid :: IConnection conn => Database -> conn -> Test.Framework.Test
 > squaresValid db conn = testGroup "squaresValid" [
@@ -54,7 +56,20 @@ stiff, monster, blob : blob on top
 
 > testSquareCategories :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testSquareCategories db = tctor "testSquareCategories" $ \conn -> do
->   startNewGame conn
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard ("\n\
+>                   \1G R   2      3\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",
+>                   (wizardPiecesList ++
+>                   [('W', [makePD "magic_tree" "Buddha"])]))]
 
 
 

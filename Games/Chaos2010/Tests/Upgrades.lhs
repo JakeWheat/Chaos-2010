@@ -1,6 +1,6 @@
 
 
-> {-# LANGUAGE FlexibleContexts #-}
+> {-# LANGUAGE FlexibleContexts,TemplateHaskell #-}
 > {-# OPTIONS_GHC -fcontext-stack57 #-}
 > module Games.Chaos2010.Tests.Upgrades (upgrades) where
 
@@ -11,10 +11,14 @@
 > import Database.HDBC (IConnection)
 
 > import Games.Chaos2010.Tests.TestUtils
+> import Games.Chaos2010.DBUpdates
+> import Games.Chaos2010.Tests.SetupGameState
+> import Games.Chaos2010.ThHdb
+
 > import Games.Chaos2010.Database.Pieces_mr
 > import Games.Chaos2010.Database.Fields
-> import Games.Chaos2010.Tests.SetupGameState
-> import Games.Chaos2010.DBUpdates
+
+> $(makeValueTypes [[t|Pieces_mr|]])
 
 > upgrades :: IConnection conn => Database -> conn -> Test.Framework.Test
 > upgrades db conn = testGroup "upgrades" $
@@ -117,8 +121,6 @@
 >                   \6      7      8",
 >                   wizardPiecesList)
 >   where
->     --getStats :: IO Pieces_mr_tuple
->     --getStats :: IO Pieces_mr
 >     getStats = do
 >       rel <- query db $ do
 >         t1 <- table pieces_mr
@@ -126,26 +128,6 @@
 >         restrict ((t1 .!. allegiance) .==. constJust "Buddha")
 >         project $ copyAll t1
 >       return $ head rel
-
-
-> type Pieces_mr_v =
->     Record (HCons (LVPair Ptype (Maybe String))
->             (HCons (LVPair Allegiance (Maybe String))
->              (HCons (LVPair Tag (Maybe Int))
->               (HCons (LVPair X (Maybe Int))
->                (HCons (LVPair Y (Maybe Int))
->                 (HCons (LVPair Imaginary (Maybe Bool))
->                  (HCons (LVPair Flying (Maybe Bool))
->                   (HCons (LVPair Speed (Maybe Int))
->                    (HCons (LVPair Agility (Maybe Int))
->                     (HCons (LVPair Undead (Maybe Bool))
->                      (HCons (LVPair Ridable (Maybe Bool))
->                       (HCons (LVPair Ranged_weapon_type (Maybe String))
->                        (HCons (LVPair Range (Maybe Int))
->                         (HCons (LVPair Ranged_attack_strength (Maybe Int))
->                          (HCons (LVPair Attack_strength (Maybe Int))
->                           (HCons (LVPair Physical_defense (Maybe Int))
->                            (HCons (LVPair Magic_defense (Maybe Int)) HNil)))))))))))))))))
 
 
 todo:

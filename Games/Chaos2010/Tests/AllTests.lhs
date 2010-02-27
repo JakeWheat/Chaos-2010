@@ -14,7 +14,7 @@
 > import Games.Chaos2010.Tests.MoveMisc
 > import Games.Chaos2010.Tests.Autonomous
 > import Games.Chaos2010.Tests.Complete
-
+> import Games.Chaos2010.Tests.SquaresValid
 >
 > allTests :: IConnection conn => Database -> conn -> [Test]
 > allTests db conn = map (\x -> x db conn)
@@ -26,6 +26,7 @@
 >                    ,moveMisc
 >                    ,autonomous
 >                    ,complete
+>                    ,squaresValid
 >                    ]
 
 
