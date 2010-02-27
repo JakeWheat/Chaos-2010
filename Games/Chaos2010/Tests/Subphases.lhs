@@ -8,6 +8,8 @@
 
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.Tests.SetupGameState
+> import Games.Chaos2010.DBUpdates
+
 >
 > subphases :: IConnection conn => Database -> conn -> Test.Framework.Test
 > subphases db conn = testGroup "subphases" $
@@ -162,7 +164,8 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "goblin" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard ("\n\
 >                   \1G R   2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -172,13 +175,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     --select goblin
 >     goSquare db conn 1 0
 >     assertSelectedPiece db "goblin" "Buddha"
 >     assertMoveSubphase db "motion"
 >     goSquare db conn 2 0
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -190,7 +193,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     assertMoveSubphase db "attack"
->     sendKeyPress conn "End"
+>     cancel db conn
 >     assertPieceDoneSelection db "goblin" "Buddha"
 
 > testCancelMotionDone :: IConnection conn => Database -> conn -> Test.Framework.Test
@@ -199,7 +202,8 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "goblin" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -209,13 +213,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     goSquare db conn 1 0
 >     assertSelectedPiece db "goblin" "Buddha"
 >     assertMoveSubphase db "motion"
->     sendKeyPress conn "End"
+>     cancel db conn
 >     assertPieceDoneSelection db "goblin" "Buddha"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -233,7 +237,8 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "goblin" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard ("\n\
 >                   \1G  R  2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -243,13 +248,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     goSquare db conn 1 0
 >     assertSelectedPiece db "goblin" "Buddha"
 >     assertMoveSubphase db "motion"
 >     goSquare db conn 2 0
 >     assertPieceDoneSelection db "goblin" "Buddha"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -268,7 +273,8 @@ variations, so we don't need to test them elsewhere.
 >                ('R', [makePD "giant_rat" "Kong Fuzi"]),
 >                ('E', [makePD "goblin" "Buddha",
 >                       makePD "giant_rat" "dead"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -278,14 +284,14 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     goSquare db conn 1 0
 >     assertSelectedPiece db "goblin" "Buddha"
 >     assertMoveSubphase db "motion"
 >     rigActionSuccess conn "attack" True
 >     goSquare db conn 2 0
 >     assertPieceDoneSelection db "goblin" "Buddha"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1 E    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -302,7 +308,8 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('B', [makePD "bear" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard ("\n\
 >                   \1B   R 2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -312,14 +319,14 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     goSquare db conn 1 0
 >     assertSelectedPiece db "bear" "Buddha"
 >     assertMoveSubphase db "motion"
 >     goSquare db conn 2 0
 >     assertSelectedPiece db "bear" "Buddha"
 >     assertMoveSubphase db "motion"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1 B  R 2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -332,7 +339,7 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 >     goSquare db conn 3 0
 >     assertPieceDoneSelection db "bear" "Buddha"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1  B R 2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -350,7 +357,8 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('B', [makePD "bear" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard ("\n\
 >                   \1B R   2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -360,14 +368,14 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     goSquare db conn 1 0
 >     assertSelectedPiece db "bear" "Buddha"
 >     assertMoveSubphase db "motion"
 >     goSquare db conn 2 0
 >     assertSelectedPiece db "bear" "Buddha"
 >     assertMoveSubphase db "motion"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1 BR   2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -378,7 +386,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     sendKeyPress conn "End"
+>     cancel db conn
 >     assertPieceDoneSelection db "bear" "Buddha"
 
 > testFlyAttackDone :: IConnection conn => Database -> conn -> Test.Framework.Test
@@ -389,7 +397,8 @@ variations, so we don't need to test them elsewhere.
 >                ('R', [makePD "giant_rat" "Kong Fuzi"]),
 >                ('H', [makePD "eagle" "Buddha",
 >                       makePD "giant_rat" "dead"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard ("\n\
 >                   \1G  R  2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -399,12 +408,12 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     goSquare db conn 1 0
 >     assertSelectedPiece db "eagle" "Buddha"
 >     assertMoveSubphase db "motion"
 >     goSquare db conn 3 0
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1  GR  2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -419,7 +428,7 @@ variations, so we don't need to test them elsewhere.
 >     rigActionSuccess conn "attack" True
 >     goSquare db conn 4 0
 >     assertPieceDoneSelection db "eagle" "Buddha"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1   H  2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -436,7 +445,8 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "eagle" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard ("\n\
 >                   \1G  R  2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -446,14 +456,14 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     goSquare db conn 1 0
 >     assertSelectedPiece db "eagle" "Buddha"
 >     assertMoveSubphase db "motion"
 >     rigActionSuccess conn "attack" False
 >     goSquare db conn 4 0
 >     assertPieceDoneSelection db "eagle" "Buddha"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1G  R  2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -471,7 +481,8 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "eagle" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -481,13 +492,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     goSquare db conn 1 0
 >     assertSelectedPiece db "eagle" "Buddha"
 >     assertMoveSubphase db "motion"
->     sendKeyPress conn "End"
+>     cancel db conn
 >     assertPieceDoneSelection db "eagle" "Buddha"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1GR    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -505,7 +516,8 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "eagle" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                        ,useBoard ("\n\
 >                   \1G    R2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -515,13 +527,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     goSquare db conn 1 0
 >     assertSelectedPiece db "eagle" "Buddha"
 >     assertMoveSubphase db "motion"
 >     goSquare db conn 3 0
 >     assertPieceDoneSelection db "eagle" "Buddha"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1  G  R2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -545,7 +557,8 @@ variations, so we don't need to test them elsewhere.
 >                ('H', [makePD "elf" "Buddha",
 >                       makePD "giant_rat" "dead"]),
 >                ('r', [makePD "giant_rat" "dead"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard ("\n\
 >                   \1G R   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -555,13 +568,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     goSquare db conn 1 0
 >     assertSelectedPiece db "elf" "Buddha"
 >     assertMoveSubphase db "motion"
 >     goSquare db conn 2 0
 >     assertMoveSubphase db "attack"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -575,7 +588,7 @@ variations, so we don't need to test them elsewhere.
 >     rigActionSuccess conn "attack" True
 >     goSquare db conn 3 0
 >     assertMoveSubphase db "ranged_attack"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1  H   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -588,7 +601,7 @@ variations, so we don't need to test them elsewhere.
 >                   \6      7      8",pl)
 >     rigActionSuccess conn "ranged_attack" True
 >     goSquare db conn 3 1
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1  H   2      3\n\
 >                   \   r           \n\
 >                   \               \n\
@@ -609,7 +622,8 @@ variations, so we don't need to test them elsewhere.
 >                ('R', [makePD "giant_rat" "Kong Fuzi"]),
 >                ('H', [makePD "elf" "Buddha",
 >                       makePD "giant_rat" "dead"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard ("\n\
 >                   \1G R   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -619,13 +633,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     goSquare db conn 1 0
 >     assertSelectedPiece db "elf" "Buddha"
 >     assertMoveSubphase db "motion"
 >     goSquare db conn 2 0
 >     assertMoveSubphase db "attack"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -639,7 +653,7 @@ variations, so we don't need to test them elsewhere.
 >     rigActionSuccess conn "attack" True
 >     goSquare db conn 3 0
 >     assertMoveSubphase db "ranged_attack"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1  H   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -650,9 +664,9 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     sendKeyPress conn "End"
+>     cancel db conn
 >     assertPieceDoneSelection db "elf" "Buddha"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1  H   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -670,7 +684,8 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "elf" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard ("\n\
 >                   \1G R   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -680,13 +695,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     goSquare db conn 1 0
 >     assertSelectedPiece db "elf" "Buddha"
 >     assertMoveSubphase db "motion"
 >     goSquare db conn 2 0
 >     assertMoveSubphase db "attack"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -697,9 +712,9 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->     sendKeyPress conn "End"
+>     cancel db conn
 >     assertMoveSubphase db "ranged_attack"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -713,7 +728,7 @@ variations, so we don't need to test them elsewhere.
 >     rigActionSuccess conn "ranged_attack" False
 >     goSquare db conn 3 1
 >     assertPieceDoneSelection db "elf" "Buddha"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -732,7 +747,8 @@ variations, so we don't need to test them elsewhere.
 >               [('G', [makePD "elf" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"]),
 >                ('r', [makePD "giant_rat" "dead"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -742,13 +758,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     goSquare db conn 2 0
 >     assertSelectedPiece db "elf" "Buddha"
 >     assertMoveSubphase db "motion"
->     sendKeyPress conn "End"
+>     cancel db conn
 >     assertMoveSubphase db "ranged_attack"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   R           \n\
 >                   \               \n\
@@ -762,7 +778,7 @@ variations, so we don't need to test them elsewhere.
 >     rigActionSuccess conn "ranged_attack" True
 >     goSquare db conn 3 1
 >     assertPieceDoneSelection db "elf" "Buddha"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1 GR   2      3\n\
 >                   \   r           \n\
 >                   \               \n\
@@ -780,7 +796,8 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "elf" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard("\n\
 >                   \1G  R  2      3\n\
 >                   \    R          \n\
 >                   \               \n\
@@ -790,12 +807,12 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     goSquare db conn 1 0
 >     assertSelectedPiece db "elf" "Buddha"
 >     assertMoveSubphase db "motion"
 >     goSquare db conn 2 0
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \    R          \n\
 >                   \               \n\
@@ -807,7 +824,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     assertMoveSubphase db "ranged_attack"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \    R          \n\
 >                   \               \n\
@@ -821,7 +838,7 @@ variations, so we don't need to test them elsewhere.
 >     rigActionSuccess conn "ranged_attack" False
 >     goSquare db conn 4 1
 >     assertPieceDoneSelection db "elf" "Buddha"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \    R          \n\
 >                   \               \n\
@@ -839,7 +856,8 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "elf" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard ("\n\
 >                   \1G  R  2      3\n\
 >                   \   RR          \n\
 >                   \               \n\
@@ -849,12 +867,12 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     goSquare db conn 1 0
 >     assertSelectedPiece db "elf" "Buddha"
 >     assertMoveSubphase db "motion"
 >     goSquare db conn 2 0
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \   RR          \n\
 >                   \               \n\
@@ -866,7 +884,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     assertMoveSubphase db "attack"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \   RR          \n\
 >                   \               \n\
@@ -880,7 +898,7 @@ variations, so we don't need to test them elsewhere.
 >     rigActionSuccess conn "ranged_attack" False
 >     goSquare db conn 4 1
 >     assertPieceDoneSelection db "elf" "Buddha"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1 G R  2      3\n\
 >                   \   RR          \n\
 >                   \               \n\
@@ -898,7 +916,8 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('G', [makePD "elf" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard ("\n\
 >                   \1G  R  2      3\n\
 >                   \  R R          \n\
 >                   \               \n\
@@ -908,13 +927,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     goSquare db conn 1 0
 >     assertSelectedPiece db "elf" "Buddha"
 >     assertMoveSubphase db "motion"
 >     rigActionSuccess conn "ranged_attack" False
 >     goSquare db conn 4 0
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1G  R  2      3\n\
 >                   \  R R          \n\
 >                   \               \n\
@@ -926,7 +945,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \6      7      8",pl)
 >     assertPieceDoneSelection db "elf" "Buddha"
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1G  R  2      3\n\
 >                   \  R R          \n\
 >                   \               \n\
@@ -948,7 +967,8 @@ variations, so we don't need to test them elsewhere.
 >               [('W', [makePD "shadow_tree" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"]),
 >                ('r', [makePD "giant_rat" "dead"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard ("\n\
 >                   \1WR    2      3\n\
 >                   \    R          \n\
 >                   \               \n\
@@ -958,13 +978,13 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     goSquare db conn 1 0
 >     assertSelectedPiece db "shadow_tree" "Buddha"
 >     assertMoveSubphase db "attack"
 >     rigActionSuccess conn "attack" True
 >     goSquare db conn 2 0
->     assertBoardEquals db ("\n\
+>     assertPiecesEquals db ("\n\
 >                   \1Wr    2      3\n\
 >                   \    R          \n\
 >                   \               \n\
@@ -983,7 +1003,8 @@ variations, so we don't need to test them elsewhere.
 >     let pl = (wizardPiecesList ++
 >               [('W', [makePD "shadow_tree" "Buddha"]),
 >                ('R', [makePD "giant_rat" "Kong Fuzi"])])
->     newSetupGame db conn (setPhase "move") ("\n\
+>     setupGame db conn [setPhase "move"
+>                       ,useBoard ("\n\
 >                   \1W     2      3\n\
 >                   \    R          \n\
 >                   \               \n\
@@ -993,7 +1014,7 @@ variations, so we don't need to test them elsewhere.
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >     goSquare db conn 1 0
 >     assertPieceDoneSelection db "shadow_tree" "Buddha"
 

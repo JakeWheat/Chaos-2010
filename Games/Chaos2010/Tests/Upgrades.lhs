@@ -12,7 +12,9 @@
 
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.Database.Pieces_mr
+> import Games.Chaos2010.Database.Fields
 > import Games.Chaos2010.Tests.SetupGameState
+> import Games.Chaos2010.DBUpdates
 
 > upgrades :: IConnection conn => Database -> conn -> Test.Framework.Test
 > upgrades db conn = testGroup "upgrades" $
@@ -96,13 +98,13 @@
 >               -> (Pieces_mr_v -> Pieces_mr_v)
 >               -> IO ()
 > doUpgradeTest conn db spell attrChange = do
->   newGameReadyToCast db conn spell Nothing defaultGameState
+>   setupGame db conn $ readyToCast spell
 >   oldStats <- getStats
 >   rigActionSuccess conn "cast" True
->   sendKeyPress conn "Return"
+>   castActivateSpell db conn -- sendKeyPress conn "Return"
 >   newStats <- getStats
 >   assertEqual "upgraded stats" (attrChange oldStats) newStats
->   B.assertBoardEquals db ("\n\
+>   assertPiecesEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -113,7 +115,7 @@
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",
->                   B.wizardPiecesList)
+>                   wizardPiecesList)
 >   where
 >     --getStats :: IO Pieces_mr_tuple
 >     --getStats :: IO Pieces_mr

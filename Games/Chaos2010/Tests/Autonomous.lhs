@@ -9,12 +9,15 @@
 
 > import Games.Chaos2010.Tests.SetupGameState
 > import Games.Chaos2010.Tests.TestUtils
-> import Games.Chaos2010.Utils
+> --import Games.Chaos2010.Utils
+> import Games.Chaos2010.DBUpdates
 > import Games.Chaos2010.Database.Spell_books
+> import Games.Chaos2010.Database.Fields
+> import Games.Chaos2010.HaskellDBUtils
 >
 > autonomous :: IConnection conn => Database -> conn -> Test.Framework.Test
 > autonomous db conn = testGroup "autonomous" $
->                   map (\x -> x db conn)
+>                   map (\z -> z db conn)
 >                       [testCastleDisappear
 >                       ,testCastleStay
 >                       ,testGetSpell
@@ -41,8 +44,10 @@ castles disappearing
 >            [('O', [makePD "wizard" "Buddha",
 >                    makePD "dark_citadel" "Buddha"]),
 >             ('C', [makePD "dark_citadel" "Buddha"])]
->   newSetupGame db conn (setPhase "cast"
->                         . setCurrentWizard "Zarathushthra") ("\n\
+>   setupGame db conn [setPhase "cast"
+>                     ,setCurrentWizard "Zarathushthra"
+>                     ,wChooseSpell "Zarathushthra" "disbelieve" (Just False)
+>                     ,useBoard ("\n\
 >                   \O      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -52,10 +57,10 @@ castles disappearing
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8", pl)
+>                   \6      7      8", pl)]
 >   rigActionSuccess conn "disappear" True
->   sendKeyPress conn "space"
->   assertBoardEquals db ("\n\
+>   nextPhase conn
+>   assertPiecesEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -73,8 +78,10 @@ castles disappearing
 >            [('O', [makePD "wizard" "Buddha",
 >                    makePD "dark_citadel" "Buddha"]),
 >             ('C', [makePD "dark_citadel" "Buddha"])]
->   newSetupGame db conn (setPhase "cast"
->                         . setCurrentWizard "Zarathushthra") ("\n\
+>   setupGame db conn [setPhase "cast"
+>                     ,setCurrentWizard "Zarathushthra"
+>                     ,wChooseSpell "Zarathushthra" "disbelieve" (Just False)
+>                     ,useBoard ("\n\
 >                   \O      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -84,10 +91,10 @@ castles disappearing
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8", pl)
+>                   \6      7      8", pl)]
 >   rigActionSuccess conn "disappear" False
->   sendKeyPress conn "space"
->   assertBoardEquals db ("\n\
+>   nextPhase conn
+>   assertPiecesEquals db ("\n\
 >                   \O      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -105,8 +112,10 @@ castles disappearing
 >   let pl = wizardPiecesList ++
 >            [('T', [makePD "wizard" "Buddha",
 >                    makePD "magic_tree" "Buddha"])]
->   newSetupGame db conn (setPhase "cast"
->                         . setCurrentWizard "Zarathushthra") ("\n\
+>   setupGame db conn [setPhase "cast"
+>                     ,setCurrentWizard "Zarathushthra"
+>                     ,wChooseSpell "Zarathushthra" "disbelieve" (Just False)
+>                     ,useBoard ("\n\
 >                   \T      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -116,11 +125,11 @@ castles disappearing
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8", pl)
+>                   \6      7      8", pl)]
 >   numSpells <- countSpells db
 >   rigActionSuccess conn "bonus" True
->   sendKeyPress conn "space"
->   assertBoardEquals db ("\n\
+>   nextPhase conn
+>   assertPiecesEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -145,8 +154,10 @@ castles disappearing
 >   let pl = wizardPiecesList ++
 >            [('T', [makePD "wizard" "Buddha",
 >                    makePD "magic_tree" "Buddha"])]
->   newSetupGame db conn (setPhase "cast"
->                         . setCurrentWizard "Zarathushthra") ("\n\
+>   setupGame db conn [setPhase "cast"
+>                     ,setCurrentWizard "Zarathushthra"
+>                     ,wChooseSpell "Zarathushthra" "disbelieve" (Just False)
+>                     ,useBoard  ("\n\
 >                   \T      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -156,10 +167,10 @@ castles disappearing
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8", pl)
+>                   \6      7      8", pl)]
 >   rigActionSuccess conn "bonus" False
->   sendKeyPress conn "space"
->   assertBoardEquals db ("\n\
+>   nextPhase conn
+>   assertPiecesEquals db ("\n\
 >                   \T      2      3\n\
 >                   \               \n\
 >                   \               \n\

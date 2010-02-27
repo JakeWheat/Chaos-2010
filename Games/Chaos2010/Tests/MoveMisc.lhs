@@ -10,34 +10,37 @@
 > import Games.Chaos2010.Tests.TestUtils
 > import Games.Chaos2010.Tests.SetupGameState
 > import Games.Chaos2010.Database.Pieces_mr
-> --import Games.Chaos2010.Database.Wizards
+> import Games.Chaos2010.DBUpdates
+> import Games.Chaos2010.Database.Fields
 >
 > moveMisc :: IConnection conn => Database -> conn -> Test.Framework.Test
 > moveMisc db conn = testGroup "moveMisc" $
 >                   map (\xx -> xx db conn)
->                          [testAttackWizard
->                          ,testFlyAttack
->                          ,testMountThenMoveMount
->                          ,testMoveWhenMounted
->                          ,testDismount
->                          ,testMoveWhenAlreadyMounted
->                          ,testEnter
->                          ,testExit
->                          ,testAttackShadowForm
->                          ,testBlobSelection
->                         ,testAttackNonUndeadOnUndead
->                         ,testMagicWeaponOnUndead
->                         ,testAttackUndeadOnUndead
->                         ,testNoMoveEngaged
->                         ,testBreakEngaged
->                        ]
+>                           [testAttackWizard
+>                           ,testFlyAttack
+>                           ,testMountThenMoveMount
+>                           ,testMoveWhenMounted
+>                           ,testDismount
+>                           ,testMoveWhenAlreadyMounted
+>                           ,testEnter
+>                           ,testExit
+>                           ,testAttackShadowForm
+>                           ,testBlobSelection
+>                           ,testAttackNonTrueOnTrue
+>                           ,testMagicWeaponOnTrue
+>                           ,testAttackTrueOnTrue
+>                           ,testNoMoveEngaged
+>                           ,testBreakEngaged
+>                           ]
 
 == other move action tests
 
 > testAttackWizard :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testAttackWizard db = tctor "testAttackWizard" $
 >                           \conn -> do
->   newSetupGame db conn (setPhase "move") ("\n\
+>   setupGame db conn [setPhase "move"
+>                     ,setCurrentWizard "Kong Fuzi"
+>                     ,useBoard ("\n\
 >                   \1G     2      3\n\
 >                   \ H             \n\
 >                   \               \n\
@@ -50,12 +53,11 @@
 >                   \6      7      8",
 >                   (wizardPiecesList ++
 >                   [('G', [makePD "goblin" "Kong Fuzi"]),
->                    ('H', [makePD "goblin" "Buddha"])]))
->   sendKeyPress conn "space"
+>                    ('H', [makePD "goblin" "Buddha"])]))]
 >   goSquare db conn 1 0
 >   rigActionSuccess conn "attack" True
 >   goSquare db conn 0 0
->   assertBoardEquals db ("\n\
+>   assertPiecesEquals db ("\n\
 >                   \G      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -71,7 +73,8 @@
 
 > testFlyAttack :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testFlyAttack db = tctor "testFlyAttack" $ \conn -> do
->   newSetupGame db conn (setPhase "move") ("\n\
+>   setupGame db conn [setPhase "move"
+>                     ,useBoard ("\n\
 >                   \1 E    2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -84,11 +87,11 @@
 >                   \6      7      8",
 >                   (wizardPiecesList ++
 >                   [('G', [makePD "goblin" "Kong Fuzi"]),
->                    ('E', [makePD "eagle" "Buddha"])]))
+>                    ('E', [makePD "eagle" "Buddha"])]))]
 >   goSquare db conn 2 0
 >   rigActionSuccess conn "attack" True
 >   goSquare db conn 3 3
->   assertBoardEquals db ("\n\
+>   assertPiecesEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -109,7 +112,8 @@
 >   let pl = wizardPiecesList ++ [('P', [makePD "pegasus" "Buddha"]),
 >             ('M', [makePD "wizard" "Buddha",
 >                    makePD "pegasus" "Buddha"])]
->   newSetupGame db conn (setPhase "move") ("\n\
+>   setupGame db conn [setPhase "move"
+>                     ,useBoard ("\n\
 >                   \1P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -119,14 +123,14 @@
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8",pl)
+>                   \6      7      8",pl)]
 >   goSquare db conn 0 0
 >   assertSelectedPiece db "wizard" "Buddha"
 >   goSquare db conn 1 0
->   sendKeyPress conn "Return"
+>   actionGo db conn
 >   assertSelectedPiece db "pegasus" "Buddha"
 >   goSquare db conn 2 2
->   assertBoardEquals db ("\n\
+>   assertPiecesEquals db ("\n\
 >                   \       2      3\n\
 >                   \               \n\
 >                   \  M            \n\
@@ -148,7 +152,8 @@ is mounted here.
 > testMoveWhenMounted :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testMoveWhenMounted db = tctor "testMoveWhenMounted" $
 >                              \conn -> do
->   newSetupGame db conn (setPhase "move") ("\n\
+>   setupGame db conn [setPhase "move"
+>                     ,useBoard ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -161,16 +166,16 @@ is mounted here.
 >                   \6      7      8",
 >                    wizardPiecesList ++
 >                   [('P', [makePD "wizard" "Buddha",
->                           makePD "pegasus" "Buddha"])])
+>                           makePD "pegasus" "Buddha"])])]
 >   --select then cancel the wizard
 >   goSquare db conn 1 0
 >   assertSelectedPiece db "wizard" "Buddha"
->   sendKeyPress conn "End"
+>   cancel db conn
 >   --now we can select the monster
->   sendKeyPress conn "Return"
+>   actionGo db conn
 >   assertSelectedPiece db "pegasus" "Buddha"
 >   goSquare db conn 2 2
->   assertBoardEquals db ("\n\
+>   assertPiecesEquals db ("\n\
 >                   \       2      3\n\
 >                   \               \n\
 >                   \  P            \n\
@@ -189,7 +194,8 @@ dismount then move
 
 > testDismount :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testDismount db = tctor "testDismount" $ \conn -> do
->   newSetupGame db conn (setPhase "move") ("\n\
+>   setupGame db conn [setPhase "move"
+>                     ,useBoard ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -202,12 +208,12 @@ dismount then move
 >                   \6      7      8",
 >                    wizardPiecesList ++
 >                   [('P', [makePD "wizard" "Buddha",
->                           makePD "pegasus" "Buddha"])])
+>                           makePD "pegasus" "Buddha"])])]
 >   goSquare db conn 1 0
 >   goSquare db conn 1 1
 >   goSquare db conn 1 0
 >   goSquare db conn 3 0
->   assertBoardEquals db ("\n\
+>   assertPiecesEquals db ("\n\
 >                   \   P   2      3\n\
 >                   \ 1             \n\
 >                   \               \n\
@@ -226,7 +232,8 @@ move when already mounted
 > testMoveWhenAlreadyMounted :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testMoveWhenAlreadyMounted db = tctor "testMoveWhenAlreadyMounted" $
 >                                     \conn -> do
->   newSetupGame db conn (setPhase "move") ("\n\
+>   setupGame db conn [setPhase "move"
+>                     ,useBoard ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -239,12 +246,12 @@ move when already mounted
 >                   \6      7      8",
 >                    wizardPiecesList ++
 >                   [('P', [makePD "wizard" "Buddha",
->                           makePD "pegasus" "Buddha"])])
+>                           makePD "pegasus" "Buddha"])])]
 >   goSquare db conn 1 0
->   sendKeyPress conn "End"
->   sendKeyPress conn "Return"
+>   cancel db conn
+>   actionGo db conn
 >   goSquare db conn 3 0
->   assertBoardEquals db ("\n\
+>   assertPiecesEquals db ("\n\
 >                   \   P   2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -263,7 +270,8 @@ todo: attack when dismounting, dismounting when flying
 
 > testExit :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testExit db = tctor "testExit" $ \conn -> do
->   newSetupGame db conn (setPhase "move") ("\n\
+>   setupGame db conn [setPhase "move"
+>                     ,useBoard ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -276,11 +284,11 @@ todo: attack when dismounting, dismounting when flying
 >                   \6      7      8",
 >                    wizardPiecesList ++
 >                   [('P', [makePD "wizard" "Buddha",
->                           makePD "dark_citadel" "Buddha"])])
+>                           makePD "dark_citadel" "Buddha"])])]
 >   goSquare db conn 1 0
 >   assertSelectedPiece db "wizard" "Buddha"
 >   goSquare db conn 1 1
->   assertBoardEquals db ("\n\
+>   assertPiecesEquals db ("\n\
 >                   \ P     2      3\n\
 >                   \ 1             \n\
 >                   \               \n\
@@ -296,7 +304,8 @@ todo: attack when dismounting, dismounting when flying
 
 > testEnter :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testEnter db = tctor "testEnter" $ \conn -> do
->   newSetupGame db conn (setPhase "move") ("\n\
+>   setupGame db conn [setPhase "move"
+>                     ,useBoard ("\n\
 >                   \1P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -308,10 +317,10 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('P', [makePD "dark_citadel" "Buddha"])]))
+>                   [('P', [makePD "dark_citadel" "Buddha"])]))]
 >   goSquare db conn 0 0
 >   goSquare db conn 1 0
->   assertBoardEquals db ("\n\
+>   assertPiecesEquals db ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -328,8 +337,8 @@ todo: attack when dismounting, dismounting when flying
 
 > testAttackShadowForm :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testAttackShadowForm db = tctor "testAttackShadowForm" $ \conn -> do
->   newGameReadyToCast1 db conn id "shadow_form" Nothing
->                  ("\n\
+>   setupGame db conn $ readyToCast "vengeance" ++
+>                  [useBoard ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -341,9 +350,9 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [makePD "goblin" "Kong Fuzi"])]))
+>                   [('G', [makePD "goblin" "Kong Fuzi"])]))]
 >   oldStats <- getStats
->   sendKeyPress conn "Return"
+>   actionGo db conn
 >   skipToPhase db conn "move"
 >   goSquare db conn 0 0
 >   rigActionSuccess conn "attack" False
@@ -360,12 +369,13 @@ todo: attack when dismounting, dismounting when flying
 
 
 
-> testAttackUndeadOnUndead :: IConnection conn => Database -> conn -> Test.Framework.Test
-> testAttackUndeadOnUndead db = tctor "testAttackUndeadOnUndead" $ \conn -> do
+> testAttackTrueOnTrue :: IConnection conn => Database -> conn -> Test.Framework.Test
+> testAttackTrueOnTrue db = tctor "testAttackTrueOnTrue" $ \conn -> do
 >   let pl = wizardPiecesList ++
->            [('G', [PieceDescription "ghost" "Kong Fuzi" Real Undead]),
->             ('S', [PieceDescription "goblin" "Buddha" Real Undead])]
->   newSetupGame db conn (setPhase "move") ("\n\
+>            [('G', [makeFPD "ghost" "Kong Fuzi" False True]),
+>             ('S', [makeFPD "goblin" "Buddha" False True])]
+>   setupGame db conn [setPhase "move"
+>                     ,useBoard ("\n\
 >                   \1S     2      3\n\
 >                   \ G             \n\
 >                   \               \n\
@@ -375,11 +385,11 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8", pl)
+>                   \6      7      8", pl)]
 >   goSquare db conn 1 0
 >   rigActionSuccess conn "attack" True
 >   goSquare db conn 1 1
->   assertBoardEquals db ("\n\
+>   assertPiecesEquals db ("\n\
 >                   \1      2      3\n\
 >                   \ S             \n\
 >                   \               \n\
@@ -391,12 +401,13 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \6      7      8", pl)
 
-> testAttackNonUndeadOnUndead :: IConnection conn => Database -> conn -> Test.Framework.Test
-> testAttackNonUndeadOnUndead db = tctor "testAttackNonUndeadOnUndead" $ \conn -> do
+> testAttackNonTrueOnTrue :: IConnection conn => Database -> conn -> Test.Framework.Test
+> testAttackNonTrueOnTrue db = tctor "testAttackNonTrueOnTrue" $ \conn -> do
 >   let pl = wizardPiecesList ++
->            [('G', [PieceDescription "ghost" "Kong Fuzi" Real Undead]),
->             ('S', [PieceDescription "goblin" "Buddha" Real Alive])]
->   newSetupGame db conn (setPhase "move") ("\n\
+>            [('G', [makeFPD "ghost" "Kong Fuzi" False True]),
+>             ('S', [makeFPD "goblin" "Buddha" False False])]
+>   setupGame db conn [setPhase "move"
+>                     ,useBoard ("\n\
 >                   \1S     2      3\n\
 >                   \ G             \n\
 >                   \               \n\
@@ -406,11 +417,11 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8", pl)
+>                   \6      7      8", pl)]
 >   goSquare db conn 1 0
 >   rigActionSuccess conn "attack" True
 >   goSquare db conn 1 1
->   assertBoardEquals db ("\n\
+>   assertPiecesEquals db ("\n\
 >                   \1S     2      3\n\
 >                   \ G             \n\
 >                   \               \n\
@@ -422,12 +433,13 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \6      7      8", pl)
 
-> testMagicWeaponOnUndead :: IConnection conn => Database -> conn -> Test.Framework.Test
-> testMagicWeaponOnUndead db = tctor "testMagicWeaponOnUndead" $ \conn -> do
+> testMagicWeaponOnTrue :: IConnection conn => Database -> conn -> Test.Framework.Test
+> testMagicWeaponOnTrue db = tctor "testMagicWeaponOnTrue" $ \conn -> do
 >   let pl = wizardPiecesList ++
->            [('G', [PieceDescription "ghost" "Kong Fuzi" Real Undead]),
->             ('S', [PieceDescription "spectre" "Buddha" Real Undead])]
->   newSetupGame db conn (setPhase "move") ("\n\
+>            [('G', [makeFPD "ghost" "Kong Fuzi" False True]),
+>             ('S', [makeFPD "spectre" "Buddha" False True])]
+>   setupGame db conn [setPhase "move"
+>                     ,useBoard ("\n\
 >                   \1S     2      3\n\
 >                   \ G             \n\
 >                   \               \n\
@@ -437,7 +449,7 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8", pl)
+>                   \6      7      8", pl)]
 >   addMagicSword db conn "Buddha"
 >   --printWiz
 >   --querySelectedPiece db >>= print
@@ -446,7 +458,7 @@ todo: attack when dismounting, dismounting when flying
 >   rigActionSuccess conn "attack" True
 >   goSquare db conn 1 1
 >   --querySelectedPiece db >>= print
->   assertBoardEquals db ("\n\
+>   assertPiecesEquals db ("\n\
 >                   \ S     2      3\n\
 >                   \ 1             \n\
 >                   \               \n\
@@ -472,8 +484,9 @@ todo: attack when dismounting, dismounting when flying
 > testNoMoveEngaged :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testNoMoveEngaged db = tctor "testNoMoveEngaged" $ \conn -> do
 >   let pl = wizardPiecesList ++
->            [('G', [PieceDescription "goblin" "Kong Fuzi" Real Undead])]
->   newSetupGame db conn (setPhase "move") ("\n\
+>            [('G', [makeFPD "goblin" "Kong Fuzi" False True])]
+>   setupGame db conn [setPhase "move"
+>                     ,useBoard ("\n\
 >                   \1      2      3\n\
 >                   \ G             \n\
 >                   \               \n\
@@ -483,11 +496,11 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8", pl)
+>                   \6      7      8", pl)]
 >   rigActionSuccess conn "break_engaged" False
 >   goSquare db conn 0 0
 >   goSquare db conn 0 1
->   assertBoardEquals db ("\n\
+>   assertPiecesEquals db ("\n\
 >                   \1      2      3\n\
 >                   \ G             \n\
 >                   \               \n\
@@ -502,8 +515,9 @@ todo: attack when dismounting, dismounting when flying
 > testBreakEngaged :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testBreakEngaged db = tctor "testBreakEngaged" $ \conn -> do
 >   let pl = wizardPiecesList ++
->            [('G', [PieceDescription "goblin" "Kong Fuzi" Real Undead])]
->   newSetupGame db conn (setPhase "move") ("\n\
+>            [('G', [makeFPD "goblin" "Kong Fuzi" False True])]
+>   setupGame db conn [setPhase "move"
+>                     ,useBoard ("\n\
 >                   \1      2      3\n\
 >                   \ G             \n\
 >                   \               \n\
@@ -513,11 +527,11 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8", pl)
+>                   \6      7      8", pl)]
 >   rigActionSuccess conn "break_engaged" True
 >   goSquare db conn 0 0
 >   goSquare db conn 0 1
->   assertBoardEquals db ("\n\
+>   assertPiecesEquals db ("\n\
 >                   \       2      3\n\
 >                   \1G             \n\
 >                   \               \n\
@@ -560,7 +574,8 @@ moved if free'd that turn
 >            [('O', [makePD "goblin" "Buddha",
 >                    makePD "gooey_blob" "Kong Fuzi"]),
 >             ('g', [makePD "goblin" "Buddha"])]
->   newSetupGame db conn (setPhase "move") ("\n\
+>   setupGame db conn [setPhase "move"
+>                     ,useBoard ("\n\
 >                   \1O     2      3\n\
 >                   \               \n\
 >                   \               \n\
@@ -570,14 +585,14 @@ moved if free'd that turn
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
->                   \6      7      8", pl)
+>                   \6      7      8", pl)]
 >   goSquare db conn 1 0
 >   assertNoSelectedPiece db
 >   goSquare db conn 0 0
 >   rigActionSuccess conn "attack" True
 >   goSquare db conn 1 0
 >   assertNoSelectedPiece db
->   assertBoardEquals db ("\n\
+>   assertPiecesEquals db ("\n\
 >                   \1g     2      3\n\
 >                   \               \n\
 >                   \               \n\

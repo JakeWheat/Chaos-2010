@@ -9,11 +9,11 @@
 > import Games.Chaos2010.Tests.Basics
 > import Games.Chaos2010.Tests.Phases
 > import Games.Chaos2010.Tests.Casting
-> --import Games.Chaos2010.Tests.Upgrades
-> --import Games.Chaos2010.Tests.Subphases
-> --import Games.Chaos2010.Tests.MoveMisc
-> --import Games.Chaos2010.Tests.Autonomous
-> --import Games.Chaos2010.Tests.Complete
+> import Games.Chaos2010.Tests.Upgrades
+> import Games.Chaos2010.Tests.Subphases
+> import Games.Chaos2010.Tests.MoveMisc
+> import Games.Chaos2010.Tests.Autonomous
+> import Games.Chaos2010.Tests.Complete
 
 >
 > allTests :: IConnection conn => Database -> conn -> [Test]
@@ -21,11 +21,11 @@
 >                    [basics
 >                    ,phases
 >                    ,casting
->                    --,upgrades
->                    --,subphases
->                    --,moveMisc
->                    --,autonomous
->                    --,complete
+>                    ,upgrades
+>                    ,subphases
+>                    ,moveMisc
+>                    ,autonomous
+>                    ,complete
 >                    ]
 
 

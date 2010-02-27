@@ -28,6 +28,8 @@
 >     ,setSpellChoiceImaginary
 >     ,CursorDirection(..)
 >     ,castActivateSpell
+>     ,selectPiece
+>     ,cancel
 >     --,disableConstraints
 >     --,enableConstraints
 >     ) where
@@ -158,6 +160,13 @@
 
 > castActivateSpell :: IConnection conn => Database -> conn -> IO ()
 > castActivateSpell _ conn = callSp conn "action_cast_activate_spell" []
+
+> selectPiece :: IConnection conn => Database -> conn -> Int -> Int -> IO ()
+> selectPiece _ conn xp yp = callSp conn "action_select_piece_at_position" [show xp,show yp]
+
+> cancel :: IConnection conn => Database -> conn -> IO ()
+> cancel _ conn = callSp conn "action_cancel" []
+
 
 > disableSpreading :: IConnection conn => Database -> conn -> IO ()
 > disableSpreading db _ =

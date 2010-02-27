@@ -443,12 +443,15 @@ basically does the foreign key cascading
 > setWizards :: [String] -> GameState -> GameState
 > setWizards wz gs =
 >         gs {wezards = expireWizards $ wezards gs
->            ,currentWizard = current_wizard .=. (head wz)
->                             .*. emptyRecord
+>            ,currentWizard = if currentWizardDead
+>                             then current_wizard .=. (head wz)
+>                                      .*. emptyRecord
+>                             else currentWizard gs
 >            ,spellBooks = R.restrict (\r -> r # wizard_name `elem` wz) $ spellBooks gs
 >            ,peeces = R.restrict (\r -> r # allegiance `elem` als) $ peeces gs
 >            }
 >   where
+>     currentWizardDead = ((currentWizard gs) # current_wizard) `notElem` wz
 >     als = "dead" : wz
 >     expireWizards = R.update (\r -> expired .=. True .@. r)
 >                              (\r -> r # wizard_name `notElem` wz)
