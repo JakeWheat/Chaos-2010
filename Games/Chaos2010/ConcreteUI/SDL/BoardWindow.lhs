@@ -22,6 +22,7 @@
 > import Data.IORef
 
 > import qualified Games.Chaos2010.UI.UITypes as U
+> import Games.Chaos2010.Utils
 
 > startBoardWindow :: String -> Int -> Int -> Int -> Int
 >                  -> Chan U.Event -> Chan (String,U.WindowUpdate) -> IO ()

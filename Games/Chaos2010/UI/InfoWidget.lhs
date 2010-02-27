@@ -4,7 +4,7 @@ Copyright 2010 Jake Wheat
 >
 > import Games.Chaos2010.UI.UITypes
 > import Control.Applicative
-> import Database.HaskellDB
+> import Database.HaskellDB hiding (count)
 > import Control.Monad as M
 >
 > import Games.Chaos2010.Database.Turn_number_table
@@ -12,15 +12,16 @@ Copyright 2010 Jake Wheat
 > import Games.Chaos2010.Database.Turn_phase_table
 > import Games.Chaos2010.Database.Prompt
 > import Games.Chaos2010.Database.Current_wizard_table
-> import Games.Chaos2010.Database.Allegiance_colours as Ac
+> import Games.Chaos2010.Database.Allegiance_colours
 > import Games.Chaos2010.Database.Wizard_sprites
 > import Games.Chaos2010.Database.Cursor_position
-> import qualified Games.Chaos2010.Database.Cursor_piece_details as Cpd
-> import qualified Games.Chaos2010.Database.Selected_piece_details as Spd
+> import Games.Chaos2010.Database.Cursor_piece_details
+> import Games.Chaos2010.Database.Selected_piece_details
 >
-> import qualified Games.Chaos2010.Database.Current_wizard_selected_spell_details as Cwssd
+> import Games.Chaos2010.Database.Current_wizard_selected_spell_details
+> import Games.Chaos2010.Database.Fields
 >
-> import Games.Chaos2010.UI.HdbUtils
+> import Games.Chaos2010.HaskellDBUtils
 >
 >
 >
@@ -54,12 +55,12 @@ Copyright 2010 Jake Wheat
 >             restrict ((cwt .!. current_wizard) .==.
 >                       jn (ws .!. wizard_name))
 >             project $ copy current_wizard cwt
->                       .*. copy Ac.colour ac
+>                       .*. copy colour ac
 >                       .*. copy allegiance ac
 >                       .*. copy sprite ws
 >                       .*. emptyRecord)
 >           (\r -> [Text $ "\nWizard up: "
->                  ,TaggedText [mv $ r # Ac.colour] (r # current_wizard)
+>                  ,TaggedText [mv $ r # colour] (r # current_wizard)
 >                  ,Image $ "medium-" ++ mv (r # sprite)]) -- todo: should be a sprite
 >        {-,q (do
 >        ,D.SelectValueIf "select count from\n\
@@ -75,16 +76,16 @@ Copyright 2010 Jake Wheat
 > spellInfo :: Database -> IO [MyTextItem]
 > spellInfo db =
 >   concat . concat <$> M.sequence [
->         q (table Cwssd.current_wizard_selected_spell_details)
->           (\r -> [Text $ "\nChosen spell: " ++ mv (r # Cwssd.spell_name)
+>         q (table current_wizard_selected_spell_details)
+>           (\r -> [Text $ "\nChosen spell: " ++ mv (r # spell_name)
 >                   ++ "\t"
->                  ,Image $ "medium-" ++ mv (r # Cwssd.sprite) -- should be sprite
->                  ,Text $ "\n(" ++ mv (r # Cwssd.spell_category) ++ ", "
->                        ++ mv (r # Cwssd.alignment_string) ++ ", copies "
->                        ++ show (r # Cwssd.count) ++ ")\n"
->                        ++ mv (r # Cwssd.description)
->                        ++ "\nchance " ++ show (r # Cwssd.chance) ++ "% "
->                        ++ " (base " ++ show (r # Cwssd.base_chance) ++"%)"
+>                  ,Image $ "medium-" ++ mv (r # sprite) -- should be sprite
+>                  ,Text $ "\n(" ++ mv (r # spell_category) ++ ", "
+>                        ++ mv (r # alignment_string) ++ ", copies "
+>                        ++ show (r # count) ++ ")\n"
+>                        ++ mv (r # description)
+>                        ++ "\nchance " ++ show (r # chance) ++ "% "
+>                        ++ " (base " ++ show (r # base_chance) ++"%)"
 >                  ])
 >        ]
 >   where
@@ -125,8 +126,8 @@ check the fields and field names
 > cursorPieces :: Database -> IO [MyTextItem]
 > cursorPieces db =
 >   concat <$> q (do
->          t1 <- table Cpd.cursor_piece_details
->          order [asc t1 Cpd.sp]
+>          t1 <- table cursor_piece_details
+>          order [asc t1 sp]
 >          project $ copyAll t1)
 >          (\r -> (Text "\n\
 >                       \-------\n" : pieceInfo r))
@@ -135,7 +136,7 @@ check the fields and field names
 >
 > selectedPieceInfo :: Database -> IO [MyTextItem]
 > selectedPieceInfo db =
->   concat <$> q (table Spd.selected_piece_details)
+>   concat <$> q (table selected_piece_details)
 >          (\r -> (Text "\n\n\
 >                        \--------\n\
 >                        \\nSelected piece:" : pieceInfo r))

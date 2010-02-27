@@ -7,7 +7,7 @@ list of windows.
 > module Games.Chaos2010.UI.ChaosUI (chaosUI, chaosServer) where
 
 > import Control.Concurrent.Chan.Strict
-> import Database.HaskellDB
+> import Database.HaskellDB as H
 > import Control.Applicative
 > import Database.HDBC (IConnection)
 
@@ -20,6 +20,7 @@ list of windows.
 > import Games.Chaos2010.UI.BoardWidget
 > import Games.Chaos2010.Database.New_game_widget_state
 > import Games.Chaos2010.DBUpdates
+> import Games.Chaos2010.Database.Fields
 
 > chaosUI :: [Window]
 > chaosUI = [Window "Info" WText 0 371 579 213
@@ -65,7 +66,7 @@ list of windows.
 >   where
 >     c = do
 >         t1 <- table new_game_widget_state
->         project $ line .=. count(t1 .!. line)
+>         project $ line .=. H.count(t1 .!. line)
 >                 .*. emptyRecord
 
 > handleEvent :: IConnection conn => Database -> conn -> Event -> IO ()
@@ -73,5 +74,5 @@ list of windows.
 >   case e of
 >     Key k -> do
 >              putStrLn $ "key press: " ++ k
->              sendKeyPress conn k
+>              --sendKeyPress conn k
 >     Callback c -> c

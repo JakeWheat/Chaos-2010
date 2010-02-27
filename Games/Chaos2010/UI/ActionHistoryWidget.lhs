@@ -4,8 +4,9 @@
 > import Database.HaskellDB
 >
 > import Games.Chaos2010.UI.UITypes
-> import Games.Chaos2010.UI.HdbUtils
+> import Games.Chaos2010.HaskellDBUtils
 > import Games.Chaos2010.Database.Action_history_colour_mr
+> import Games.Chaos2010.Database.Fields
 
 
 > actionHistoryWidget :: DBText

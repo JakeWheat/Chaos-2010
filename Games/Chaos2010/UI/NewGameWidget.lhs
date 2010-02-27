@@ -25,13 +25,14 @@ new game widget:
 > module Games.Chaos2010.UI.NewGameWidget where
 >
 > import Control.Applicative
-> import Database.HaskellDB
+> import Database.HaskellDB as H
 > import Control.Monad as M
 > import Database.HDBC (IConnection)
 
 > import Games.Chaos2010.UI.UITypes
 > import Games.Chaos2010.Database.New_game_widget_state
-> import Games.Chaos2010.UI.HdbUtils
+> import Games.Chaos2010.Database.Fields as F
+> import Games.Chaos2010.HaskellDBUtils
 > import Games.Chaos2010.DBUpdates
 >
 > newGameWidget :: IConnection conn => conn -> DBText
@@ -50,11 +51,11 @@ new game widget:
 >                                   ,("none", "none")]
 >                                   (r # state)
 >                                   (\st ->
->                                     updateNewGameState conn (r # line) st)
+>                                     updateNewGameState db conn (r # line) st)
 >                ,Text "\n"])
 >      ,q (do
 >          t1 <- table new_game_widget_state
->          project $ line .=. count(t1 .!. line)
+>          project $ line .=. H.count(t1 .!. line)
 >                 .*. emptyRecord)
 >         (\_ -> [Button "start game" startGame
 >                ,Button "reset this window" resetWidget

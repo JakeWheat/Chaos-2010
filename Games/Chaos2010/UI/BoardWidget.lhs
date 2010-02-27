@@ -1,14 +1,15 @@
 
 > module Games.Chaos2010.UI.BoardWidget where
 
-> import Control.Applicative
+> --import Control.Applicative
 > import Database.HaskellDB
-> import Control.Monad as M
+> --import Control.Monad as M
 >
-> import Games.Chaos2010.UI.HdbUtils
+> import Games.Chaos2010.HaskellDBUtils
 > import Games.Chaos2010.UI.UITypes
 >
 > import Games.Chaos2010.Database.Board_sprites1_view
+> import Games.Chaos2010.Database.Fields
 
 > boardWidget :: DBSpriteGrid
 > boardWidget = DBSpriteGrid $ \db ->

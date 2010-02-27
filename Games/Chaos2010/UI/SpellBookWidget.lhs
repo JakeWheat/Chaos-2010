@@ -44,7 +44,8 @@ red 10-20
 > import Games.Chaos2010.UI.UITypes
 > import Games.Chaos2010.Database.Spell_book_show_all_table
 > import Games.Chaos2010.Database.Spell_book_table
-> import Games.Chaos2010.UI.HdbUtils
+> import Games.Chaos2010.Database.Fields
+> import Games.Chaos2010.HaskellDBUtils
 >
 > spellBookWidget :: DBText
 > spellBookWidget =
