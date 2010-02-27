@@ -118,6 +118,32 @@ attackable needs undead field as well - >split
 >                   \               \n\
 >                   \               \n\
 >                   \X      X      X"
+>         corpseOnlySquares =
+>           extend (const $ category .=. "corpse-only")
+>             $ parseValidSquares "\n\
+>                   \               \n\
+>                   \               \n\
+>                   \ X             \n\
+>                   \               \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8"
+>         treeAdjacentSquares =
+>           extend (const $ category .=. "tree-adjacent")
+>             $ parseValidSquares "\n\
+>                   \XX   XXXX   XXX\n\
+>                   \X       X    XX\n\
+>                   \X       XX   XX\n\
+>                   \X       XX   XX\n\
+>                   \XXX   XXXXXXXXX\n\
+>                   \XXXXXXXXXXXXXXX\n\
+>                   \XXXXXXXXXXXXXXX\n\
+>                   \XXXXXXXXXXXXXXX\n\
+>                   \XXXXXXXXXXXXXXX\n\
+>                   \XXXXXXXXXXXXXXX"
 
 >     let vs = do
 >              t1 <- table squares_valid_categories
@@ -125,7 +151,10 @@ attackable needs undead field as well - >split
 >                        .*. x .=. fn (-1) (t1 # x)
 >                        .*. y .=. fn (-1) (t1 # y)
 >                        .*. emptyRecord
->     assertRelvarValue db vs (emptySquares ++ attackableSquares)
+>     assertRelvarValue db vs (emptySquares
+>                              ++ attackableSquares
+>                              ++ corpseOnlySquares
+>                              ++ treeAdjacentSquares)
 
 
 stage 2:

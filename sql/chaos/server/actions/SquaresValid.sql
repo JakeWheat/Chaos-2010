@@ -492,7 +492,25 @@ create or replace view squares_valid_categories as
            except select x,y from pieces)
    ,ta as (select p.x,p.y from attackable_pieces p
              inner join pieces_on_top
-               using (ptype,allegiance,tag))
+               using (ptype,allegiance,tag)
+             where p.allegiance <> 'dead')
+   ,co as (select x,y from pieces_on_top
+             where allegiance = 'dead')
+   ,tree_pos as (select x,y from pieces
+                where ptype in ('magic_tree', 'shadow_tree'))
+   ,tree_adj as (select x,y from tree_pos
+                    union select x-1,y-1 from tree_pos
+                    union select x-1,y from tree_pos
+                    union select x-1,y+1 from tree_pos
+                    union select x,y-1 from tree_pos
+                    union select x,y+1 from tree_pos
+                    union select x+1,y-1 from tree_pos
+                    union select x+1,y from tree_pos
+                    union select x+1,y+1 from tree_pos)
+   ,nat as (select x,y from generate_series(0, 14) as x
+                cross join generate_series(0, 9) as y
+            except select * from tree_adj)
   select 'empty' as category, x,y from es
-  union select 'attackable' as category, x,y from ta;
-
+  union select 'attackable' as category, x,y from ta
+  union select 'corpse-only' as category, x, y from co
+  union select 'tree-adjacent' as category,x,y from nat;
