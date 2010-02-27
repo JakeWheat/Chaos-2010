@@ -20,9 +20,12 @@
 >     ,withConstraintsDisabled
 >     ,nextPhaseChooseIf
 >     ,nextPhase
+>     ,chooseSpell
 >     ,skipToPhase
 >     ,actionGo
 >     ,actionMoveCursor
+>     ,setSpellChoiceReal
+>     ,setSpellChoiceImaginary
 >     ,CursorDirection(..)
 >     --,disableConstraints
 >     --,enableConstraints
@@ -131,6 +134,9 @@
 >   callSp conn "kill_top_piece_at" [show xp, show yp]
 
 
+> chooseSpell :: IConnection conn => Database -> conn -> String -> IO ()
+> chooseSpell _ conn s =
+>   callSp conn "action_choose_spell" [s]
 
 > addSpell1 :: IConnection conn => conn -> String -> String -> IO ()
 > addSpell1 conn wiz spellName = do
@@ -170,6 +176,12 @@
 
 > actionGo :: IConnection conn => Database -> conn -> IO ()
 > actionGo _ conn = callSp conn "action_go" []
+
+> setSpellChoiceReal :: IConnection conn => Database -> conn -> IO ()
+> setSpellChoiceReal _ conn = callSp conn "action_set_real" []
+> setSpellChoiceImaginary :: IConnection conn => Database -> conn -> IO ()
+> setSpellChoiceImaginary _ conn = callSp conn "action_set_imaginary" []
+
 
 > data CursorDirection = CursorUp
 >                      | CursorUpLeft

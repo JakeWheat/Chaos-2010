@@ -8,7 +8,7 @@
 
 > import Games.Chaos2010.Tests.Basics
 > import Games.Chaos2010.Tests.Phases
-> --import Games.Chaos2010.Tests.Casting
+> import Games.Chaos2010.Tests.Casting
 > --import Games.Chaos2010.Tests.Upgrades
 > --import Games.Chaos2010.Tests.Subphases
 > --import Games.Chaos2010.Tests.MoveMisc
@@ -20,7 +20,7 @@
 > allTests db conn = map (\x -> x db conn)
 >                    [basics
 >                    ,phases
->                    --,casting
+>                    ,casting
 >                    --,upgrades
 >                    --,subphases
 >                    --,moveMisc

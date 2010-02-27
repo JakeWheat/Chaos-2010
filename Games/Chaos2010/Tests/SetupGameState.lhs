@@ -20,24 +20,38 @@ game state type, if we want to set the turn phase to cast or somewhere
 in the middle of a piece's move, there is a bunch of additional state
 to setup in various tables - want to do this automatically.
 
-> {-# LANGUAGE FlexibleContexts,TemplateHaskell #-}
+> {-# LANGUAGE FlexibleContexts,TemplateHaskell,ScopedTypeVariables #-}
 > module Games.Chaos2010.Tests.SetupGameState
 >     (setupGame
 >     ,setPhase
 >     ,setCurrentWizard
 >     ,addSpell
->     ,chooseSpell
+>     ,wChooseSpell
 >     ,wizardPiecesList
 >     ,setWizards
 >     ,useBoard
 >     ,liftPl
+>     ,makePD
+>     ,makeFPD
 >     ,wizardNames
->     ,diagramToRVs
+>     ,PieceDescription
+>     --,diagramToRVs
+>     ,parseBoardDiagram
+>     ,PieceDescriptionPos
 >     ,BoardDiagram
+>     ,assertPiecesEquals
+>     ,assertPiecesOnTopEquals
+>     ,assertValidSquaresEquals
+>     ,addAndChoose
+>     ,readyToCast
 >     ) where
 
 > import Database.HaskellDB
+> import Database.HaskellDB.Query
 > import Database.HDBC (IConnection)
+> import Data.List
+> import Data.Ord
+> import Test.HUnit
 
 > import Games.Chaos2010.Tests.BoardUtils
 > --import Games.Chaos2010.Tests.TestUtils
@@ -45,7 +59,7 @@ to setup in various tables - want to do this automatically.
 > import Games.Chaos2010.DBUpdates
 > import Games.Chaos2010.HaskellDBUtils
 > --import Games.Chaos2010.Tests.DBUpdates
-> import Games.Chaos2010.ThHdb
+> --import Games.Chaos2010.ThHdb
 > import Games.Chaos2010.Tests.RelationalAlgebra as R
 
 > -- tables
@@ -56,6 +70,8 @@ to setup in various tables - want to do this automatically.
 > import Games.Chaos2010.Database.Turn_phase_table
 > import Games.Chaos2010.Database.Wizards
 > import Games.Chaos2010.Database.Pieces
+> import Games.Chaos2010.Database.Pieces_mr
+> import Games.Chaos2010.Database.Pieces_on_top_view
 > import Games.Chaos2010.Database.Fields
 > import Games.Chaos2010.Database.Imaginary_pieces
 > import Games.Chaos2010.Database.Crimes_against_nature
@@ -72,6 +88,7 @@ to setup in various tables - want to do this automatically.
 > import Games.Chaos2010.Database.Action_history_mr
 > import Games.Chaos2010.Database.Cast_success_checked_table
 > import Games.Chaos2010.Database.Test_action_overrides
+> import Games.Chaos2010.Database.Current_wizard_spell_squares
 
 > import Games.Chaos2010.Tests.TableValueTypes
 
@@ -398,14 +415,23 @@ the combinators for altering the default game state value
 >               .*. spell_name .=. s
 >               .*. emptyRecord
 
-> chooseSpell :: String -> String -> Maybe Bool -> GameState -> GameState
-> chooseSpell w s i gs = gs {
+> wChooseSpell :: String -> String -> Maybe Bool -> GameState -> GameState
+> wChooseSpell w s i gs = gs {
 >   wizardSpellChoices = entry : wizardSpellChoices gs}
 >   where
 >     entry = wizard_name .=. w
 >             .*. spell_name .=. s
 >             .*. imaginary .=. i
 >             .*. emptyRecord
+
+> readyToCast :: String -> [GameState -> GameState]
+> readyToCast s = [addSpell "Buddha" s
+>                 ,wChooseSpell "Buddha" s Nothing
+>                 ,setPhase "cast"]
+
+> addAndChoose :: String -> [GameState -> GameState]
+> addAndChoose s = [addSpell "Buddha" s
+>                  ,wChooseSpell "Buddha" s Nothing]
 
 
 set the wizards to the given list of names, by killing the others
@@ -438,25 +464,21 @@ basically does the foreign key cascading
 >                                   ,[Imaginary_pieces_v]
 >                                   ,[Crimes_against_nature_v])
 > diagramToRVs bd =
->   let (pdp,wzs) = parseBoardDiagram bd
+>   let (wzs,pdp) = parseBoardDiagram bd
 >       pdpts = zip pdp [5..]
 >   in (wzs
->      ,map makePiece pdpts
->      ,map makeI $ filter ((# imaginary) . fst) pdpts
->      ,map makeC $ filter ((# undead) . fst) pdpts)
+>      ,map makePieceT pdpts
+>      ,map makePat $ filter ((# imaginary) . fst) pdpts
+>      ,map makePat $ filter ((# undead) . fst) pdpts)
 >   where
->       makePiece :: (PieceDescriptionPos,Int) -> Pieces_v
->       makePiece (r,t) = ptype .=. (r # ptype)
+>       makePieceT :: (PieceDescriptionPos,Int) -> Pieces_v
+>       makePieceT (r,t) = ptype .=. (r # ptype)
 >                         .*. allegiance .=. (r # allegiance)
 >                         .*. tag .=. t
 >                         .*. x .=. (r # x)
 >                         .*. y .=. (r # y)
 >                         .*. emptyRecord
->       makeI (r,t) = ptype .=. (r # ptype)
->                     .*. allegiance .=. (r # allegiance)
->                     .*. tag .=. t
->                     .*. emptyRecord
->       makeC (r,t) = ptype .=. (r # ptype)
+>       makePat (r,t) = ptype .=. (r # ptype)
 >                     .*. allegiance .=. (r # allegiance)
 >                     .*. tag .=. t
 >                     .*. emptyRecord
@@ -516,55 +538,73 @@ using it
 >     clearTable db cast_success_checked_table
 >     clearTable db test_action_overrides
 
+> assertPiecesOnTopEquals :: Database
+>                    -> BoardDiagram
+>                    -> IO ()
+> assertPiecesOnTopEquals db dg = do
+>   let (_,pdp) = parseBoardDiagram dg
+>   assertRelvarValue db (do
+>                          t <- table pieces_on_top_view
+>                          projectNNPieces t) pdp
 
+> projectNNPieces :: (HasField Undead r (Expr (Maybe Bool)),
+>                     HasField Imaginary r (Expr (Maybe Bool)),
+>                     ShowConstant t1,
+>                     HasField Y r (Expr (Maybe t1)),
+>                     Num t1,
+>                     ShowConstant t,
+>                     HasField X r (Expr (Maybe t)),
+>                     Num t,
+>                     HasField Allegiance r (Expr (Maybe [Char])),
+>                     HasField Ptype r (Expr (Maybe [Char]))) =>
+>                    r -> Query
+>                         (Rel
+>                          (Record
+>                           (HCons
+>                            (LVPair Ptype (Expr [Char]))
+>                            (HCons
+>                             (LVPair Allegiance (Expr [Char]))
+>                             (HCons
+>                              (LVPair X (Expr t))
+>                              (HCons
+>                               (LVPair Y (Expr t1))
+>                               (HCons
+>                                (LVPair
+>                                 Imaginary (Expr Bool))
+>                                (HCons
+>                                 (LVPair
+>                                  Undead (Expr Bool))
+>                                 HNil))))))))
+> projectNNPieces t = project $ ptype .=. fn "" (t # ptype)
+>                                      .*. allegiance  .=. fn "" (t # allegiance)
+>                                      .*. x .=. fn 0 (t # x)
+>                                      .*. y .=. fn 0 (t # y)
+>                                      .*. imaginary .=. fn False (t # imaginary)
+>                                      .*. undead .=. fn False (t # undead)
+>                                      .*. emptyRecord
 
+> assertPiecesEquals :: Database
+>                    -> BoardDiagram
+>                    -> IO ()
+> assertPiecesEquals db dg = do
+>   let (_,pdp) = parseBoardDiagram dg
+>   assertRelvarValue db (do
+>                          t <- table pieces_mr
+>                          projectNNPieces t) pdp
 
-> removeWizardN :: Int -> GameState -> GameState
-> removeWizardN n gs =
->     let wizardName = (head (restrictTable (wezards gs)
->                                    (\r -> r # original_place == n)))
->                        # wizard_name
->         a = gs
->           {wezards = updateTable (wezards gs)
->                                  (\r -> r # original_place == n)
->                                  (\r -> expired .=. True .@. r)
->           ,peeces = restrictTable (peeces gs)
->                                   (\r -> r # allegiance /= wizardName)
->           ,spellBooks = restrictTable (spellBooks gs)
->                                       (\r -> r # wizard_name /= wizardName)
->           ,wizardDisplayInfo = restrictTable (wizardDisplayInfo gs)
->                                              (\r -> r # wizard_name /= wizardName)
->           }
->     in a
->           {currentWizard = let liveWizards = restrictTable (wezards a)
->                                                            (\r -> r # expired == False)
->                                f = (head liveWizards) # wizard_name
->                            in current_wizard .=. f
->                               .*. emptyRecord
->           }
->   where
->     updateTable t w u =
->         flip map t $ \r -> if w r
->                            then u r
->                            else r
->     restrictTable t w = flip filter t $ \r -> w r
+> assertValidSquaresEquals :: Database
+>                          -> String
+>                          -> IO ()
+> assertValidSquaresEquals db vss = do
+>     --get our piece tuple lists for the board in the database
+>     --and the expected board
+>     currentValidSquares <- queryValidSquares db
+>     assertBool "valid squares wrong" $ recsEq currentValidSquares $ parseValidSquares vss
 
-> makePiece :: String -> String -> Int -> Int -> Int -> Pieces_v
-> makePiece p a t xp yp = ptype .=. p
->                         .*. allegiance .=. a
->                         .*. tag .=. t
->                         .*. x .=. xp
->                         .*. y .=. yp
->                         .*. emptyRecord
-> makeImag :: String -> String -> Int -> Imaginary_pieces_v
-> makeImag p a t = ptype .=. p
->                  .*. allegiance .=. a
->                  .*. tag .=. t
->                  .*. emptyRecord
-> makeCrime :: String -> String -> Int -> Crimes_against_nature_v
-> makeCrime p a t = ptype .=. p
->                   .*. allegiance .=. a
->                   .*. tag .=. t
->                   .*. emptyRecord
-
-
+> queryValidSquares :: Database -> IO [Pos]
+> queryValidSquares db =
+>   query db $ do
+>            tb <- table current_wizard_spell_squares
+>            project $ x .=. fn (-1) (tb # x)
+>                      .*. y .=. fn (-1) (tb # y)
+>                      .*. emptyRecord

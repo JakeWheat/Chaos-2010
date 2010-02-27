@@ -10,6 +10,7 @@ Test utilities for reading and setting pieces.
 >     ,wizardNames
 >     ,parseBoardDiagram
 >     ,parseValidSquares
+>     ,Pos
 >     ,BoardDiagram
 >     ,BoardDescription
 >     {-,toBoardDescription
@@ -17,8 +18,9 @@ Test utilities for reading and setting pieces.
 >     ,wizardNames
 >     ,assertValidSquaresEquals
 >     ,assertBoardEquals
->     ,wizardPiecesList
->     ,makePD-}
+>     ,wizardPiecesList-}
+>     ,makePD
+>     ,makeFPD
 >     ,liftPl
 >     {-,assertTopPiecesEquals
 >     ,newSetupGame
@@ -47,8 +49,6 @@ Test utilities for reading and setting pieces.
 > import Games.Chaos2010.HaskellDBUtils
 > import Games.Chaos2010.ThHdb
 > import Games.Chaos2010.Tests.TableValueTypes
-
-> parseValidSquares = undefined
 
 ================================================================================
 
@@ -110,47 +110,23 @@ positions for each wizard and are ignored when parsing.
 The Xs mark the valid squares (if one is needed on a wizard position
 then you leave the wizard number out of the diagram).
 
-> type ValidSquares = [(Int,Int)]
+> type Pos = $(makeRecord [("X", "Int")
+>                         ,("Y", "Int")])
 
-> toValidSquares :: Diagram -> ValidSquares
-> toValidSquares =
->     mapMaybe (\(c,xp,yp) ->
->               case c of
->                 'X' -> Just (xp,yp)
+> parseValidSquares :: String -> [Pos]
+> parseValidSquares = mapMaybe conv . parseDiagram
+>   where
+>     conv (c,xp,yp) =
+>         case c of
+>                 'X' -> Just $ x .=. xp .*. y .=. yp .*. emptyRecord
 >                 _ -> if c `elem` ['1'..'8']
 >                        then Nothing
->                        else error $ "invalid char in validsquares: " ++ [c])
+>                        else error $ "invalid char in validsquares: " ++ [c]
 
-corresponding function to read the list of valid squares from the
-database hard coded to casting for now, will need to cover other stuff
-as well.
-
-> queryValidSquares :: Database -> IO ValidSquares
-> queryValidSquares db = do
->   res <- query db $ do
->            tb <- table current_wizard_spell_squares
->            project $ copy x tb
->                       .*. copy y tb
->                       .*. emptyRecord
->   return $ map (\t -> (mn $ t # x, mn $ t # y)) res
 
 ================================================================================
 
 = test helpers
-
-== valid squares
-
-take a valid squares string and check it matches the database
-it has to be the cast phase for this to succeed.
-
-> assertValidSquaresEquals :: Database -> String -> IO ()
-> assertValidSquaresEquals db vss = do
->     --get our piece tuple lists for the board in the database
->     --and the expected board
->     currentValidSquares <- queryValidSquares db
->     let avs' = sort currentValidSquares
->         evs' = sort $ (toValidSquares . parseDiagram) vss
->     assertEqual "valid squares wrong" evs' avs'
 
 == board
 
@@ -198,8 +174,20 @@ shorten the tests and avoid having to read out lots of tables when
 e.g. if a creature is imaginary or undead, etc. Will probably rethink
 this when the tests are expanded in scope.
 
- > makePD :: String -> String -> PieceDescription
- > makePD ptype allegiance = PieceDescription ptype allegiance Real Alive
+> makePD :: String -> String -> PieceDescription
+> makePD p a = ptype .=. p
+>                        .*. allegiance .=. a
+>                        .*. imaginary .=. False
+>                        .*. undead .=.False
+>                        .*. emptyRecord
+
+> makeFPD :: String -> String -> Bool -> Bool -> PieceDescription
+> makeFPD p a i u = ptype .=. p
+>                        .*. allegiance .=. a
+>                        .*. imaginary .=. i
+>                        .*. undead .=. u
+>                        .*. emptyRecord
+
 
 > wizardStuff :: [(Char, Int,Int, PieceDescription)]
 > wizardStuff = [('1', 0,0, l "wizard" "Buddha")
@@ -243,10 +231,9 @@ The full board diagram is the diagram string plus the key
 
 > type BoardDiagram = (String, [KeyEntry])
 
-> parseBoardDiagram :: BoardDiagram -> ([PieceDescriptionPos]
->                                      ,[String])
-
-> parseBoardDiagram (diagram, key) = (pds, wzs)
+> parseBoardDiagram :: BoardDiagram -> ([String]
+>                                      ,[PieceDescriptionPos])
+> parseBoardDiagram (diagram, key) = (wzs, pds)
 >   where
 >     pds :: [PieceDescriptionPos]
 >     pds = concatMap expandKey keyPositionList

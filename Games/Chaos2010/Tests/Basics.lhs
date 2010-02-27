@@ -6,6 +6,7 @@
 > import Control.Monad
 
 > import Database.HaskellDB
+> import Database.HaskellDB.Database
 > import Database.HDBC (IConnection)
 
 > import Games.Chaos2010.Tests.TestUtils
@@ -19,6 +20,7 @@
 > import Games.Chaos2010.Database.Imaginary_pieces
 > import Games.Chaos2010.Database.Crimes_against_nature
 > import Games.Chaos2010.Database.Fields
+> import Games.Chaos2010.Database.Pieces_on_top_view
 
 
 > basics :: IConnection conn => Database -> conn -> Test.Framework.Test
@@ -88,7 +90,7 @@ magic tree or castle; add test for these.
 >                    ,('i', [("goblin", "Kong Fuzi")
 >                           ,("gooey_blob", "Buddha")
 >                           ,("elf", "dead")])]))]
->   assertPiecesEquals db ("\n\
+>   assertPiecesOnTopEquals db ("\n\
 >                   \b      c      d\n\
 >                   \               \n\
 >                   \ aghi          \n\
@@ -109,16 +111,6 @@ magic tree or castle; add test for these.
 >                     ('g', [("gooey_blob","Buddha")]),
 >                     ('h', [("gooey_blob","Buddha")]),
 >                     ('i', [("gooey_blob","Buddha")])]))
-
-> assertPiecesEquals :: Database
->                    -> BoardDiagram
->                    -> IO ()
-> assertPiecesEquals db dg = do
->   let (_,p,i,c) = diagramToRVs dg
->   assertRelvarValue db (table pieces) p
->   assertRelvarValue db (table imaginary_pieces) i
->   assertRelvarValue db (table crimes_against_nature) c
-
 
 == cursor movement
 

@@ -8,6 +8,7 @@
 > --import Control.Exception
 > import Database.HaskellDB.Database
 > import Test.HUnit
+> import Data.List ((\\),intercalate)
 
 > import Games.Chaos2010.ThHdb
 
@@ -61,7 +62,13 @@
 >                   -> IO ()
 > assertRelvarValue db t v = do
 >   r <- query db t
->   assertEqual "" v r
+>   let b = recsEq v r
+>   if not b
+>     then putStrLn $ sh v ++ "\n--\n" ++ sh r
+>     else return ()
+>   assertBool "" b
+>   where
+>     sh rel = intercalate "\n" $ map show rel
 
 > deRec :: Record t -> t
 > deRec (Record a) = a
@@ -109,6 +116,11 @@
 >                      [] -> Nothing
 >                      _ ->  error $ "expected 0 or 1 tuple, got " ++ show r
 
+> recsEq :: Eq a => [Record a] -> [Record a] -> Bool
+> recsEq a b = (null (a \\ b))
+>              && null (b \\ a)
+
+
 > qdb :: (GetRec er vr) =>
 >        Database -> Query (Rel (Record er)) -> (Record vr -> b) -> IO [b]
 > qdb db t r = query db t >>= return . map r
@@ -127,3 +139,6 @@
 
 > mb :: Maybe Bool -> Bool
 > mb = maybe False id
+
+> fn :: (ShowConstant a) => a -> Expr (Maybe a) -> Expr a
+> fn x = fromNull (constant x)
