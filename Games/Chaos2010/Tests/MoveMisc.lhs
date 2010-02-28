@@ -22,15 +22,15 @@
 >                           ,testMoveWhenMounted
 >                           ,testDismount
 >                           ,testMoveWhenAlreadyMounted
->                           ,testEnter
->                           ,testExit
+>                           ,testEnter --
+>                           ,testExit --
 >                           ,testAttackShadowForm
 >                           ,testBlobSelection
->                           ,testAttackNonTrueOnTrue
->                           ,testMagicWeaponOnTrue
->                           ,testAttackTrueOnTrue
->                           ,testNoMoveEngaged
->                           ,testBreakEngaged
+>                           ,testAttackNonUndeadOnUndead --
+>                           ,testMagicWeaponOnUndead --
+>                           ,testAttackUndeadOnUndead --
+>                           ,testNoMoveEngaged --
+>                           ,testBreakEngaged --
 >                           ]
 
 == other move action tests
@@ -369,8 +369,8 @@ todo: attack when dismounting, dismounting when flying
 
 
 
-> testAttackTrueOnTrue :: IConnection conn => Database -> conn -> Test.Framework.Test
-> testAttackTrueOnTrue db = tctor "testAttackTrueOnTrue" $ \conn -> do
+> testAttackUndeadOnUndead :: IConnection conn => Database -> conn -> Test.Framework.Test
+> testAttackUndeadOnUndead db = tctor "testAttackUndeadOnUndead" $ \conn -> do
 >   let pl = wizardPiecesList ++
 >            [('G', [makeFPD "ghost" "Kong Fuzi" False True]),
 >             ('S', [makeFPD "goblin" "Buddha" False True])]
@@ -401,8 +401,8 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \6      7      8", pl)
 
-> testAttackNonTrueOnTrue :: IConnection conn => Database -> conn -> Test.Framework.Test
-> testAttackNonTrueOnTrue db = tctor "testAttackNonTrueOnTrue" $ \conn -> do
+> testAttackNonUndeadOnUndead :: IConnection conn => Database -> conn -> Test.Framework.Test
+> testAttackNonUndeadOnUndead db = tctor "testAttackNonUndeadOnUndead" $ \conn -> do
 >   let pl = wizardPiecesList ++
 >            [('G', [makeFPD "ghost" "Kong Fuzi" False True]),
 >             ('S', [makeFPD "goblin" "Buddha" False False])]
@@ -433,8 +433,8 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \6      7      8", pl)
 
-> testMagicWeaponOnTrue :: IConnection conn => Database -> conn -> Test.Framework.Test
-> testMagicWeaponOnTrue db = tctor "testMagicWeaponOnTrue" $ \conn -> do
+> testMagicWeaponOnUndead :: IConnection conn => Database -> conn -> Test.Framework.Test
+> testMagicWeaponOnUndead db = tctor "testMagicWeaponOnUndead" $ \conn -> do
 >   let pl = wizardPiecesList ++
 >            [('G', [makeFPD "ghost" "Kong Fuzi" False True]),
 >             ('S', [makeFPD "spectre" "Buddha" False True])]

@@ -165,67 +165,6 @@ create view monster_on_top_squares as
   select x,y from monster_pieces
   natural inner join pieces_on_top;
 
--- this view contains all the squares which are valid for the
--- different spell target categories. Doesn't take into account range
-create view spell_valid_squares as
-  select 'empty' as valid_square_category, *
-    from empty_squares
-  union
-  select 'empty_or_corpse_only' as valid_square_category, *
-    from empty_or_corpse_only_squares
-  union
-  select 'attackable' as valid_square_category, *
-    from attackable_squares
-  union
-  select 'creature_on_top' as valid_square_category, *
-    from creature_on_top_squares
-  union
-  select 'monster_on_top' as valid_square_category, *
-    from monster_on_top_squares
-  union
-  select 'corpse_only' as valid_square_category, *
-    from corpse_only_squares
-  union
-  select 'empty_and_not_adjacent_to_tree' as valid_square_category, *
-    from empty_and_not_adjacent_to_tree_squares;
-
---this view contains all the squares which would be valid
---for the current wizard's current spell, not taking into
---account the wizard's position and the spell's range.
-create view current_wizard_spell_type_squares as
-  select x,y from wizard_spell_choices
-       inner join current_wizard_table on (wizard_name = current_wizard)
-       natural inner join target_spells
-       natural inner join spell_valid_squares;
-
---rewrote joining to board_ranges as a where for speed purposes
-create view current_wizard_spell_range_squares as
-  select tx as x, ty as y
-  from board_ranges
-  where (x,y,range) =
-       (select x, y, range
-          from pieces
-          inner join current_wizard_table
-            on (allegiance = current_wizard)
-          inner join wizard_spell_choices
-            on (wizard_name = current_wizard)
-          natural inner join target_spells
-          where ptype = 'wizard');
-
---this view contains all the squares which are valid targets
--- for the current wizard's current spell
---taking into account the spell target category, the wizard's
---position and the range, i.e. the final product
---this is directly used in action valid during spell casting
-create view current_wizard_spell_squares as
-  select * from current_wizard_spell_type_squares
-  intersect
-  select * from current_wizard_spell_range_squares
-  except
-  select x, y from pieces
-    inner join current_wizard_table
-    on (allegiance = current_wizard) where ptype='wizard';
-
 /*
 create a view containing all the squares the selected piece
 could move to if they had unlimited speed
@@ -358,12 +297,189 @@ The end result: two relvars, one with x,y, to list all the valid
 actions at any time.
 
 */
+
+
+-------------------------------------
+/*
+ideas:
+
+quite a complicated process, want to try to make it declarative rather
+than procedural and see if can make quick
+
+the result needs to be action_name,x,y
+where the action name is one of
+cast_target_spell
+select_piece
+walk
+fly
+attack
+ranged_attack
+
+in order to make it quick and also make it understandable, do a two
+stage process.
+
+In the first view, we collect together all the information from the
+pieces - their position and other attributes
+
+The in the second view, we combine the turn sequence information to
+get the final list of valid target squares.
+
+[update: exposing some intermediates which are used by the board
+sprites and ai]
+
+what do we need to collect in the first view?
+first categorize each square into one or more of the following:
+completely empty
+corpse only
+attackable piece on top
+adjacent to tree
+wizard
+mount_enter
+
+the we add all the extra information from the pieces information that
+will be used by the second view
+
+we can get the category of spell that can be cast on a square for
+cast_target_spell select_piece: need all pieces not in pieces_moved
+that are in the current wizard's army: so need to keep the
+ptype,allegiance and tag
+
+walk,fly: pretty straight forward
+
+attack,ranged attack: need the allegiance
+
+we need to be able to implement the
+following special cases:
+
+cannot select piece under blob: use attackable on top for selection
+
+dismount, exit: the wizard isn't the piece on top when he is on a
+mount or in a castle or tree - won't be in the attackable pieces
+squares which is what we're using to feed to selectable pieces, so add
+the wizard squares as extra category
+
+mount, enter: need to add these squares in as extra category, so we
+can add them to the walk/fly squares iff the selected piece is a
+wizard
+
+trees: monsters will attack any tree, wizards will move into an empty
+magic tree and attack occupied ones as well as shadow_trees
+
+undead: if a piece is undead, it can only be attacked by another
+undead creature or a magic weapon
+
+some spells can be cast on corpses as well as monsters/wizards, so we
+include corpses in the attackable on top category, and filter corpses
+where neccessary using the allegiance info.
+
+  */
+
+create view squares_valid_categories as
+  with
+    es as (select x,y from generate_series(0, 14) as x
+                      cross join generate_series(0, 9) as y
+           except select x,y from pieces)
+   ,ta as (select p.x,p.y,p.ptype,p,allegiance,p.tag,v.undead,
+             case when speed is null then false
+                  else true
+             end as creature
+             ,case when undead is null then false
+                  else true
+             end as monster
+             from attackable_pieces p
+             inner join pieces_on_top_view v
+               using (ptype,allegiance,tag))
+   ,co as (select x,y
+             from pieces_on_top
+             where allegiance = 'dead')
+   ,tree_pos as (select x,y from pieces
+                   where ptype in ('magic_tree', 'shadow_tree'))
+   ,tree_adj as (select x,y from tree_pos
+                 union all select x-1,y-1 from tree_pos
+                 union all select x-1,y from tree_pos
+                 union all select x-1,y+1 from tree_pos
+                 union all select x,y-1 from tree_pos
+                 union all select x,y+1 from tree_pos
+                 union all select x+1,y-1 from tree_pos
+                 union all select x+1,y from tree_pos
+                 union all select x+1,y+1 from tree_pos)
+   ,wz as (select x,y,ptype,allegiance,tag from pieces where ptype = 'wizard')
+   ,me as (select x,y,ptype,allegiance,tag from pieces_mr
+           where ridable
+             or ptype in ('magic_tree','magic_castle','dark_citadel'))
+  select 'empty' as category,x,y,
+         null::text as ptype,
+         null::text as allegiance,
+         null::int as tag,
+         null::boolean as undead,
+         null::boolean as creature,
+         null::boolean as monster
+      from es
+  union select 'attackable',x,y,ptype,allegiance,tag,undead,creature,monster from ta
+  union select 'corpse-only',x,y,null,null,null,null,null,null from co
+  union select distinct 'tree-adjacent',x,y,null,null,null::int,null::boolean,null::boolean,null::boolean
+          from tree_adj
+          where x between 0 and 14 and y between 0 and 9
+  union select 'wizard',x,y,ptype,allegiance,tag,null,null,null from wz
+  union select 'mount-enter',x,y,ptype,allegiance,tag,null,null,null from me
+          where (x,y) not in (select x,y from wz)
+  ;
+
+---------------------------
+
+create view spell_valid_squares as
+ -- convert the square categories to spell categories
+ -- maybe this should be done in the square categories view?
+ select 'empty' as valid_square_category, x,y
+         from squares_valid_categories
+           where category = 'empty'
+ union select 'empty_or_corpse_only' as valid_square_category,x,y
+         from squares_valid_categories
+           where category in ('empty','corpse-only')
+ union select 'attackable' as valid_square_category,x,y
+         from squares_valid_categories
+           where category ='attackable'
+ union select 'creature_on_top' as valid_square_category,x,y
+         from squares_valid_categories
+           where category ='attackable' and creature
+ union select 'monster_on_top' as valid_square_category,x,y
+         from squares_valid_categories
+           where category ='attackable' and monster
+ union select 'corpse_only' as valid_square_category,x,y
+         from squares_valid_categories
+           where category ='corpse-only'
+ union select 'empty_and_not_adjacent_to_tree' as valid_square_category, x,y
+         from (select x,y from squares_valid_categories where category='empty'
+               except select x,y from squares_valid_categories where category='tree-adjacent') as a;
+
+create view current_wizard_spell_squares as
+with
+   -- put together a relation with x,y position for the current wizard
+   -- and the range for his currently chosen spell
+   -- so we only get a row iff the current wizard has a target spell
+   -- chosen and it's the cast phase
+   cwsr as
+       (select x, y, range, valid_square_category
+          from pieces
+          inner join current_wizard_table
+            on (allegiance = current_wizard)
+          inner join wizard_spell_choices
+            on (wizard_name = current_wizard)
+          natural inner join target_spells
+          where ptype = 'wizard'
+                and get_turn_phase() = 'cast')
+  select distinct svs.x,svs.y
+    from (select tx as x, ty as y
+                          from board_ranges
+                          where (x,y,range) = (select x,y,range from cwsr)) as a
+    natural inner join spell_valid_squares svs
+    natural inner join (select valid_square_category from cwsr) as b;
+
 create view valid_target_actions as
 select * from (
 --target spells
-select x,y, 'cast_target_spell'::text as action
-  from current_wizard_spell_squares
-  where get_turn_phase() = 'cast'
+  select x,y,'cast_target_spell'::text as action
+    from current_wizard_spell_squares
 --selecting a piece
 union
 select x,y,action from (
@@ -393,6 +509,8 @@ select x,y, 'ranged_attack'::text as action
 where get_turn_phase()='move'
 ) as s
 where not exists (select 1 from game_completed_table);
+
+---------------------------------------------
 
 create view valid_activate_actions as
 select * from (
@@ -483,34 +601,3 @@ begin
 end;
 $$ language plpgsql stable;
 
--------------------------------------
-
-create or replace view squares_valid_categories as
-  with
-    es as (select x,y from generate_series(0, 14) as x
-                cross join generate_series(0, 9) as y
-           except select x,y from pieces)
-   ,ta as (select p.x,p.y from attackable_pieces p
-             inner join pieces_on_top
-               using (ptype,allegiance,tag)
-             where p.allegiance <> 'dead')
-   ,co as (select x,y from pieces_on_top
-             where allegiance = 'dead')
-   ,tree_pos as (select x,y from pieces
-                where ptype in ('magic_tree', 'shadow_tree'))
-   ,tree_adj as (select x,y from tree_pos
-                    union select x-1,y-1 from tree_pos
-                    union select x-1,y from tree_pos
-                    union select x-1,y+1 from tree_pos
-                    union select x,y-1 from tree_pos
-                    union select x,y+1 from tree_pos
-                    union select x+1,y-1 from tree_pos
-                    union select x+1,y from tree_pos
-                    union select x+1,y+1 from tree_pos)
-   ,nat as (select x,y from generate_series(0, 14) as x
-                cross join generate_series(0, 9) as y
-            except select * from tree_adj)
-  select 'empty' as category, x,y from es
-  union select 'attackable' as category, x,y from ta
-  union select 'corpse-only' as category, x, y from co
-  union select 'tree-adjacent' as category,x,y from nat;

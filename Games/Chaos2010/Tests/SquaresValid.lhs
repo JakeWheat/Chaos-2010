@@ -71,7 +71,7 @@ attackable needs undead field as well - >split
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('G', [makePD "goblin" "Buddha"])
+>                   [('G', [makePD "horse" "Buddha"])
 >                   ,('C', [makePD "magic_castle" "Buddha"])
 >                   ,('h', [makePD "goblin" "Buddha"
 >                          ,makePD "goblin" "dead"])
@@ -110,7 +110,7 @@ attackable needs undead field as well - >split
 >             $ parseValidSquares "\n\
 >                   \   X      X    \n\
 >                   \ X X X X XXX   \n\
->                   \  X   X    X   \n\
+>                   \ XX   X    X   \n\
 >                   \    X          \n\
 >                   \X             X\n\
 >                   \               \n\
@@ -134,17 +134,42 @@ attackable needs undead field as well - >split
 >         treeAdjacentSquares =
 >           extend (const $ category .=. "tree-adjacent")
 >             $ parseValidSquares "\n\
->                   \XX   XXXX   XXX\n\
->                   \X       X    XX\n\
->                   \X       XX   XX\n\
->                   \X       XX   XX\n\
->                   \XXX   XXXXXXXXX\n\
->                   \XXXXXXXXXXXXXXX\n\
->                   \XXXXXXXXXXXXXXX\n\
->                   \XXXXXXXXXXXXXXX\n\
->                   \XXXXXXXXXXXXXXX\n\
->                   \XXXXXXXXXXXXXXX"
-
+>                   \  XXX    XXX   \n\
+>                   \ XXXXXXX XXXX  \n\
+>                   \ XXXXXXX  XXX  \n\
+>                   \ XXXXXXX  XXX  \n\
+>                   \   XXX         \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               "
+>         wizardSquares =
+>           extend (const $ category .=. "wizard")
+>             $ parseValidSquares "\n\
+>                   \               \n\
+>                   \     X XX      \n\
+>                   \               \n\
+>                   \               \n\
+>                   \X             X\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \X      X      X"
+>         mountEnterSquares =
+>           extend (const $ category .=. "mount-enter")
+>             $ parseValidSquares "\n\
+>                   \   X      X    \n\
+>                   \ XX            \n\
+>                   \  X   X    X   \n\
+>                   \    X          \n\
+>                   \4             5\n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8"
 >     let vs = do
 >              t1 <- table squares_valid_categories
 >              project $ category .=. fn "" (t1 # category)
@@ -154,14 +179,31 @@ attackable needs undead field as well - >split
 >     assertRelvarValue db vs (emptySquares
 >                              ++ attackableSquares
 >                              ++ corpseOnlySquares
->                              ++ treeAdjacentSquares)
-
+>                              ++ treeAdjacentSquares
+>                              ++ wizardSquares
+>                              ++ mountEnterSquares)
 
 stage 2:
-test the valid target actions, the target actions are:
-cast_target_spell (split by category)
-select_piece_at_position
-walk
-fly
-attack (walk, fly)
-ranged_attack
+test valid squares for spells - want to test square contents and range
+empty castle
+empty or corspe only monster
+attackable magic_bolt
+vengeance creature on top
+subversion monstr on top
+corpse only raise dead
+nottreeadj magic wood
+
+
+stage 3
+test the corner/special cases for other actions:
+select hidden under blob
+wizard on mount selection
+mount/enter: occupied - castle, tree; wrong allegiance, magic tree
+other allegiance
+wizard attack occupied mtree
+monster attack mtree
+already moved
+attack undead: no can do, ranged also, undead on undead, raised on
+undead, magic weapon combos: sword ok, bow - ranged but not h-h, sword
+and bow - both.
+engaged and move

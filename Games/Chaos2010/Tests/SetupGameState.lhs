@@ -581,7 +581,10 @@ using it
 >     --get our piece tuple lists for the board in the database
 >     --and the expected board
 >     currentValidSquares <- queryValidSquares db
->     assertBool "valid squares wrong" $ recsEq currentValidSquares $ parseValidSquares vss
+>     let evs = parseValidSquares vss
+>         b = recsEq evs currentValidSquares
+>     when (not b) $ putStrLn $ showDiff evs currentValidSquares
+>     assertBool "valid squares wrong" b
 
 > queryValidSquares :: Database -> IO [Pos]
 > queryValidSquares db =

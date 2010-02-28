@@ -63,10 +63,12 @@
 > assertRelvarValue db t v = do
 >   r <- query db t
 >   let b = recsEq v r
->   if not b
->     then putStrLn $ "== missing\n" ++ sh (v \\ r) ++ "\n== extra\n" ++ sh (r \\ v)
->     else return ()
+>   when (not b) $ putStrLn $ showDiff v r
 >   assertBool "" b
+
+> showDiff :: (Show a, Eq a) =>
+>             [a] -> [a] -> String
+> showDiff v r = "== missing\n" ++ sh (v \\ r) ++ "\n== extra\n" ++ sh (r \\ v)
 >   where
 >     sh rel = intercalate "\n" $ map show rel
 
