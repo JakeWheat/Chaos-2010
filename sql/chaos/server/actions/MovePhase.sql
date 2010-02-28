@@ -166,7 +166,7 @@ $$ language plpgsql volatile;
 /*
 === attacking
 */
-create function action_attack(px int, py int) returns void as $$
+create or replace function action_attack(px int, py int) returns void as $$
 declare
   ap piece_key;
   r piece_key;
@@ -217,7 +217,7 @@ begin
   perform add_history_chinned(r);
   perform kill_piece(r);
 
-  --move to the square if walker and square empty
+  --move to the square if mover and square empty
   if exists(select 1 from creature_prototypes
               natural inner join selected_piece)
      and exists(select 1 from selected_piece_move_squares

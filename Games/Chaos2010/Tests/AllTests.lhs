@@ -19,7 +19,7 @@
 > allTests :: IConnection conn => Database -> conn -> [Test]
 > allTests db conn = map (\x -> x db conn)
 >                    [basics
->                    ,phases
+>                    --,phases
 >                    ,casting
 >                    ,upgrades
 >                    ,subphases

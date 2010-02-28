@@ -169,7 +169,7 @@ create view monster_on_top_squares as
 create a view containing all the squares the selected piece
 could move to if they had unlimited speed
 */
-create view selected_piece_move_squares as
+/*create view selected_piece_move_squares as
   select x,y from empty_or_corpse_only_squares
   union
   select x,y from pieces
@@ -201,13 +201,13 @@ create view selected_piece_walk_squares as
                natural inner join selected_piece)
 -- only if the selected piece has squares left to walk
     and get_remaining_walk() > 0;
-
+*/
 create view squares_within_selected_piece_flight_range as
   select tx as x, ty as y from board_ranges
   natural inner join selected_piece
   natural inner join creature_pieces
   where flying and range <= speed;
-
+/*
 --this view is the analogue of selected_piece_walk_squares
 -- for flying creatures
 create view selected_piece_fly_squares as
@@ -216,7 +216,7 @@ intersect
 select x,y from squares_within_selected_piece_flight_range
 -- only if the selected piece hasn't moved
   where (select move_phase from selected_piece) = 'motion';
-
+*/
 create view selected_piecexy as
   select * from selected_piece
   natural inner join pieces;
@@ -379,7 +379,7 @@ create view squares_valid_categories as
     es as (select x,y from generate_series(0, 14) as x
                       cross join generate_series(0, 9) as y
            except select x,y from pieces)
-   ,ta as (select p.x,p.y,p.ptype,p,allegiance,p.tag,v.undead,
+   ,ta as (select p.x,p.y,p.ptype,p,allegiance,p.tag,v.undead,v.ridable,
              case when speed is null then false
                   else true
              end as creature
@@ -412,16 +412,17 @@ create view squares_valid_categories as
          null::text as allegiance,
          null::int as tag,
          null::boolean as undead,
+         null::boolean as ridable,
          null::boolean as creature,
          null::boolean as monster
       from es
-  union select 'attackable',x,y,ptype,allegiance,tag,undead,creature,monster from ta
-  union select 'corpse-only',x,y,null,null,null,null,null,null from co
-  union select distinct 'tree-adjacent',x,y,null,null,null::int,null::boolean,null::boolean,null::boolean
+  union select 'attackable',x,y,ptype,allegiance,tag,undead,ridable,creature,monster from ta
+  union select 'corpse-only',x,y,null,null,null,null,null,null,null from co
+  union select distinct 'tree-adjacent',x,y,null,null,null::int,null::boolean,null::boolean,null::boolean,null::boolean
           from tree_adj
           where x between 0 and 14 and y between 0 and 9
-  union select 'wizard',x,y,ptype,allegiance,tag,null,null,null from wz
-  union select 'mount-enter',x,y,ptype,allegiance,tag,null,null,null from me
+  union select 'wizard',x,y,ptype,allegiance,tag,null,null,null,null from wz
+  union select 'mount-enter',x,y,ptype,allegiance,tag,null,null,null,null from me
           where (x,y) not in (select x,y from wz)
   ;
 
@@ -475,6 +476,47 @@ with
     natural inner join spell_valid_squares svs
     natural inner join (select valid_square_category from cwsr) as b;
 
+create view selected_piece_move_squares as
+    select x,y
+       from selected_piece sp
+       inner join squares_valid_categories svc
+       on (category in ('empty','corpse-only')
+           or (sp.ptype = 'wizard'
+               and ((sp.allegiance = svc.allegiance
+                     and (svc.ptype in ('magic_castle','dark_citadel')
+                          or svc.ridable))
+                    or svc.ptype = 'magic_tree')));
+
+create view selected_piece_move_squares_2 as
+with
+   spp as
+    (select x,y,ptype,allegiance,tag,flying,speed,move_phase,engaged from pieces_mr
+     natural inner join selected_piece)
+  ,walk_range as
+    (select x-1 as x,y-1 as y from spp where not engaged
+     union all select x-1,y from spp where not engaged
+     union all select x-1,y+1 from spp where not engaged
+     union all select x,y-1 from spp where not engaged
+     union all select x,y+1 from spp where not engaged
+     union all select x+1,y-1 from spp where not engaged
+     union all select x+1,y from spp where not engaged
+     union all select x+1,y+1 from spp where not engaged)
+  select x,y,'walk'::text as action
+    from selected_piece_move_squares
+    natural inner join walk_range
+    where get_remaining_walk() > 0
+          and x between 0 and 14
+          and y between 0 and 9
+  union
+  select tx as x, ty as y, 'fly'
+    from board_ranges br
+    natural inner join spp
+    inner join selected_piece_move_squares vms
+      on (br.tx,br.ty) = (vms.x,vms.y)
+    where flying
+        and move_phase='motion'
+        and range <= speed;
+
 create view valid_target_actions as
 select * from (
 --target spells
@@ -487,12 +529,15 @@ select x,y, 'select_piece_at_position':: text as action
   from selectable_pieces
 --walking
 union
+select x,y,action
+  from selected_piece_move_squares_2
+/*union
 select x,y, 'walk'::text as action
   from selected_piece_walk_squares
 --flying
 union
 select x,y, 'fly'::text as action
-  from selected_piece_fly_squares
+  from selected_piece_fly_squares*/
 --attacking
 union
 select x,y, 'attack'::text as action
