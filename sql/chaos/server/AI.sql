@@ -159,7 +159,9 @@ create view ai_useful_spells as
     natural inner join activate_spells
   union
     select spell_name from castable_target_spells
-    where (x,y) not in (select x,y from corpse_only_squares
+    where (x,y) not in (select x,y
+                        from squares_valid_categories
+                        where category='corpse-only'
                       union
                       select x,y from pieces_on_top
                       inner join current_wizard_table

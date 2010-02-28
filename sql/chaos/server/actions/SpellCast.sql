@@ -227,7 +227,9 @@ begin
   -- seen by the for loop so there is no risk of a
   -- piece teleporting twice
   for r in select x,y from pieces_on_top order by x,y loop
-    select x,y into tx,ty from empty_squares order by random() limit 1;
+    select x,y into tx,ty
+    from squares_valid_categories
+      where category='empty' order by random() limit 1;
     update pieces set x = tx, y = ty
       where (x,y) = (r.x,r.y);
     --add histories
@@ -453,7 +455,8 @@ create view adjacent_to_new_tree_squares as
 --atm only takes into account empty squares
 --and trees cannot be next to each other
 create view cast_magic_wood_available_squares as
-select * from empty_and_not_adjacent_to_tree_squares
+select x,y from spell_valid_squares
+         where valid_square_category = 'empty_and_not_adjacent_to_tree'
 except select * from adjacent_to_new_tree_squares;
 
 create type ipos as (

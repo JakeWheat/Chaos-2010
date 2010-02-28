@@ -115,7 +115,7 @@ create view board_ranges as
     (x,y) != (tx,ty) and
      --round to closest int
     distance(x,y,tx,ty) - 0.5 <= range;
-
+/*
 --this view contains all the squares with no pieces in them
 create view empty_squares as
   select x,y from generate_series(0, 14) as x
@@ -164,7 +164,7 @@ create view creature_on_top_squares as
 create view monster_on_top_squares as
   select x,y from monster_pieces
   natural inner join pieces_on_top;
-
+*/
 /*
 create a view containing all the squares the selected piece
 could move to if they had unlimited speed
@@ -202,11 +202,11 @@ create view selected_piece_walk_squares as
 -- only if the selected piece has squares left to walk
     and get_remaining_walk() > 0;
 */
-create view squares_within_selected_piece_flight_range as
+/*create view squares_within_selected_piece_flight_range as
   select tx as x, ty as y from board_ranges
   natural inner join selected_piece
   natural inner join creature_pieces
-  where flying and range <= speed;
+  where flying and range = speed;*/
 /*
 --this view is the analogue of selected_piece_walk_squares
 -- for flying creatures
@@ -217,9 +217,9 @@ select x,y from squares_within_selected_piece_flight_range
 -- only if the selected piece hasn't moved
   where (select move_phase from selected_piece) = 'motion';
 */
-create view selected_piecexy as
+/*create view selected_piecexy as
   select * from selected_piece
-  natural inner join pieces;
+  natural inner join pieces;*/
 
 create function is_equipped(text) returns boolean as $$
 
@@ -228,7 +228,7 @@ create function is_equipped(text) returns boolean as $$
 
 $$ language sql stable;
 
-create view selected_piece_attackable_squares as
+/*create view selected_piece_attackable_squares as
   select x,y from pieces_on_top t
   natural inner join pieces_mr p
   cross join selected_piece s
@@ -263,12 +263,12 @@ create view selected_piece_in_range_squares as
   select tx as x, ty as y from board_ranges b
   natural inner join ranged_weapon_pieces s
   natural inner join selected_piece
-  where b.range <= s.range;
+  where b.range = s.range;
 
 create view selected_piece_ranged_attackable_squares as
   select x,y from selected_piece_attackable_squares
   natural inner join selected_piece_in_range_squares;
-
+*/
 /*
 this view lists all the squares which have pieces which can be
 selected. It is empty when:
@@ -373,6 +373,35 @@ include corpses in the attackable on top category, and filter corpses
 where neccessary using the allegiance info.
 
   */
+/*
+create or replace function one_square_away(pos) returns setof pos as $$
+               select $1.x-1 as x,$1.y-1 as y
+     union all select $1.x-1,$1.y
+     union all select $1.x-1,$1.y+1
+     union all select $1.x,$1.y-1
+     union all select $1.x,$1.y+1
+     union all select $1.x+1,$1.y-1
+     union all select $1.x+1,$1.y
+     union all select $1.x+1,$1.y+1
+$$ language sql immutable;
+*/
+create or replace function one_square_away(p pos) returns setof pos as $$
+declare
+  i pos;
+begin
+     for i in select p.x-1 as x,p.y-1 as y
+     union all select p.x-1,p.y
+     union all select p.x-1,p.y+1
+     union all select p.x,p.y-1
+     union all select p.x,p.y+1
+     union all select p.x+1,p.y-1
+     union all select p.x+1,p.y
+     union all select p.x+1,p.y+1 loop
+       return next i;
+     end loop;
+end;
+$$ language plpgsql immutable;
+
 
 create view squares_valid_categories as
   with
@@ -487,20 +516,112 @@ create view selected_piece_move_squares as
                           or svc.ridable))
                     or svc.ptype = 'magic_tree')));
 
+/*create view selected_piece_attack_squares as
+  with
+    spp as
+      (select x,y,ptype,allegiance,coalesce(flying,false)as flying,speed,move_phase,coalesce(undead,false) as undead
+         from pieces_mr
+         natural inner join selected_piece)
+   ,walk_range as
+      (select * from one_square_away((select (x,y)::pos from spp)))
+   ,ranges as
+      (select tx as x, ty as y
+       from board_ranges
+         where (select flying and move_phase='motion' from spp)
+               and (x,y,range) = (select x,y,speed from spp)
+       union (select x,y from walk_range
+              where (select move_phase in ('motion','attack') from spp)))
+  select x,y /*,svc.ptype,svc.allegiance, svc.undead,get_current_wizard(),
+         spp.ptype,spp.allegiance,spp.undead, is_equipped(spp.allegiance),
+         category* /
+    from squares_valid_categories svc
+    natural inner join ranges
+    cross join (select ptype,undead,allegiance from spp) as spp
+    where category = 'attackable'
+          and svc.allegiance not in (spp.allegiance, 'dead')
+          and not ((svc.ptype = 'magic_tree')
+                   and spp.ptype = 'wizard')
+          and (not coalesce(svc.undead,false) or (spp.undead or
+                                  (spp.ptype = 'wizard'
+                                   and is_equipped(spp.allegiance))));
+--todo: undead business
+create view selected_piece_range_attack_squares as
+  with
+    spp as
+      (select x,y,ptype,allegiance,coalesce(undead,false) as undead,range
+         from pieces_mr
+         natural inner join selected_piece
+         where range is not null)
+   ,ranges as
+      (select tx as x, ty as y
+       from board_ranges
+         where (x,y,range) = (select x,y,range from spp))
+  select x,y /*,svc.ptype,svc.allegiance, svc.undead,get_current_wizard(),
+         spp.ptype,spp.allegiance,spp.undead, is_equipped(spp.allegiance),
+         category* /
+    from squares_valid_categories svc
+    natural inner join ranges
+    cross join (select ptype,undead,allegiance from spp) as spp
+    where category = 'attackable'
+          and svc.allegiance not in (spp.allegiance, 'dead')
+          and (not coalesce(svc.undead,false) or (spp.undead or
+                                  (spp.ptype = 'wizard'
+                                   and is_equipped(spp.allegiance))));
+*/
+create view selected_piece_attackable_squares as
+  with
+    spp as
+      (select x,y,ptype,allegiance,
+              coalesce(flying,false) as flying,
+              speed,move_phase,
+              range,
+              coalesce(undead,false) as undead
+         from pieces_mr
+         natural inner join selected_piece)
+   ,walk_range as
+      (select * from one_square_away((select (x,y)::pos from spp)))
+   ,attack_ranges as
+      (select tx as x, ty as y
+       from board_ranges
+         where (select flying and move_phase='motion' from spp)
+               and (x,y,range) = (select x,y,speed from spp)
+       union (select x,y from walk_range
+              where (select move_phase in ('motion','attack') from spp)))
+   ,shoot_ranges as
+      (select tx as x, ty as y
+       from board_ranges
+         where (x,y,range) = (select x,y,range from spp
+                              where range is not null))
+   ,attackable_squares as
+      (select x,y
+       from squares_valid_categories svc
+       cross join (select ptype,undead,allegiance from spp) as spp
+       where category = 'attackable'
+          and svc.allegiance not in (spp.allegiance, 'dead')
+          and not ((svc.ptype = 'magic_tree')
+                   and spp.ptype = 'wizard')
+          and (not coalesce(svc.undead,false) or (spp.undead or
+                                  (spp.ptype = 'wizard'
+                                   and is_equipped(spp.allegiance)))))
+    select x,y,'attack'::text as action
+         /*,svc.ptype,svc.allegiance, svc.undead,get_current_wizard(),
+         spp.ptype,spp.allegiance,spp.undead, is_equipped(spp.allegiance),
+         category*/
+    from attackable_squares
+    natural inner join attack_ranges
+    union
+    select x,y,'ranged_attack'::text as action
+    from attackable_squares
+    natural inner join shoot_ranges;
+
 create view selected_piece_move_squares_2 as
 with
    spp as
     (select x,y,ptype,allegiance,tag,flying,speed,move_phase,engaged from pieces_mr
      natural inner join selected_piece)
   ,walk_range as
-    (select x-1 as x,y-1 as y from spp where not engaged
-     union all select x-1,y from spp where not engaged
-     union all select x-1,y+1 from spp where not engaged
-     union all select x,y-1 from spp where not engaged
-     union all select x,y+1 from spp where not engaged
-     union all select x+1,y-1 from spp where not engaged
-     union all select x+1,y from spp where not engaged
-     union all select x+1,y+1 from spp where not engaged)
+    (select * from one_square_away((select (x,y)::pos from spp))
+              where (select not engaged from spp))
   select x,y,'walk'::text as action
     from selected_piece_move_squares
     natural inner join walk_range
@@ -515,7 +636,7 @@ with
       on (br.tx,br.ty) = (vms.x,vms.y)
     where flying
         and move_phase='motion'
-        and range <= speed;
+        and range = speed;
 
 create view valid_target_actions as
 select * from (
@@ -531,25 +652,9 @@ select x,y, 'select_piece_at_position':: text as action
 union
 select x,y,action
   from selected_piece_move_squares_2
-/*union
-select x,y, 'walk'::text as action
-  from selected_piece_walk_squares
---flying
-union
-select x,y, 'fly'::text as action
-  from selected_piece_fly_squares*/
 --attacking
 union
-select x,y, 'attack'::text as action
-  from selected_piece_walk_attack_squares
---fly attacking
-union
-select x,y, 'attack'::text as action
-  from selected_piece_fly_attack_squares
---shooting
-union
-select x,y, 'ranged_attack'::text as action
-  from selected_piece_ranged_attackable_squares
+select x,y,action from selected_piece_attackable_squares
 )as s1
 where get_turn_phase()='move'
 ) as s

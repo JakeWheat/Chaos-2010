@@ -392,10 +392,8 @@ create view selected_piece_adjacent_attacking_squares as
                        from selected_piece)
     and allegiance <> 'dead'
   intersect
-  select tx,ty from board_ranges r
-  natural inner join selected_piecexy
-  where range = 1;
-
+    select * from one_square_away((select (x,y)::pos from selected_piece
+                                   natural inner join pieces));
 
 create function check_engaged() returns void as $$
 declare
