@@ -105,6 +105,19 @@ attackable needs undead field as well - >split
 >                   \XXXXXXXXXXXXXXX\n\
 >                   \XXXXXXXXXXXXXXX\n\
 >                   \6XXXXXX7XXXXXX8"
+>         emptyOrCorpseSquares =
+>           extend (const $ category .=. "empty_or_corpse_only")
+>             $ parseValidSquares "\n\
+>                   \XXX XXXXXX XXXX\n\
+>                   \X   X X     XXX\n\
+>                   \XX XXX XXXX XXX\n\
+>                   \XXXX XXXXXXXXXX\n\
+>                   \4XXXXXXXXXXXXX5\n\
+>                   \XXXXXXXXXXXXXXX\n\
+>                   \XXXXXXXXXXXXXXX\n\
+>                   \XXXXXXXXXXXXXXX\n\
+>                   \XXXXXXXXXXXXXXX\n\
+>                   \6XXXXXX7XXXXXX8"
 >         attackableSquares =
 >           extend (const $ category .=. "attackable")
 >             $ parseValidSquares "\n\
@@ -119,7 +132,7 @@ attackable needs undead field as well - >split
 >                   \               \n\
 >                   \X      X      X"
 >         corpseOnlySquares =
->           extend (const $ category .=. "corpse-only")
+>           extend (const $ category .=. "corpse_only")
 >             $ parseValidSquares "\n\
 >                   \               \n\
 >                   \               \n\
@@ -132,18 +145,18 @@ attackable needs undead field as well - >split
 >                   \               \n\
 >                   \6      7      8"
 >         treeAdjacentSquares =
->           extend (const $ category .=. "tree-adjacent")
+>           extend (const $ category .=. "empty_and_not_adjacent_to_tree")
 >             $ parseValidSquares "\n\
->                   \  XXX    XXX   \n\
->                   \ XXXXXXX XXXX  \n\
->                   \ XXXXXXX  XXX  \n\
->                   \ XXXXXXX  XXX  \n\
->                   \   XXX         \n\
->                   \               \n\
->                   \               \n\
->                   \               \n\
->                   \               \n\
->                   \               "
+>                   \XX   XXXX   XXX\n\
+>                   \X       X    XX\n\
+>                   \X       XX   XX\n\
+>                   \X       XX   XX\n\
+>                   \XXX   XXXXXXXXX\n\
+>                   \XXXXXXXXXXXXXXX\n\
+>                   \XXXXXXXXXXXXXXX\n\
+>                   \XXXXXXXXXXXXXXX\n\
+>                   \XXXXXXXXXXXXXXX\n\
+>                   \XXXXXXXXXXXXXXX"
 >         wizardSquares =
 >           extend (const $ category .=. "wizard")
 >             $ parseValidSquares "\n\
@@ -177,6 +190,7 @@ attackable needs undead field as well - >split
 >                        .*. y .=. fn (-1) (t1 # y)
 >                        .*. emptyRecord
 >     assertRelvarValue db vs (emptySquares
+>                              ++ emptyOrCorpseSquares
 >                              ++ attackableSquares
 >                              ++ corpseOnlySquares
 >                              ++ treeAdjacentSquares
@@ -185,17 +199,18 @@ attackable needs undead field as well - >split
 
 stage 2:
 test valid squares for spells - want to test square contents and range
-empty castle
-empty or corspe only monster
-attackable magic_bolt
+castle empty
+monster empty or corpse only
+magic_bolt attackable
 vengeance creature on top
 subversion monstr on top
 corpse only raise dead
 nottreeadj magic wood
 
-
 stage 3
-test the corner/special cases for other actions:
+select move attack ranged attack
+
+also test the corner/special cases
 select hidden under blob
 wizard on mount selection
 mount/enter: occupied - castle, tree; wrong allegiance, magic tree

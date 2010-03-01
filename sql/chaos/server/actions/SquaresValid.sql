@@ -202,23 +202,31 @@ $$ language plpgsql immutable;
 
 create view squares_valid_categories as
   with
-    es as (select x,y from generate_series(0, 14) as x
-                      cross join generate_series(0, 9) as y
-           except select x,y from pieces)
-   ,ta as (select v.x,v.y,v.ptype,v,allegiance,v.tag,v.undead,v.ridable,
-             case when speed is null then false
-                  else true
-             end as creature
-             ,case when undead is null then false
-                  else true
-             end as monster
-             from pieces_on_top_view v
-               where physical_defense is not null)
-   ,co as (select x,y
-             from pieces_on_top
-             where allegiance = 'dead')
-   ,tree_pos as (select x,y from pieces
-                   where ptype in ('magic_tree', 'shadow_tree'))
+    squares as (select x,y from generate_series(0, 14) as x
+                      cross join generate_series(0, 9) as y)
+   ,sq1 as
+    (select unnest
+       (case when ptype is null then '{empty,empty_or_corpse_only}'::text[]
+          else
+            case when physical_defense is not null then '{attackable}'::text[]
+                 else '{}'::text[] end ||
+            case when ridable or ptype in ('magic_tree','magic_castle','dark_citadel')
+                   then '{mount-enter}'::text[]
+                 else '{}'::text[] end ||
+            case when allegiance = 'dead' then '{corpse_only,empty_or_corpse_only}'::text[]
+                 else '{}'::text[] end ||
+            case when ptype in ('magic_tree', 'shadow_tree') then '{tree}'::text[]
+                 else '{}'::text[] end ||
+            case when speed is not null then '{creature_on_top}'::text[]
+                 else '{}'::text[] end ||
+            case when undead is not null then '{monster_on_top}'::text[]
+                 else '{}'::text[] end
+        end) as category,
+         s.x,s.y,v.ptype,v.allegiance,v.tag,v.undead,v.ridable
+      from squares s
+      natural left outer join pieces_on_top_view v)
+   ,tree_pos as (select x,y from sq1
+                 where category='tree')
    ,tree_adj as (select x,y from tree_pos
                  union all select x-1,y-1 from tree_pos
                  union all select x-1,y from tree_pos
@@ -229,55 +237,17 @@ create view squares_valid_categories as
                  union all select x+1,y from tree_pos
                  union all select x+1,y+1 from tree_pos)
    ,wz as (select x,y,ptype,allegiance,tag from pieces where ptype = 'wizard')
-   ,me as (select x,y,ptype,allegiance,tag from pieces_mr
-           where ridable
-             or ptype in ('magic_tree','magic_castle','dark_citadel'))
-  select 'empty' as category,x,y,
-         null::text as ptype,
-         null::text as allegiance,
-         null::int as tag,
-         null::boolean as undead,
-         null::boolean as ridable,
-         null::boolean as creature,
-         null::boolean as monster
-      from es
-  union all select 'attackable',x,y,ptype,allegiance,tag,undead,ridable,creature,monster from ta
-  union all select 'corpse-only',x,y,null,null,null,null,null,null,null from co
-  union all select distinct 'tree-adjacent',x,y,null,null,null::int,
-                            null::boolean,null::boolean,null::boolean,null::boolean
-          from tree_adj
-          where x between 0 and 14 and y between 0 and 9
-  union all select 'wizard',x,y,ptype,allegiance,tag,null,null,null,null from wz
-  union all select 'mount-enter',x,y,ptype,allegiance,tag,null,null,null,null from me
-          where (x,y) not in (select x,y from wz)
-  ;
+  select * from sq1 where category not in('tree')
+  union all select 'empty_and_not_adjacent_to_tree' as category
+                   ,x,y,null,null,null,null,null from sq1
+            where category='empty'
+              and (x,y) not in (select x,y from tree_adj)
+  union all select 'wizard',x,y,ptype,allegiance,tag,null,null from wz;
 
 ---------------------------
 
 create view spell_valid_squares as
- -- convert the square categories to spell categories
- -- maybe this should be done in the square categories view?
- select 'empty' as valid_square_category, x,y
-         from squares_valid_categories
-           where category = 'empty'
- union all select 'empty_or_corpse_only' as valid_square_category,x,y
-         from squares_valid_categories
-           where category in ('empty','corpse-only')
- union all select 'attackable' as valid_square_category,x,y
-         from squares_valid_categories
-           where category ='attackable'
- union all select 'creature_on_top' as valid_square_category,x,y
-         from squares_valid_categories
-           where category ='attackable' and creature
- union all select 'monster_on_top' as valid_square_category,x,y
-         from squares_valid_categories
-           where category ='attackable' and monster
- union all select 'corpse_only' as valid_square_category,x,y
-         from squares_valid_categories
-           where category ='corpse-only'
- union all select 'empty_and_not_adjacent_to_tree' as valid_square_category, x,y
-         from (select x,y from squares_valid_categories where category='empty'
-               except select x,y from squares_valid_categories where category='tree-adjacent') as a;
+ select category as valid_square_category,x,y from squares_valid_categories;
 
 create view current_wizard_spell_squares as
 with
@@ -304,7 +274,7 @@ create view selected_piece_move_squares as
     select x,y
        from selected_piece sp
        inner join squares_valid_categories svc
-       on (category in ('empty','corpse-only')
+       on (category in ('empty','corpse_only')
            or (sp.ptype = 'wizard'
                and ((sp.allegiance = svc.allegiance
                      and (svc.ptype in ('magic_castle','dark_citadel')
