@@ -30,35 +30,14 @@ want: to run tests, or play back game, and collect timing information
    of updates and selects for thinking about, and get stats on the
    average and total time spent in each select or funtion call.
 
-Squares valid is definitely a slow bit of code, so is new game, which
-is bad for testing speed.
-
-New plan for squares valid:
-add full tests for each kind of valid square calculation
-refactor code:
-first create the categories with squares, plus allegiance information
-- ignoring current wizard, range issues
-empty and not adjacent to tree: extra step
-empty
-empty or corpse only
-attackable
-creature on top
-monster on top
-corpse only
-mount/enter squares: magic tree: allegiance is unimportant, mount, castle it is
--> make two categories, one for each
-selectable pieces - we ignore the turn position, and mount/ mountee -
-just list them all
-movable to squares-> empty or corpse only
-
-this gives us the square categories table: category, x, y, maybe allegiance
-
-what we need is the valid target actions list, which will be action_name, x, y
-the complete list of target actions is:
-
-cast_target_spell
-select_piece_at_position
-walk
-fly
-attack (walk, fly)
-ranged_attack
+optimize:
+squares valid:
+  check for distinct, union all
+  try to fold the views together a bit more
+  check board_range usage - avoid using for 1 square range and for
+    fly/range attack targets
+  when can profile better, investigate turning board ranges into a
+    function
+do new documentation/overview for squares valid
+look over files for dogdy bits: particularly actions, board widget,
+  ai, turn sequence

@@ -555,12 +555,6 @@ section_order :: Section_order
 section_order = proxy
 instance ShowLabel Section_order
     where showLabel _ = "section_order"
-data RnTag
-type Rn = Proxy RnTag
-rn :: Rn
-rn = proxy
-instance ShowLabel Rn
-    where showLabel _ = "rn"
 data Move_phaseTag
 type Move_phase = Proxy Move_phaseTag
 move_phase :: Move_phase
@@ -627,6 +621,18 @@ category :: Category
 category = proxy
 instance ShowLabel Category
     where showLabel _ = "category"
+data CreatureTag
+type Creature = Proxy CreatureTag
+creature :: Creature
+creature = proxy
+instance ShowLabel Creature
+    where showLabel _ = "creature"
+data MonsterTag
+type Monster = Proxy MonsterTag
+monster :: Monster
+monster = proxy
+instance ShowLabel Monster
+    where showLabel _ = "monster"
 data OverrideTag
 type Override = Proxy OverrideTag
 override :: Override
