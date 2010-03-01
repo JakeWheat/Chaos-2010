@@ -183,7 +183,7 @@ create or replace function one_square_away(pos) returns setof pos as $$
      union all select $1.x+1,$1.y+1
 $$ language sql immutable;
 */
-create or replace function one_square_away(p pos) returns setof pos as $$
+create function one_square_away(p pos) returns setof pos as $$
 declare
   i pos;
 begin
@@ -205,16 +205,15 @@ create view squares_valid_categories as
     es as (select x,y from generate_series(0, 14) as x
                       cross join generate_series(0, 9) as y
            except select x,y from pieces)
-   ,ta as (select p.x,p.y,p.ptype,p,allegiance,p.tag,v.undead,v.ridable,
+   ,ta as (select v.x,v.y,v.ptype,v,allegiance,v.tag,v.undead,v.ridable,
              case when speed is null then false
                   else true
              end as creature
              ,case when undead is null then false
                   else true
              end as monster
-             from attackable_pieces p
-             inner join pieces_on_top_view v
-               using (ptype,allegiance,tag))
+             from pieces_on_top_view v
+               where physical_defense is not null)
    ,co as (select x,y
              from pieces_on_top
              where allegiance = 'dead')
@@ -290,18 +289,16 @@ with
        (select x, y, range, valid_square_category
           from pieces
           inner join current_wizard_table
-            on (allegiance = current_wizard)
+            on (get_turn_phase() = 'cast' and ptype='wizard' and allegiance = current_wizard)
           inner join wizard_spell_choices
             on (wizard_name = current_wizard)
-          natural inner join target_spells
-          where ptype = 'wizard'
-                and get_turn_phase() = 'cast')
+          natural inner join target_spells)
   select distinct svs.x,svs.y
-    from (select tx as x, ty as y
+    from (select valid_square_category from cwsr) as b
+    natural inner join (select tx as x, ty as y
                           from board_ranges
                           where (x,y,range) = (select x,y,range from cwsr)) as a
-    natural inner join spell_valid_squares svs
-    natural inner join (select valid_square_category from cwsr) as b;
+    natural inner join spell_valid_squares svs;
 
 create view selected_piece_move_squares as
     select x,y
@@ -442,6 +439,16 @@ where not exists (select 1 from game_completed_table);
 ---------------------------------------------
 
 create view valid_activate_actions as
+with
+  monster_spell as
+    (select 1
+     from wizard_spell_choices
+    natural inner join current_wizard
+    natural inner join monster_spells)
+  ,cast_phase as
+    (select 1 from turn_phase_table where turn_phase='cast')
+  ,choose_phase as
+    (select 1 from turn_phase_table where turn_phase='choose')
 select * from (
 --next_phase - always valid
 select 'next_phase'::text as action
@@ -449,25 +456,22 @@ select 'next_phase'::text as action
 --set imaginary
 union all
 select 'set_imaginary'::text as action
-  from monster_spells
-  where get_current_wizard_spell() is not null
-    and spell_name = get_current_wizard_spell()
+  from monster_spell
 --set real
 union all
 select 'set_real'::text as action
-  from monster_spells
-  where get_current_wizard_spell() is not null
-    and spell_name = get_current_wizard_spell()
+  from monster_spell
 --cast activate spell
 union all
 select 'cast_activate_spell'::text as action
   where exists (select 1
-         from current_wizard_spell
-         natural inner join activate_spells
-         where get_turn_phase() = 'cast')
-      or (select spell_name ='magic_wood'
-          from current_wizard_spell
-          where get_turn_phase() = 'cast')
+         from cast_phase
+         cross join current_wizard_spell
+         natural inner join activate_spells)
+      or exists(select 1
+         from cast_phase
+         cross join current_wizard_spell
+         where spell_name ='magic_wood')
 --skip spell ** why is this commented out? **
 --union all
 --select 'skip_spell'::text as action
@@ -492,11 +496,11 @@ union all
 -- also the ui has one simple test to see if a spell choice action is
 -- valid instead of two stages.
 select 'choose_' || spell_name || '_spell'::text as action
-  from spell_books where wizard_name = get_current_wizard()
-  and get_turn_phase()='choose'
+  from choose_phase
+  cross join spell_books where wizard_name = get_current_wizard()
 union all
 select 'choose_no_spell'::text as action
-  from turn_phase_table where turn_phase ='choose'
+  from choose_phase
 union all
 select 'ai_continue'
   from wizards

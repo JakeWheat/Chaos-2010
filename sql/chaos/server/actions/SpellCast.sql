@@ -445,16 +445,15 @@ create table cast_magic_wood_squares (
 );
 select set_relvar_type('cast_magic_wood_squares', 'stack');
 
-create view adjacent_to_new_tree_squares as
-  select tx as x, ty as y from
-    board_ranges natural inner join
-    cast_magic_wood_squares
-    where range = 1;
-
 --take into account range, line of sight,
 --atm only takes into account empty squares
 --and trees cannot be next to each other
 create view cast_magic_wood_available_squares as
+with adjacent_to_new_tree_squares as
+  (select tx as x, ty as y from
+    board_ranges natural inner join
+    cast_magic_wood_squares
+    where range = 1)
 select x,y from spell_valid_squares
          where valid_square_category = 'empty_and_not_adjacent_to_tree'
 except select * from adjacent_to_new_tree_squares;

@@ -215,26 +215,33 @@ $$ language plpgsql volatile;
 == cursor/go actions
 */
 
-create function action_go() returns void as $$
+create or replace function action_go() returns void as $$
 declare
   r record;
-  s text;
 begin
-  select into r x,y,action from client_valid_target_actions
-    natural inner join cursor_position;
-  if r is not null then
-    s :=  'select action_' || r.action || '(' || r.x || ',' || r.y || ')';
-    execute s;
-  else
-    select into r action
-      from client_valid_activate_actions
-       where action in ('cast_activate_spell');
-    if r is not null then
-      s := 'select action_' || r.action || '()';
-      execute s;
-    end if;
-  end if;
-  return ;
+  select into r x,y,action from cursor_position
+    natural inner join client_valid_target_actions;
+  case
+      when r is null
+        then
+        if exists(select 1 from client_valid_activate_actions
+                  where action = 'cast_activate_spell') then
+          perform action_cast_activate_spell();
+        end if;
+      when r.action = 'cast_target_spell'
+        then perform action_cast_target_spell(r.x,r.y);
+      when r.action = 'select_piece_at_position'
+        then perform action_select_piece_at_position(r.x,r.y);
+      when r.action = 'walk'
+        then perform action_walk(r.x,r.y);
+      when r.action = 'fly'
+        then perform action_fly(r.x,r.y);
+      when r.action = 'attack'
+        then perform action_attack(r.x,r.y);
+      when r.action = 'ranged_attack'
+        then perform action_ranged_attack(r.x,r.y);
+
+  end case;
 end;
 $$ language plpgsql volatile;
 
