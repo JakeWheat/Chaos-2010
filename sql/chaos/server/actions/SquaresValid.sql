@@ -71,7 +71,7 @@ combined with all the wizards even if they are not on top.
 This is finished off using the pieces_to_move relvar.
 
 */
-create view moving_pieces as
+/*create view moving_pieces as
   select ptype, allegiance, tag,x,y from pieces_mr
     where speed is not null
       or attack_strength is not null
@@ -86,7 +86,7 @@ create view selectable_pieces_with_priorities as
     from moving_pieces
     where (x,y) not in(select x,y from pieces
                        where ptype = 'gooey_blob');
-
+*/
 /*
 
 internals
@@ -221,12 +221,6 @@ select x,y from squares_within_selected_piece_flight_range
   select * from selected_piece
   natural inner join pieces;*/
 
-create function is_equipped(text) returns boolean as $$
-
-  select magic_sword or magic_knife or magic_bow
-    from wizards where wizard_name = $1;
-
-$$ language sql stable;
 
 /*create view selected_piece_attackable_squares as
   select x,y from pieces_on_top t
@@ -281,7 +275,7 @@ the pieces to move only has entries for
  whether there is a selected piece or not
 */
 
-create view selectable_pieces as
+/*create view selectable_pieces as
   select * from
     (select row_number() over (partition by (x,y) order by sp) as rn, *
        from selectable_pieces_with_priorities
@@ -289,6 +283,7 @@ create view selectable_pieces as
        where not exists(select 1 from selected_piece)
              and (ptype,allegiance,tag) not in (select * from pieces_moved)
     ) as s where rn = 1;
+*/
 /*
 valid actions
 =============
@@ -568,6 +563,14 @@ create view selected_piece_range_attack_squares as
                                   (spp.ptype = 'wizard'
                                    and is_equipped(spp.allegiance))));
 */
+-- todo: fix for ranged/h-h
+create function is_equipped(text) returns boolean as $$
+
+  select magic_sword or magic_knife or magic_bow
+    from wizards where wizard_name = $1;
+
+$$ language sql stable;
+
 create view selected_piece_attackable_squares as
   with
     spp as
@@ -637,6 +640,32 @@ with
     where flying
         and move_phase='motion'
         and range = speed;
+
+create view selectable_pieces as
+with
+   good_to_go as
+     (select 1 from turn_phase_table
+      where turn_phase='move'
+            and not exists(select 1 from selected_piece))
+  ,potnm as
+     (select ptype,allegiance,tag,x,y,1 as rn from pieces_on_top
+      cross join good_to_go
+        where allegiance = get_current_wizard()
+              and (ptype,allegiance,tag)
+                   not in (select * from pieces_moved))
+  ,wnm as
+     (select ptype,allegiance,tag,x,y,0 as rn from pieces
+      cross join good_to_go
+        where ptype = 'wizard'
+              and allegiance = get_current_wizard()
+              and (ptype,allegiance,tag)
+                   not in (select * from pieces_moved))
+  ,allnm as
+     (select * from potnm
+      union all select * from wnm)
+select ptype,allegiance,tag,x,y from
+(select row_number() over (partition by (x,y) order by rn) as rn,ptype,allegiance,tag,x,y
+       from allnm) as s where rn = 1;
 
 create view valid_target_actions as
 select * from (
