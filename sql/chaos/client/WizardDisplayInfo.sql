@@ -72,7 +72,7 @@ an allegiance)
 
 */
 create view allegiance_colours as
-  select wizard_name as allegiance, colour from wizard_display_info union
+  select wizard_name as allegiance, colour from wizard_display_info union all
   select 'dead' as allegiance, 'grey' as colour;
 
 create view action_history_colour_mr as

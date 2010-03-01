@@ -131,16 +131,12 @@ begin
     elseif c < 50 then
       for i in 1..(case when c < 30 then 1 else 2 end) loop
         select into p tx,ty from (
-          select tx, ty from board_ranges b
-          inner join spreadable_squares s
-            on (s.x,s.y) = (b.tx,b.ty)
-          where range = 1
-            and (b.x,b.y) = (sp.x,sp.y)
-          except
-          select x as tx,y as ty
-            from pieces
-            where allegiance=sp.allegiance) as a
-              order by random() limit 1;
+          select x, y from one_square_away((sp.x,sp.y))
+          natural inner join spreadable_squares s
+          except select x as tx,y as ty
+                   from pieces
+                   where allegiance=sp.allegiance) as a
+                     order by random() limit 1;
         if p.x is null then continue; end if;
         if exists(select 1 from pieces
                where (x,y) = (p.x,p.y)

@@ -19,20 +19,20 @@ create view client_valid_target_actions as
 create view client_valid_activate_actions as
 select * from (
   select * from valid_activate_actions
-union select 'move_cursor_up'
-union select 'move_cursor_down'
-union select 'move_cursor_left'
-union select 'move_cursor_right'
-union select 'move_cursor_up_left'
-union select 'move_cursor_down_left'
-union select 'move_cursor_up_right'
-union select 'move_cursor_down_right'
-union select 'print_widget_info'
-union select 'refresh_windows'
-union select 'spell_book_show_all_update_on'
-union select 'spell_book_show_all_update_off'
-union select 'client_next_phase'
-union select 'go') as a
+union all select 'move_cursor_up'
+union all select 'move_cursor_down'
+union all select 'move_cursor_left'
+union all select 'move_cursor_right'
+union all select 'move_cursor_up_left'
+union all select 'move_cursor_down_left'
+union all select 'move_cursor_up_right'
+union all select 'move_cursor_down_right'
+union all select 'print_widget_info'
+union all select 'refresh_windows'
+union all select 'spell_book_show_all_update_on'
+union all select 'spell_book_show_all_update_off'
+union all select 'client_next_phase'
+union all select 'go') as a
   where not exists (select 1 from game_completed_table);
 
 /*
@@ -251,37 +251,37 @@ create view action_instructions as
 select 'cast_target_spell'::text as action,
        'Cast spell: Select a square to cast ' ||
         get_current_wizard_spell() || ' on' as help
-union
+union all
 select 'select_piece_at_position',
        'Select: choose a piece to move by selecting its square'
-union
+union all
 select 'walk',
        'Walk: select a square to move piece to'
-union
+union all
 select 'fly',
        'Fly: select a square to move piece to'
-union
+union all
 select 'attack',
        'Attack: select a square to attack that piece'
-union
+union all
 select 'ranged_attack',
        'Ranged attack: select a square to attack that piece'
-union
+union all
 select 'next_phase',
        'Next phase: press space to finish this wizard''s turn'
-union
+union all
 select 'set_imaginary',
        'Press y to cast an imaginary monster'
-union
+union all
 select 'set_real',
        'Press n to cast a real monster'
-union
+union all
 select 'cast_activate_spell',
        'Cast: Press enter to cast ' || get_current_wizard_spell()
-union
+union all
 select 'cancel',
        'Cancel: press End to cancel move/attack/ranged attack'
-union
+union all
 select 'choose_disbelieve_spell',
        'Press a key from the spell book to choose that spell to cast'
 ;
@@ -291,7 +291,7 @@ select action, help
   from action_instructions
   natural inner join
   (select action from client_valid_target_actions
-   union
+   union all
    select action from client_valid_activate_actions) as a;
 
 /*

@@ -60,7 +60,7 @@ begin
     insert into spell_book_show_all_table values (false);
   end if;
 
-  perform update_board_sprites_cache();
+  --perform update_board_sprites_cache();
   --perform check_for_effects();
   perform init_cursor_position();
 end

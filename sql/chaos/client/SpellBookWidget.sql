@@ -100,13 +100,13 @@ order the spells by spell category
 */
 create view section_orderv as
   select 1 as section_order, 'wizard' as spell_category
-    union
+    union all
   select 2 as section_order, 'attacking' as spell_category
-    union
+    union all
   select 3 as section_order, 'object' as spell_category
-    union
+    union all
   select 4 as section_order, 'miscellaneous' as spell_category
-    union
+    union all
   select 5 as section_order, 'monster' as spell_category;
 
 create view spells_with_order as
@@ -125,7 +125,7 @@ create view current_wizard_spell_counts as
      select spell_name from spell_books
        inner join current_wizard_table
        on (wizard_name = current_wizard)) as a
- union
+ union all
   select spell_name, count(spell_name)
   from spell_books
   inner join current_wizard_table

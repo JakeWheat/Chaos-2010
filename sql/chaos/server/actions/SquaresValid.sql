@@ -200,7 +200,6 @@ begin
 end;
 $$ language plpgsql immutable;
 
-
 create view squares_valid_categories as
   with
     es as (select x,y from generate_series(0, 14) as x
@@ -243,13 +242,14 @@ create view squares_valid_categories as
          null::boolean as creature,
          null::boolean as monster
       from es
-  union select 'attackable',x,y,ptype,allegiance,tag,undead,ridable,creature,monster from ta
-  union select 'corpse-only',x,y,null,null,null,null,null,null,null from co
-  union select distinct 'tree-adjacent',x,y,null,null,null::int,null::boolean,null::boolean,null::boolean,null::boolean
+  union all select 'attackable',x,y,ptype,allegiance,tag,undead,ridable,creature,monster from ta
+  union all select 'corpse-only',x,y,null,null,null,null,null,null,null from co
+  union all select distinct 'tree-adjacent',x,y,null,null,null::int,
+                            null::boolean,null::boolean,null::boolean,null::boolean
           from tree_adj
           where x between 0 and 14 and y between 0 and 9
-  union select 'wizard',x,y,ptype,allegiance,tag,null,null,null,null from wz
-  union select 'mount-enter',x,y,ptype,allegiance,tag,null,null,null,null from me
+  union all select 'wizard',x,y,ptype,allegiance,tag,null,null,null,null from wz
+  union all select 'mount-enter',x,y,ptype,allegiance,tag,null,null,null,null from me
           where (x,y) not in (select x,y from wz)
   ;
 
@@ -261,22 +261,22 @@ create view spell_valid_squares as
  select 'empty' as valid_square_category, x,y
          from squares_valid_categories
            where category = 'empty'
- union select 'empty_or_corpse_only' as valid_square_category,x,y
+ union all select 'empty_or_corpse_only' as valid_square_category,x,y
          from squares_valid_categories
            where category in ('empty','corpse-only')
- union select 'attackable' as valid_square_category,x,y
+ union all select 'attackable' as valid_square_category,x,y
          from squares_valid_categories
            where category ='attackable'
- union select 'creature_on_top' as valid_square_category,x,y
+ union all select 'creature_on_top' as valid_square_category,x,y
          from squares_valid_categories
            where category ='attackable' and creature
- union select 'monster_on_top' as valid_square_category,x,y
+ union all select 'monster_on_top' as valid_square_category,x,y
          from squares_valid_categories
            where category ='attackable' and monster
- union select 'corpse_only' as valid_square_category,x,y
+ union all select 'corpse_only' as valid_square_category,x,y
          from squares_valid_categories
            where category ='corpse-only'
- union select 'empty_and_not_adjacent_to_tree' as valid_square_category, x,y
+ union all select 'empty_and_not_adjacent_to_tree' as valid_square_category, x,y
          from (select x,y from squares_valid_categories where category='empty'
                except select x,y from squares_valid_categories where category='tree-adjacent') as a;
 
@@ -338,7 +338,7 @@ create view selected_piece_attackable_squares as
        from board_ranges
          where (select flying and move_phase='motion' from spp)
                and (x,y,range) = (select x,y,speed from spp)
-       union (select x,y from walk_range
+       union all (select x,y from walk_range
               where (select move_phase in ('motion','attack') from spp)))
    ,shoot_ranges as
       (select tx as x, ty as y
@@ -362,7 +362,7 @@ create view selected_piece_attackable_squares as
          category*/
     from attackable_squares
     natural inner join attack_ranges
-    union
+    union all
     select x,y,'ranged_attack'::text as action
     from attackable_squares
     natural inner join shoot_ranges;
@@ -381,7 +381,7 @@ with
     where get_remaining_walk() > 0
           and x between 0 and 14
           and y between 0 and 9
-  union
+  union all
   select tx as x, ty as y, 'fly'
     from board_ranges br
     natural inner join spp
@@ -423,16 +423,16 @@ select * from (
   select x,y,'cast_target_spell'::text as action
     from current_wizard_spell_squares
 --selecting a piece
-union
+union all
 select x,y,action from (
 select x,y, 'select_piece_at_position':: text as action
   from selectable_pieces
 --walking
-union
+union all
 select x,y,action
   from selected_piece_move_squares_2
 --attacking
-union
+union all
 select x,y,action from selected_piece_attackable_squares
 )as s1
 where get_turn_phase()='move'
@@ -447,19 +447,19 @@ select * from (
 select 'next_phase'::text as action
 --choose spell - need one for each spell, add programmatically
 --set imaginary
-union
+union all
 select 'set_imaginary'::text as action
   from monster_spells
   where get_current_wizard_spell() is not null
     and spell_name = get_current_wizard_spell()
 --set real
-union
+union all
 select 'set_real'::text as action
   from monster_spells
   where get_current_wizard_spell() is not null
     and spell_name = get_current_wizard_spell()
 --cast activate spell
-union
+union all
 select 'cast_activate_spell'::text as action
   where exists (select 1
          from current_wizard_spell
@@ -469,18 +469,18 @@ select 'cast_activate_spell'::text as action
           from current_wizard_spell
           where get_turn_phase() = 'cast')
 --skip spell ** why is this commented out? **
---union
+--union all
 --select 'skip_spell'::text as action
 --  where get_turn_phase() = 'cast'
 --unselect
-union
+union all
 select 'unselect_piece'::text as action
   from selected_piece
 --next subphase
-union
+union all
 select 'cancel'::text as action
   from selected_piece
-union
+union all
 -- generate a separate choose action wrapper for each spell
 --
 -- without this, we can add a general choose spell action but then we
@@ -494,10 +494,10 @@ union
 select 'choose_' || spell_name || '_spell'::text as action
   from spell_books where wizard_name = get_current_wizard()
   and get_turn_phase()='choose'
-union
+union all
 select 'choose_no_spell'::text as action
   from turn_phase_table where turn_phase ='choose'
-union
+union all
 select 'ai_continue'
   from wizards
   inner join current_wizard_table

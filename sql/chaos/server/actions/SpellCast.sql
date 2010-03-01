@@ -131,13 +131,13 @@ create view spell_cast_chance as
     -- of world alignment
     (select spell_name, sign(alignment) as salign, base_chance,
       'neutral' as alignment from spells_mr
-    union
+    union all
     --world alignment same as spell alignment
     --  proportionately more easy
     select spell_name, sign(alignment) as salign,
       limit_chance(base_chance + (@ get_world_alignment()) * 10),
       'same' as alignment from spells_mr
-    union
+    union all
     --world alignment opposite, spell slightly harder
     select spell_name, sign(alignment) as salign,
       limit_chance(base_chance - 10),
@@ -257,7 +257,7 @@ begin
   --get target magic defense
   --todo: should this take into account the spell/attack?
   m := (select magic_defense
-        from pieces_on_top
+        from pieces_on_top_view
         natural inner join magic_attackable_pieces
         where (x,y)=(px,py));
 
@@ -358,7 +358,7 @@ begin
     return false;
   end if;
   select into r ptype, allegiance, tag
-    from pieces_on_top_view where (x,y) = (px,py);
+    from pieces_on_top where (x,y) = (px,py);
 
   perform add_history_spell_succeeded();
   perform add_chinned_history(px, py);

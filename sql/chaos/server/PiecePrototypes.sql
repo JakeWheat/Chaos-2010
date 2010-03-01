@@ -77,9 +77,9 @@ create view ridable_prototypes as
 
 create view enterable_piece_types as
   select 'magic_tree'::text as ptype
-  union
+  union all
   select 'magic_castle'
-  union
+  union all
   select 'dark_citadel';
 /*
 data

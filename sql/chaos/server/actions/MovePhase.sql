@@ -294,14 +294,8 @@ begin
          and exists(select 1 from attacking_pieces
                 where (ptype,allegiance,tag)::piece_key=pk)
          and exists(select 1 from attackable_pieces ap
-           natural inner join pieces_on_top
-           --want to keep rows where the attack piece is range 1 from
-           --the piece in question, so the board range source x,y is the
-           --x,y of the piece in question, and the target x,y is the
-           --x,y positions of the enemy attackable pieces
-           inner join board_ranges b on (b.x,b.y,tx,ty)=(r.x,r.y,ap.x,ap.y)
-           where allegiance <> pk.allegiance
-             and range = 1) then
+           natural inner join one_square_away((r.x,r.y))
+           where allegiance not in (pk.allegiance, 'dead')) then
     return 'attack';
   elseif current_subphase not in ('ranged_attack')
     and just_done not in ('ranged_attack')
@@ -385,15 +379,13 @@ end;
 $$ language plpgsql volatile;
 
 create view selected_piece_adjacent_attacking_squares as
+  select * from one_square_away((select (x,y)::pos from selected_piece
+                                 natural inner join pieces))
+  intersect
   select x,y from pieces_on_top
   natural inner join pieces_mr
   where attack_strength is not null
-    and allegiance <> (select allegiance
-                       from selected_piece)
-    and allegiance <> 'dead'
-  intersect
-    select * from one_square_away((select (x,y)::pos from selected_piece
-                                   natural inner join pieces));
+    and allegiance not in (get_current_wizard(), 'dead');
 
 create function check_engaged() returns void as $$
 declare

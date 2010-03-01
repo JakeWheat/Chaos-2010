@@ -119,7 +119,7 @@ create view wizard_sprites as
     end as sprite, w.colour from
   (select -1 as o, wizard_name, default_sprite as sprite
       from wizard_display_info
-    union
+    union all
     select id as o, allegiance as wizard_name,
       'wizard_' || spell_name
       from action_history_mr
@@ -161,7 +161,7 @@ create view board_highlights as
 select x,y,'highlight_cast_target_spell' as sprite
   from current_wizard_spell_squares
   where get_turn_phase() = 'choose'
-union
+union all
 select x,y,'highlight_' || action as sprite
   from valid_target_actions;
 
@@ -210,13 +210,13 @@ create view board_sprites1_view as
   select x,y,ptype,allegiance,tag,sprite,colour,sp,
     start_tick, animation_speed, selected from
     (select x,y,ptype,allegiance,tag,
-      sprite,colour,sp,start_tick,
+      sprite,colour,sp,0 as start_tick,
       case when not move_phase is null then true
         else false
       end as selected
       from piece_sprite
     natural inner join pieces_on_top
-    natural inner join piece_starting_ticks
+    --natural inner join piece_starting_ticks
     natural inner join sprites
     natural left outer join selected_piece
     union all
@@ -248,7 +248,7 @@ $$ language plpgsql volatile;
 
 create view board_sprites as
  select * from board_sprites1_cache
-union
+union all
 select x,y, '', '', -1,'cursor', 'white', 6,0, animation_speed, false
   from cursor_position
   inner join sprites on sprite='cursor';
@@ -471,7 +471,7 @@ begin
     perform action_client_ai_continue();
   else
     --perform check_for_effects();
-    perform update_board_sprites_cache();
+    --perform update_board_sprites_cache();
   end if;
   if not (select computer_controlled from wizards
           inner join current_wizard_table

@@ -32,7 +32,7 @@ select module('Chaos.Server.Pieces');
 create view allegiances as
    select wizard_name as allegiance from wizards
      where expired = false
-   union select 'dead' as allegiance;
+   union all select 'dead' as allegiance;
 
 /*
 
@@ -209,7 +209,7 @@ select ptype,
   natural left outer join (select *,true as raised
                            from crimes_against_nature) as b
   where ptype <> 'wizard'
-union
+union all
 -- then we add in the wizards, which need the more involved
 -- calculations in the wizard_upgrade_stats table.
 select * from wizard_upgrade_stats;

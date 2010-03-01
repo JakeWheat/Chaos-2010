@@ -49,10 +49,10 @@ select set_relvar_type('creating_new_game_table', 'stack');
 select create_var('turn_number', 'int');
 select set_relvar_type('turn_number_table', 'data');
 
-select create_update_transition_tuple_constraint(
+/*select create_update_transition_tuple_constraint(
   'turn_number_table',
   'turn_number_change_valid',
-  '(NEW.turn_number = OLD.turn_number + 1)');
+  '(NEW.turn_number = OLD.turn_number + 1)');*/
 
 select no_deletes_inserts_except_new_game('turn_number_table');
 
@@ -148,10 +148,10 @@ $$ language sql immutable;
 
 select create_var('turn_phase', 'turn_phase_enum');
 select set_relvar_type('turn_phase_table', 'data');
-select create_update_transition_tuple_constraint(
+/*select create_update_transition_tuple_constraint(
   'turn_phase_table',
   'turn_phase_change_valid',
-  'NEW.turn_phase = next_turn_phase(OLD.turn_phase)');
+  'NEW.turn_phase = next_turn_phase(OLD.turn_phase)');*/
 select no_deletes_inserts_except_new_game('turn_phase_table');
 
 -- not used anywhere atm??
@@ -277,7 +277,7 @@ or
 or not exists(select 1 from wizard_spell_choices)
 ))$$);
 
-select create_update_transition_tuple_constraint(
+/*select create_update_transition_tuple_constraint(
   'wizard_spell_choices_mr',
   'update_spell_choice_restricted',
   $$(select turn_phase = 'choose' from turn_phase_table)
@@ -292,7 +292,7 @@ select create_delete_transition_tuple_constraint(
   'wizard_spell_choices_mr',
   'delete_spell_choice_restricted',
   $$(select turn_phase in ('cast', 'choose') from turn_phase_table)$$);
-
+*/
 
 /*
 

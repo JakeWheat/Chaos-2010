@@ -157,12 +157,12 @@ create view ai_useful_spells as
     inner join current_wizard_table
       on wizard_name = current_wizard
     natural inner join activate_spells
-  union
+  union all
     select spell_name from castable_target_spells
     where (x,y) not in (select x,y
                         from squares_valid_categories
                         where category='corpse-only'
-                      union
+                      union all
                       select x,y from pieces_on_top
                       inner join current_wizard_table
                       on current_wizard = allegiance);
