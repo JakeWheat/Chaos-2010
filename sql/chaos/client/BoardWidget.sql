@@ -504,7 +504,7 @@ in the info widget
 create view piece_details as
   select * from pieces_mr
             full outer join
-      (select 'wizard'::text as wtype,* from live_wizards) as a
+      (select 'wizard'::text as wtype,* from wizards where not expired) as a
             on (allegiance = wizard_name and ptype = wtype)
     natural inner join pieces_with_priorities
     natural inner join piece_sprite;

@@ -11,11 +11,11 @@ end your turn so next_phase gets called automatically
 */
 
 select create_var('dont_nest_ai_next_phase', 'bool');
-select set_relvar_type('dont_nest_ai_next_phase_table', 'stack');
+select set_relvar_type('dont_nest_ai_next_phase_table', 'hack');
 
 create function action_next_phase() returns void as $$
 declare
-  c int;
+  --c int;
   next_phase_again boolean := false;
 begin
 /*
@@ -25,20 +25,21 @@ begin
     return;
   end if;
   --check for win or draw
-  c := (select count(1) from wizards
-         where not expired);
-  if c = 1 then --someone has won
-    perform game_completed();
-    update current_wizard_table set current_wizard =
-      (select wizard_name from wizards where not expired);
-    perform add_history_game_won();
-    return;
-  elseif c = 0 then --game is drawn
-    perform game_completed();
-    perform add_history_game_drawn();
-    delete from current_wizard_table;
-    return;
-  end if;
+  case (select count(1) from wizards where not expired)
+    when 1 then --someone has won
+      perform game_completed();
+      update current_wizard_table set current_wizard =
+        (select wizard_name from wizards where not expired);
+      perform add_history_game_won();
+      return;
+    when 0 then --game is drawn
+      perform game_completed();
+      perform add_history_game_drawn();
+      delete from current_wizard_table;
+      return;
+    else
+      null;
+  end case;
 
 /*
 === current wizard clean up phase
@@ -55,10 +56,10 @@ implicitly skipping
 
 */
     -- if the current spell isn't completed, then skip it
-  if exists(select 1 from wizard_spell_choices
-       inner join current_wizard_table
-       on (current_wizard = wizard_name)
-       where get_turn_phase() = 'cast') then
+  if get_turn_phase() = 'cast'
+     and exists(select 1 from current_wizard_table
+                inner join wizard_spell_choices
+                  on (current_wizard = wizard_name)) then
     perform skip_spell();
     return;
   end if;
@@ -83,24 +84,24 @@ phase is run in this function, and all the setup runs after it is run.
 */
 
   if is_last_wizard() then
-    --clear the cast alignment which is used to adjust the world
-    --alignment when a spell is cast
-    if get_turn_phase() = 'cast' then
-      delete from cast_alignment_table;
-    end if;
-
-    --if this is the end of the move phase then we're on the next turn
-    if (select turn_phase = 'move' from turn_phase_table) then
-      update turn_number_table
-        set turn_number = turn_number + 1;
-      perform add_history_new_turn();
-    end if;
-
+    case get_turn_phase()
+      when 'cast' then
+        --clear the cast alignment which is used to adjust the world
+        --alignment when a spell is cast
+        delete from cast_alignment_table;
+      when 'move' then
+        --if this is the end of the move phase then we're on the next turn
+        update turn_number_table
+          set turn_number = turn_number + 1;
+        perform add_history_new_turn();
+      else
+        null;
+    end case;
     --move to the next turn phase
     update turn_phase_table
       set turn_phase = next_turn_phase(turn_phase);
 
-    if (select turn_phase = 'autonomous' from turn_phase_table) then
+    if get_turn_phase() = 'autonomous' then
       perform do_autonomous_phase();
       update turn_phase_table
         set turn_phase = next_turn_phase(turn_phase);
@@ -114,14 +115,13 @@ phase is run in this function, and all the setup runs after it is run.
   update current_wizard_table
     set current_wizard = next_wizard(current_wizard);
 
-  --setup the cast alignment table if this is the start of the cast
-  --phases
-  if get_turn_phase() = 'cast' and is_first_wizard() then
-    insert into cast_alignment_table values(0);
-  end if;
-
   --initialise the spell for this phase
-  if (select turn_phase = 'cast' from turn_phase_table) then
+  if get_turn_phase() = 'cast' then
+    --setup the cast alignment table if this is the start of the cast
+    --phases
+    if is_first_wizard() then
+      insert into cast_alignment_table values(0);
+    end if;
     if exists(select 1 from current_wizard_spell) then
       insert into spell_parts_to_cast_table
         select coalesce(numb, 0) from target_spells
@@ -158,18 +158,22 @@ $$ language plpgsql volatile;
 /*
 === internals
 */
-create function is_last_wizard() returns boolean as $$
-begin
-  return ((select place from live_wizards
-        natural inner join current_wizard)
-     = (select max(place) from live_wizards));
-end;
+create or replace function is_last_wizard() returns boolean as $$
+  return (with
+            uw as (select wizard_name,original_place
+                   from wizards
+                   where not expired)
+  select original_place = (select max(original_place) from uw)
+            from current_wizard
+            natural inner join uw);
 $$ language plpgsql stable;
 
-create function is_first_wizard() returns boolean as $$
-begin
-  return ((select place from live_wizards
-       natural inner join current_wizard)
-     = (select min(place) from live_wizards));
-end;
-$$ language plpgsql stable;
+create or replace function is_first_wizard() returns boolean as $$
+  with
+    uw as (select wizard_name,original_place
+                   from wizards
+                   where not expired)
+  select original_place = (select min(original_place) from uw)
+            from current_wizard
+            natural inner join uw)
+$$ language sql stable;

@@ -215,6 +215,16 @@ $$ language plpgsql volatile;
 == cursor/go actions
 */
 
+create function action_cast_target_spell_at_cursor() returns void as $$
+declare
+  r pos;
+begin
+  select into r x,y,action from cursor_position;
+  perform action_cast_target_spell(r.x,r.y);
+end;
+$$ language plpgsql volatile;
+
+
 create or replace function action_go() returns void as $$
 declare
   r record;
@@ -244,6 +254,7 @@ begin
   end case;
 end;
 $$ language plpgsql volatile;
+
 
 /*
 ================================================================================

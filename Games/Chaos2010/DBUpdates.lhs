@@ -1,7 +1,7 @@
 > module Games.Chaos2010.DBUpdates
 >     (resetNewGameWidgetState
 >     ,newGame
->     --,sendKeyPress
+>     ,sendKeyPress
 >     ,rollback
 >     ,updateNewGameState
 >     --testing stuff
@@ -22,7 +22,7 @@
 >     ,nextPhase
 >     ,chooseSpell
 >     ,skipToPhase
->     ,actionGo
+>     --,actionGo
 >     ,actionMoveCursor
 >     ,setSpellChoiceReal
 >     ,setSpellChoiceImaginary
@@ -30,13 +30,19 @@
 >     ,castActivateSpell
 >     ,selectPiece
 >     ,cancel
+>     ,castTargetSpell
 >     --,disableConstraints
 >     --,enableConstraints
+>     ,selectAt
+>     ,walk
+>     ,fly
+>     ,attack
+>     ,rangedAttack
 >     ) where
 > import Database.HDBC hiding (rollback)
 > import Database.HaskellDB
 > import Data.List (intersperse)
-> --import Database.HaskellDB.Query
+> -- import Database.HaskellDB.Query
 > import Control.Exception
 
 
@@ -46,6 +52,7 @@
 > import Games.Chaos2010.Database.Pieces
 > import Games.Chaos2010.Database.Fields
 > import Games.Chaos2010.Database.Disable_spreading_table
+> import Games.Chaos2010.Database.Spell_books
 
 
 > setupTestBoard :: IConnection conn => conn -> String -> IO ()
@@ -141,22 +148,44 @@
 > chooseSpell _ conn s =
 >   callSp conn "action_choose_spell" [s]
 
-> addSpell1 :: IConnection conn => conn -> String -> String -> IO ()
-> addSpell1 conn wiz spellName = do
->   {-insert db Sb.spell_books r
->   where
->     r :: Sb.Spell_books
->     r = Sb.xid .=. constant 201 --_default
->         .*. Sb.wizard_name .=. constant wiz
->         .*. Sb.spell_name .=. constant spellName
->         .*. emptyRecord-}
->   _ <- run conn "insert into spell_books (spell_name, wizard_name)\n\
->          \values (?, ?);" [toSql spellName, toSql wiz]
->   commit conn
+> castTargetSpell :: IConnection conn => Database -> conn -> Int -> Int -> IO ()
+> castTargetSpell _ conn xp yp =
+>   callSp conn "action_cast_target_spell" [show xp, show yp]
 
-> {-sendKeyPress :: IConnection conn => conn -> String -> IO ()
+> selectAt :: IConnection conn => Database -> conn -> Int -> Int -> IO ()
+> selectAt _ conn xp yp =
+>   callSp conn "action_select_piece_at_position" [show xp, show yp]
+
+> walk :: IConnection conn => Database -> conn -> Int -> Int -> IO ()
+> walk _ conn xp yp =
+>   callSp conn "action_walk" [show xp, show yp]
+
+> fly :: IConnection conn => Database -> conn -> Int -> Int -> IO ()
+> fly _ conn xp yp =
+>   callSp conn "action_fly" [show xp, show yp]
+
+
+> attack :: IConnection conn => Database -> conn -> Int -> Int -> IO ()
+> attack _ conn xp yp =
+>   callSp conn "action_attack" [show xp, show yp]
+
+> rangedAttack :: IConnection conn => Database -> conn -> Int -> Int -> IO ()
+> rangedAttack _ conn xp yp =
+>   callSp conn "action_ranged_attack" [show xp, show yp]
+
+
+> addSpell1 :: IConnection conn => Database -> conn -> String -> String -> IO ()
+> addSpell1 db _ wiz spellName = do
+>   insert db spell_books r
+>   where
+>     r = xid .=. _default
+>         .*. wizard_name .=. constant wiz
+>         .*. spell_name .=. constant spellName
+>         .*. emptyRecord
+
+> sendKeyPress :: IConnection conn => conn -> String -> IO ()
 > sendKeyPress conn k = do
->   callSp conn "action_key_pressed" [k]-}
+>   callSp conn "action_key_pressed" [k]
 
 > castActivateSpell :: IConnection conn => Database -> conn -> IO ()
 > castActivateSpell _ conn = callSp conn "action_cast_activate_spell" []
@@ -187,8 +216,8 @@
 > nextPhase :: IConnection conn => conn -> IO ()
 > nextPhase conn = callSp conn "action_next_phase" []
 
-> actionGo :: IConnection conn => Database -> conn -> IO ()
-> actionGo _ conn = callSp conn "action_go" []
+ > actionGo :: IConnection conn => Database -> conn -> IO ()
+ > actionGo _ conn = callSp conn "action_go" []
 
 > setSpellChoiceReal :: IConnection conn => Database -> conn -> IO ()
 > setSpellChoiceReal _ conn = callSp conn "action_set_real" []

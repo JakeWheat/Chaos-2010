@@ -3,7 +3,7 @@
 > module Games.Chaos2010.Tests.TestUtils
 >     (tctor
 >
->     ,goSquare
+>     --,goSquare
 >
 >     ,queryTurnPhase
 >     ,queryTurnSequenceInfo
@@ -25,7 +25,7 @@
 > import Database.HDBC (IConnection, withTransaction)
 > import Database.HaskellDB
 
-> import Games.Chaos2010.DBUpdates hiding (rigActionSuccess)
+> --import Games.Chaos2010.DBUpdates hiding (rigActionSuccess)
 > import qualified Games.Chaos2010.Utils as U
 > import Games.Chaos2010.HaskellDBUtils
 
@@ -46,10 +46,10 @@
 > tctor l f conn =
 >   testCase l $ withTransaction conn $ \c -> U.time $ f c
 
-> goSquare :: IConnection conn => Database -> conn -> Int -> Int -> IO ()
-> goSquare db conn xp yp = do
->   setCursorPos db conn xp yp
->   actionGo db conn --sendKeyPress conn "Return"
+ > goSquare :: IConnection conn => Database -> conn -> Int -> Int -> IO ()
+ > goSquare db conn xp yp = do
+ >   setCursorPos db conn xp yp
+ >   actionGo db conn --sendKeyPress conn "Return"
 
 
 ================================================================================

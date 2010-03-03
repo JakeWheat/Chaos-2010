@@ -9,11 +9,11 @@ help to speed up start game - this allows us to select 19 non unique
 random spells quicker than using order by random() limit 1 in a loop
 */
 
-create table spell_indexes_no_dis_turm ( -- no disbelieve or turmoil
+/*create table spell_indexes_no_dis_turm ( -- no disbelieve or turmoil
   row_number serial unique,
   spell_name text
 );
-select set_relvar_type('spell_indexes_no_dis_turm', 'stack');
+select set_relvar_type('spell_indexes_no_dis_turm', 'stack');*/
 
 create type random_entry as (
   line int,
@@ -29,9 +29,9 @@ end;
 $$ language plpgsql volatile;
 
 
-insert into spell_indexes_no_dis_turm (spell_name)
+/*insert into spell_indexes_no_dis_turm (spell_name)
   select spell_name from spells_mr
-    where spell_name not in ('disbelieve', 'turmoil');
+    where spell_name not in ('disbelieve', 'turmoil');*/
 
 create function create_object(vptype text, vallegiance text, x int, y int)
   returns int as $$
@@ -162,14 +162,16 @@ $$ language plpgsql volatile;
 create function kill_wizard(pwizard_name text) returns void as $$
 begin
 --if current wizard then next_wizard
-  if get_current_wizard() = pwizard_name then
+  if (select current_wizard = pwizard_name
+        from current_wizard_table) then
     perform action_next_phase();
     --check if this is the last wizard, slightly hacky
-    if get_current_wizard() = pwizard_name then
+    /*if (select current_wizard = pwizard_name
+        from current_wizard_table) then
       perform game_completed();
       perform add_history_game_drawn();
       delete from current_wizard_table;
-    end if;
+    end if;*/
   end if;
  --this should all be handled with cascades...?
   delete from wizard_spell_choices_mr where wizard_name = pwizard_name;

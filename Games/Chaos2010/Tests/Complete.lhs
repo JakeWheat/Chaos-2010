@@ -50,9 +50,9 @@ and target action views are empty.
 >                   \               ",
 >                   (wizardPiecesList ++
 >                   [('G', [makePD "goblin" "Kong Fuzi"])]))]
->   goSquare db conn 1 0
+>   selectAt db conn 1 0
 >   rigActionSuccess conn "attack" True
->   goSquare db conn 0 0
+>   attack db conn 0 0
 >   nextPhase conn -- sendKeyPress conn "space"
 >   assertCount "game won history entry" db
 >                     (do

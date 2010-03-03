@@ -93,9 +93,9 @@ select set_relvar_type('action_history_mr', 'data');
 --Turns
 
 create function get_current_wizard_pos() returns pos as $$
-  select x,y from pieces
-    where allegiance=get_current_wizard()
-      and ptype = 'wizard';
+  select x,y from current_wizard_table
+    inner join pieces
+      on ptype = 'wizard' and allegiance = current_wizard
 $$ language sql stable;
 
 create function add_history_new_turn() returns void as $$

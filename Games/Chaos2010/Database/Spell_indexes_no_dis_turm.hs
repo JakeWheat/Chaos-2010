@@ -6,8 +6,8 @@ import Database.HaskellDB.DBLayout
  
 type Spell_indexes_no_dis_turm =
      Record
-       (HCons (LVPair Row_number (Expr Int))
-          (HCons (LVPair Spell_name (Expr String)) HNil))
+       (HCons (LVPair Row_number (Expr (Maybe Int)))
+          (HCons (LVPair Spell_name (Expr (Maybe String))) HNil))
  
 spell_indexes_no_dis_turm :: Table Spell_indexes_no_dis_turm
 spell_indexes_no_dis_turm = baseTable "spell_indexes_no_dis_turm"

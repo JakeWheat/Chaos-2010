@@ -1,5 +1,5 @@
 {-# LANGUAGE EmptyDataDecls, TypeSynonymInstances #-}
-{-# OPTIONS_GHC -fcontext-stack73  #-}
+{-# OPTIONS_GHC -fcontext-stack72  #-}
 module Games.Chaos2010.Database.Cursor_piece_details where
 import Games.Chaos2010.Database.Fields
 import Database.HaskellDB.DBLayout
@@ -79,29 +79,23 @@ type Cursor_piece_details =
                                                                                                        Bool)))
                                                                                               (HCons
                                                                                                  (LVPair
-                                                                                                    Place
+                                                                                                    Sp
                                                                                                     (Expr
                                                                                                        (Maybe
                                                                                                           Int)))
                                                                                                  (HCons
                                                                                                     (LVPair
-                                                                                                       Sp
+                                                                                                       Sprite
                                                                                                        (Expr
                                                                                                           (Maybe
-                                                                                                             Int)))
+                                                                                                             String)))
                                                                                                     (HCons
                                                                                                        (LVPair
-                                                                                                          Sprite
+                                                                                                          Colour
                                                                                                           (Expr
                                                                                                              (Maybe
                                                                                                                 String)))
-                                                                                                       (HCons
-                                                                                                          (LVPair
-                                                                                                             Colour
-                                                                                                             (Expr
-                                                                                                                (Maybe
-                                                                                                                   String)))
-                                                                                                          HNil)))))))))))))))))))))))))))))))))
+                                                                                                       HNil))))))))))))))))))))))))))))))))
  
 cursor_piece_details :: Table Cursor_piece_details
 cursor_piece_details = baseTable "cursor_piece_details"

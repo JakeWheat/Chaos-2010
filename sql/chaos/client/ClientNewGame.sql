@@ -7,7 +7,7 @@
 
 select module('Chaos.Client.ClientNewGame');
 
-create table action_client_new_game_argument (
+/*create table action_client_new_game_argument (
   place int unique,
   wizard_name text unique,
   sprite text unique references sprites,
@@ -19,14 +19,22 @@ select set_relvar_type('action_client_new_game_argument', 'stack');
 select create_assertion('action_client_new_game_place_valid',
 '(select count(*) from action_client_new_game_argument
   where place >=
-  (select count(*) from action_client_new_game_argument)) = 0');
+  (select count(*) from action_client_new_game_argument)) = 0');*/
+
+create table client_new_game_t (
+  place int,
+  wizard_name text,
+  sprite text,
+  colour text,
+  computer_controlled boolean
+);
 
 --this calls server new game
-create function action_client_new_game() returns void as $$
+create function action_client_new_game(a client_new_game_t []) returns void as $$
 begin
   --assert: argument has between 2 and 8 active wizards
-  delete from action_new_game_argument;
-  delete from init_wizard_display_info_argument;
+  --delete from action_new_game_argument;
+  --delete from init_wizard_display_info_argument;
   -- clear data tables
   delete from cursor_position;
   delete from wizard_display_info;
@@ -41,20 +49,29 @@ begin
   -- don't reset windows, see below
   --call server new_game
   --populate argument first
-  delete from action_new_game_argument;
-  insert into action_new_game_argument
+  --delete from action_new_game_argument;
+  /*insert into action_new_game_argument
     (wizard_name, computer_controlled, place)
     select wizard_name, computer_controlled, place
-      from action_client_new_game_argument;
-  perform action_new_game();
+      from unnest(a);*/
+  perform action_new_game(
+          (with
+            s as
+              (select wizard_name, computer_controlled, place
+               from unnest(a))
+           select array_agg((wizard_name,computer_controlled,place)::new_game_t)
+             from s));
 
   --wizard display_info
-  delete from init_wizard_display_info_argument;
+  /*delete from init_wizard_display_info_argument;
   insert into init_wizard_display_info_argument
       (wizard_name, sprite, colour)
     select wizard_name, sprite, colour
-    from action_client_new_game_argument;
-  perform init_wizard_display_info();
+    from unnest(a);*/
+  perform init_wizard_display_info(
+    (with s as (select wizard_name,sprite,colour from unnest(a))
+     select array_agg((wizard_name,sprite,colour)::wizard_display_info)
+     from s));
 
   if not exists(select 1 from spell_book_show_all_table) then
     insert into spell_book_show_all_table values (false);

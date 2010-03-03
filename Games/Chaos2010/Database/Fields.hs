@@ -9,36 +9,6 @@ instance ShowLabel Id where showLabel _ = "id"
 
 xid :: Id
 xid = proxy
-data PlaceTag
-type Place = Proxy PlaceTag
-place :: Place
-place = proxy
-instance ShowLabel Place
-    where showLabel _ = "place"
-data Wizard_nameTag
-type Wizard_name = Proxy Wizard_nameTag
-wizard_name :: Wizard_name
-wizard_name = proxy
-instance ShowLabel Wizard_name
-    where showLabel _ = "wizard_name"
-data SpriteTag
-type Sprite = Proxy SpriteTag
-sprite :: Sprite
-sprite = proxy
-instance ShowLabel Sprite
-    where showLabel _ = "sprite"
-data ColourTag
-type Colour = Proxy ColourTag
-colour :: Colour
-colour = proxy
-instance ShowLabel Colour
-    where showLabel _ = "colour"
-data Computer_controlledTag
-type Computer_controlled = Proxy Computer_controlledTag
-computer_controlled :: Computer_controlled
-computer_controlled = proxy
-instance ShowLabel Computer_controlled
-    where showLabel _ = "computer_controlled"
 data History_nameTag
 type History_name = Proxy History_nameTag
 history_name :: History_name
@@ -111,6 +81,12 @@ turn_phase :: Turn_phase
 turn_phase = proxy
 instance ShowLabel Turn_phase
     where showLabel _ = "turn_phase"
+data ColourTag
+type Colour = Proxy ColourTag
+colour :: Colour
+colour = proxy
+instance ShowLabel Colour
+    where showLabel _ = "colour"
 data ActionTag
 type Action = Proxy ActionTag
 action :: Action
@@ -183,6 +159,12 @@ xtype :: Xtype
 xtype = proxy
 instance ShowLabel Xtype
     where showLabel _ = "xtype"
+data SpriteTag
+type Sprite = Proxy SpriteTag
+sprite :: Sprite
+sprite = proxy
+instance ShowLabel Sprite
+    where showLabel _ = "sprite"
 data RangeTag
 type Range = Proxy RangeTag
 range :: Range
@@ -237,6 +219,24 @@ cast_success_checked :: Cast_success_checked
 cast_success_checked = proxy
 instance ShowLabel Cast_success_checked
     where showLabel _ = "cast_success_checked"
+data PlaceTag
+type Place = Proxy PlaceTag
+place :: Place
+place = proxy
+instance ShowLabel Place
+    where showLabel _ = "place"
+data Wizard_nameTag
+type Wizard_name = Proxy Wizard_nameTag
+wizard_name :: Wizard_name
+wizard_name = proxy
+instance ShowLabel Wizard_name
+    where showLabel _ = "wizard_name"
+data Computer_controlledTag
+type Computer_controlled = Proxy Computer_controlledTag
+computer_controlled :: Computer_controlled
+computer_controlled = proxy
+instance ShowLabel Computer_controlled
+    where showLabel _ = "computer_controlled"
 data NameTag
 type Name = Proxy NameTag
 name :: Name

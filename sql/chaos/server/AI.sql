@@ -195,8 +195,9 @@ create view ai_filtered_target_spells as
   select * from valid_target_actions
   where action='cast_target_spell'
   and (x,y) not in
-    (select x,y from pieces_on_top
-    where allegiance in (get_current_wizard(), 'dead'));
+    (select x,y from current_wizard_table
+     inner join pieces_on_top
+       on allegiance in (current_wizard, 'dead'));
 
 /*
 cast spells in a sensible place:
@@ -265,12 +266,13 @@ $$ language plpgsql volatile;
 
 create view ai_selected_piece_actions as
 select a.x,a.y,action
-  from valid_target_actions a
+  from current_wizard_table
+  cross join valid_target_actions a
   left outer join pieces_on_top p
     using (x,y)
   where action in('walk', 'fly')
   or ((action in('attack', 'ranged_attack')
-     and allegiance not in (get_current_wizard(), 'dead')));
+       and allegiance not in (current_wizard, 'dead')));
 
 
 /*

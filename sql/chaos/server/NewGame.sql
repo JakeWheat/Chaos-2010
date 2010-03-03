@@ -65,18 +65,30 @@ copy wizard_starting_positions (wizard_count, place, x, y) from stdin;
 == new game action
 */
 
-create table action_new_game_argument (
-  place int unique,
-  wizard_name text unique,
+create type new_game_t as (
+  place int,
+  wizard_name text,
   computer_controlled boolean
 );
-select set_relvar_type('action_new_game_argument', 'stack');
+--select set_relvar_type('action_new_game_argument', 'stack');
 
-select create_assertion('action_new_game_argument_place_valid',
+/*select create_assertion('action_new_game_argument_place_valid',
   '(select count(*) from action_new_game_argument
     where place >= (select count(*) from action_new_game_argument)) = 0');
+*/
 
+create view spell_indexes_no_dis_turm as
+  select row_number() over() as row_number,spell_name
+    from spells_mr
+    where spell_name not in ('disbelieve', 'turmoil');
 
+/*insert into spell_indexes_no_dis_turm (spell_name)
+  select spell_name from spells_mr
+    where spell_name not in ('disbelieve', 'turmoil');*/
+/*
+ row_number serial unique,
+  spell_name text
+*/
 /*
 new game action - fill in action_new_game_argument first
 
@@ -91,7 +103,7 @@ time, so we don't just have one set of init functions? Not sure if
 these ideas are going anywhere.
 
 */
-create function action_new_game() returns void as $$
+create function action_new_game(ar new_game_t[]) returns void as $$
 declare
   r record;
   t int;
@@ -145,12 +157,12 @@ begin
   --  wizard table
   insert into wizards (wizard_name, computer_controlled, original_place)
     select wizard_name, computer_controlled, place
-      from action_new_game_argument;
+      from unnest(ar);
   --  pieces
-  t := (select count(*) from action_new_game_argument);
+  t := array_length(ar,1); --(select count(*) from action_new_game_argument);
   insert into pieces (ptype, allegiance, tag, x, y)
     select 'wizard', wizard_name, 0, x,y
-      from action_new_game_argument
+      from unnest(ar)
       natural inner join wizard_starting_positions
        where wizard_count = t;
   --  spell books
@@ -158,11 +170,11 @@ begin
   -- disbelieve plus 19 {random spells not disbelieve or turmoil}
   insert into spell_books (wizard_name, spell_name)
     select wizard_name, 'disbelieve'
-      from action_new_game_argument;
+      from unnest(ar);
 
   insert into spell_books (wizard_name, spell_name)
     select wizard_name,spell_name
-      from action_new_game_argument
+      from unnest(ar)
       inner join (select line, spell_name
                   from spell_indexes_no_dis_turm
                   inner join makeNRandoms(t * 19, 53)

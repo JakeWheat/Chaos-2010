@@ -11,7 +11,9 @@
 > import Games.Chaos2010.Tests.SetupGameState
 > import Games.Chaos2010.Database.Pieces_mr
 > import Games.Chaos2010.DBUpdates
+> import Games.Chaos2010.HaskellDBUtils
 > import Games.Chaos2010.Database.Fields
+> import Games.Chaos2010.Database.Valid_target_actions
 >
 > moveMisc :: IConnection conn => Database -> conn -> Test.Framework.Test
 > moveMisc db conn = testGroup "moveMisc" $
@@ -54,9 +56,9 @@
 >                   (wizardPiecesList ++
 >                   [('G', [makePD "goblin" "Kong Fuzi"]),
 >                    ('H', [makePD "goblin" "Buddha"])]))]
->   goSquare db conn 1 0
+>   selectAt db conn 1 0
 >   rigActionSuccess conn "attack" True
->   goSquare db conn 0 0
+>   attack db conn 0 0
 >   assertPiecesEquals db ("\n\
 >                   \G      2      3\n\
 >                   \               \n\
@@ -88,9 +90,9 @@
 >                   (wizardPiecesList ++
 >                   [('G', [makePD "goblin" "Kong Fuzi"]),
 >                    ('E', [makePD "eagle" "Buddha"])]))]
->   goSquare db conn 2 0
+>   selectAt db conn 2 0
 >   rigActionSuccess conn "attack" True
->   goSquare db conn 3 3
+>   attack db conn 3 3
 >   assertPiecesEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -110,8 +112,8 @@
 > testMountThenMoveMount db = tctor "testMountThenMoveMount" $
 >                              \conn -> do
 >   let pl = wizardPiecesList ++ [('P', [makePD "pegasus" "Buddha"]),
->             ('M', [makePD "wizard" "Buddha",
->                    makePD "pegasus" "Buddha"])]
+>                                 ('M', [makePD "wizard" "Buddha",
+>                                        makePD "pegasus" "Buddha"])]
 >   setupGame db conn [setPhase "move"
 >                     ,useBoard ("\n\
 >                   \1P     2      3\n\
@@ -124,12 +126,12 @@
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)]
->   goSquare db conn 0 0
+>   selectAt db conn 0 0
 >   assertSelectedPiece db "wizard" "Buddha"
->   goSquare db conn 1 0
->   actionGo db conn
+>   walk db conn 1 0
+>   selectAt db conn 1 0
 >   assertSelectedPiece db "pegasus" "Buddha"
->   goSquare db conn 2 2
+>   fly db conn 2 2
 >   assertPiecesEquals db ("\n\
 >                   \       2      3\n\
 >                   \               \n\
@@ -168,13 +170,13 @@ is mounted here.
 >                   [('P', [makePD "wizard" "Buddha",
 >                           makePD "pegasus" "Buddha"])])]
 >   --select then cancel the wizard
->   goSquare db conn 1 0
+>   selectAt db conn 1 0
 >   assertSelectedPiece db "wizard" "Buddha"
 >   cancel db conn
 >   --now we can select the monster
->   actionGo db conn
+>   selectAt db conn 1 0
 >   assertSelectedPiece db "pegasus" "Buddha"
->   goSquare db conn 2 2
+>   fly db conn 2 2
 >   assertPiecesEquals db ("\n\
 >                   \       2      3\n\
 >                   \               \n\
@@ -209,10 +211,10 @@ dismount then move
 >                    wizardPiecesList ++
 >                   [('P', [makePD "wizard" "Buddha",
 >                           makePD "pegasus" "Buddha"])])]
->   goSquare db conn 1 0
->   goSquare db conn 1 1
->   goSquare db conn 1 0
->   goSquare db conn 3 0
+>   selectAt db conn 1 0
+>   walk db conn 1 1
+>   selectAt db conn 1 0
+>   fly db conn 3 0
 >   assertPiecesEquals db ("\n\
 >                   \   P   2      3\n\
 >                   \ 1             \n\
@@ -247,10 +249,10 @@ move when already mounted
 >                    wizardPiecesList ++
 >                   [('P', [makePD "wizard" "Buddha",
 >                           makePD "pegasus" "Buddha"])])]
->   goSquare db conn 1 0
+>   selectAt db conn 1 0
 >   cancel db conn
->   actionGo db conn
->   goSquare db conn 3 0
+>   selectAt db conn 1 0
+>   fly db conn 3 0
 >   assertPiecesEquals db ("\n\
 >                   \   P   2      3\n\
 >                   \               \n\
@@ -285,9 +287,9 @@ todo: attack when dismounting, dismounting when flying
 >                    wizardPiecesList ++
 >                   [('P', [makePD "wizard" "Buddha",
 >                           makePD "dark_citadel" "Buddha"])])]
->   goSquare db conn 1 0
+>   selectAt db conn 1 0
 >   assertSelectedPiece db "wizard" "Buddha"
->   goSquare db conn 1 1
+>   walk db conn 1 1
 >   assertPiecesEquals db ("\n\
 >                   \ P     2      3\n\
 >                   \ 1             \n\
@@ -318,8 +320,8 @@ todo: attack when dismounting, dismounting when flying
 >                   \6      7      8",
 >                   (wizardPiecesList ++
 >                   [('P', [makePD "dark_citadel" "Buddha"])]))]
->   goSquare db conn 0 0
->   goSquare db conn 1 0
+>   selectAt db conn 0 0
+>   walk db conn 1 0
 >   assertPiecesEquals db ("\n\
 >                   \ P     2      3\n\
 >                   \               \n\
@@ -352,11 +354,11 @@ todo: attack when dismounting, dismounting when flying
 >                   (wizardPiecesList ++
 >                   [('G', [makePD "goblin" "Kong Fuzi"])]))]
 >   oldStats <- getStats
->   actionGo db conn
+>   --actionGo db conn
 >   skipToPhase db conn "move"
->   goSquare db conn 0 0
+>   selectAt db conn 0 0
 >   rigActionSuccess conn "attack" False
->   goSquare db conn 1 0
+>   attack db conn 1 0
 >   newStats <- getStats
 >   assertEqual "attacking loses shadow form" oldStats newStats
 >   where
@@ -386,9 +388,9 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8", pl)]
->   goSquare db conn 1 0
+>   selectAt db conn 1 0
 >   rigActionSuccess conn "attack" True
->   goSquare db conn 1 1
+>   attack db conn 1 1
 >   assertPiecesEquals db ("\n\
 >                   \1      2      3\n\
 >                   \ S             \n\
@@ -418,20 +420,13 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8", pl)]
->   goSquare db conn 1 0
->   rigActionSuccess conn "attack" True
->   goSquare db conn 1 1
->   assertPiecesEquals db ("\n\
->                   \1S     2      3\n\
->                   \ G             \n\
->                   \               \n\
->                   \               \n\
->                   \4             5\n\
->                   \               \n\
->                   \               \n\
->                   \               \n\
->                   \               \n\
->                   \6      7      8", pl)
+>   selectAt db conn 1 0
+>   assertRelvarValue db (do
+>                         t1 <- table valid_target_actions
+>                         restrict $ t1 # x .==. constJust 1
+>                         restrict $ t1 # y .==. constJust 1
+>                         project $ copyAll t1
+>                        ) []
 
 > testMagicWeaponOnUndead :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testMagicWeaponOnUndead db = tctor "testMagicWeaponOnUndead" $ \conn -> do
@@ -453,10 +448,10 @@ todo: attack when dismounting, dismounting when flying
 >   addMagicSword db conn "Buddha"
 >   --printWiz
 >   --querySelectedPiece db >>= print
->   goSquare db conn 0 0
+>   selectAt db conn 0 0
 >   --querySelectedPiece db >>= print
 >   rigActionSuccess conn "attack" True
->   goSquare db conn 1 1
+>   attack db conn 1 1
 >   --querySelectedPiece db >>= print
 >   assertPiecesEquals db ("\n\
 >                   \ S     2      3\n\
@@ -489,19 +484,13 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \6      7      8", pl)]
 >   rigActionSuccess conn "break_engaged" False
->   goSquare db conn 0 0
->   goSquare db conn 0 1
->   assertPiecesEquals db ("\n\
->                   \1      2      3\n\
->                   \ G             \n\
->                   \               \n\
->                   \               \n\
->                   \4             5\n\
->                   \               \n\
->                   \               \n\
->                   \               \n\
->                   \               \n\
->                   \6      7      8", pl)
+>   selectAt db conn 0 0
+>   assertRelvarValue db (do
+>                         t1 <- table valid_target_actions
+>                         restrict $ t1 # x .==. constJust 0
+>                         restrict $ t1 # y .==. constJust 1
+>                         project $ copyAll t1
+>                        ) []
 
 > testBreakEngaged :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testBreakEngaged db = tctor "testBreakEngaged" $ \conn -> do
@@ -520,8 +509,8 @@ todo: attack when dismounting, dismounting when flying
 >                   \               \n\
 >                   \6      7      8", pl)]
 >   rigActionSuccess conn "break_engaged" True
->   goSquare db conn 0 0
->   goSquare db conn 0 1
+>   selectAt db conn 0 0
+>   walk db conn 0 1
 >   assertPiecesEquals db ("\n\
 >                   \       2      3\n\
 >                   \1G             \n\
@@ -577,11 +566,17 @@ moved if free'd that turn
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8", pl)]
->   goSquare db conn 1 0
->   assertNoSelectedPiece db
->   goSquare db conn 0 0
+>   --selectAt db conn 1 0
+>   assertRelvarValue db (do
+>                         t1 <- table valid_target_actions
+>                         restrict $ t1 # x .==. constJust 1
+>                         restrict $ t1 # y .==. constJust 0
+>                         project $ copyAll t1
+>                        ) []
+>   --assertNoSelectedPiece db
+>   selectAt db conn 0 0
 >   rigActionSuccess conn "attack" True
->   goSquare db conn 1 0
+>   attack db conn 1 0
 >   assertNoSelectedPiece db
 >   assertPiecesEquals db ("\n\
 >                   \1g     2      3\n\
@@ -594,7 +589,7 @@ moved if free'd that turn
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",pl)
->   goSquare db conn 1 0
+>   selectAt db conn 1 0
 >   assertSelectedPiece db "goblin" "Buddha"
 
 

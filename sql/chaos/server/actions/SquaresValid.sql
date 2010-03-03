@@ -184,23 +184,20 @@ create or replace function one_square_away(pos) returns setof pos as $$
 $$ language sql immutable;
 */
 create function one_square_away(p pos) returns setof pos as $$
-declare
-  i pos;
 begin
-     for i in select p.x-1 as x,p.y-1 as y
-     union all select p.x-1,p.y
-     union all select p.x-1,p.y+1
-     union all select p.x,p.y-1
-     union all select p.x,p.y+1
-     union all select p.x+1,p.y-1
-     union all select p.x+1,p.y
-     union all select p.x+1,p.y+1 loop
-       return next i;
-     end loop;
+     return query
+       select p.x-1 as x,p.y-1 as y
+       union all select p.x-1,p.y
+       union all select p.x-1,p.y+1
+       union all select p.x,p.y-1
+       union all select p.x,p.y+1
+       union all select p.x+1,p.y-1
+       union all select p.x+1,p.y
+       union all select p.x+1,p.y+1;
 end;
 $$ language plpgsql immutable;
 
-create view squares_valid_categories as
+create or replace view squares_valid_categories as
   with
     squares as (select x,y from generate_series(0, 14) as x
                       cross join generate_series(0, 9) as y)
@@ -227,15 +224,8 @@ create view squares_valid_categories as
       natural left outer join pieces_on_top_view v)
    ,tree_pos as (select x,y from sq1
                  where category='tree')
-   ,tree_adj as (select x,y from tree_pos
-                 union all select x-1,y-1 from tree_pos
-                 union all select x-1,y from tree_pos
-                 union all select x-1,y+1 from tree_pos
-                 union all select x,y-1 from tree_pos
-                 union all select x,y+1 from tree_pos
-                 union all select x+1,y-1 from tree_pos
-                 union all select x+1,y from tree_pos
-                 union all select x+1,y+1 from tree_pos)
+   ,tree_adj as (select (p).x,(p).y from
+                    (select one_square_away((x,y)) as p from tree_pos) as a)
    ,wz as (select x,y,ptype,allegiance,tag from pieces where ptype = 'wizard')
   select * from sq1 where category not in('tree')
   union all select 'empty_and_not_adjacent_to_tree' as category
@@ -255,13 +245,13 @@ with
    -- and the range for his currently chosen spell
    -- so we only get a row iff the current wizard has a target spell
    -- chosen and it's the cast phase
-   cwsr as
+  cwsr as
        (select x, y, range, valid_square_category
-          from pieces
-          inner join current_wizard_table
-            on (get_turn_phase() = 'cast' and ptype='wizard' and allegiance = current_wizard)
+          from current_wizard_table
           inner join wizard_spell_choices
-            on (wizard_name = current_wizard)
+            on current_wizard=wizard_name
+          inner join pieces
+            on ptype='wizard' and allegiance=current_wizard
           natural inner join target_spells)
   select distinct svs.x,svs.y
     from (select valid_square_category from cwsr) as b
@@ -296,8 +286,8 @@ create view selected_piece_attackable_squares as
               speed,move_phase,
               range,
               coalesce(undead,false) as undead
-         from pieces_mr
-         natural inner join selected_piece)
+         from selected_piece
+         natural inner join pieces_mr)
    ,walk_range as
       (select * from one_square_away((select (x,y)::pos from spp)))
    ,attack_ranges as
@@ -365,21 +355,20 @@ with
       where turn_phase='move'
             and not exists(select 1 from selected_piece))
   ,potnm as
-     (select ptype,allegiance,tag,x,y,1 as rn from pieces_on_top
-      cross join good_to_go
-        where allegiance = get_current_wizard()
-              and (ptype,allegiance,tag)
-                   not in (select * from pieces_moved))
+     (select ptype,allegiance,tag,x,y,1 as rn from good_to_go
+      cross join current_wizard_table
+      inner join pieces_on_top
+        on allegiance = current_wizard)
   ,wnm as
-     (select ptype,allegiance,tag,x,y,0 as rn from pieces
-      cross join good_to_go
-        where ptype = 'wizard'
-              and allegiance = get_current_wizard()
-              and (ptype,allegiance,tag)
-                   not in (select * from pieces_moved))
+     (select ptype,allegiance,tag,x,y,0 as rn from good_to_go
+      cross join current_wizard_table
+      inner join pieces
+        on ptype = 'wizard' and allegiance = current_wizard)
   ,allnm as
-     (select * from potnm
-      union all select * from wnm)
+      (select * from (select * from potnm
+                     union all select * from wnm) as a
+       where (ptype,allegiance,tag)
+             not in (select ptype,allegiance,tag from pieces_moved))
 select ptype,allegiance,tag,x,y from
 (select row_number() over (partition by (x,y) order by rn) as rn,ptype,allegiance,tag,x,y
        from allnm) as s where rn = 1;
@@ -455,26 +444,18 @@ union all
 select 'cancel'::text as action
   from selected_piece
 union all
--- generate a separate choose action wrapper for each spell
---
--- without this, we can add a general choose spell action but then we
--- first check if the current player can choose a spell at this time,
--- and then check if they have the particular spell they are trying to
--- choose.
---
--- By creating these simple wrappers, we can check both at once, and
--- also the ui has one simple test to see if a spell choice action is
--- valid instead of two stages.
 select 'choose_' || spell_name || '_spell'::text as action
   from choose_phase
-  cross join spell_books where wizard_name = get_current_wizard()
+  cross join current_wizard_table
+  inner join spell_books
+    on wizard_name = current_wizard
 union all
 select 'choose_no_spell'::text as action
   from choose_phase
 union all
 select 'ai_continue'
-  from wizards
-  inner join current_wizard_table
+  from current_wizard_table
+  inner join wizards
     on wizard_name = current_wizard
     where computer_controlled
 ) as a

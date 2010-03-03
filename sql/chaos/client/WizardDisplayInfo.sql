@@ -47,18 +47,18 @@ create table wizard_display_info (
 );
 select set_relvar_type('wizard_display_info','data');
 
-create table init_wizard_display_info_argument (
+/*create table init_wizard_display_info_argument (
   wizard_name text unique references wizards,
   sprite text unique references sprites, -- starts with wizard
   colour text unique --todo: make list of colours
 );
-select set_relvar_type('init_wizard_display_info_argument', 'stack');
+select set_relvar_type('init_wizard_display_info_argument', 'stack');*/
 
-create function init_wizard_display_info() returns void as $$
+create function init_wizard_display_info(a wizard_display_info[]) returns void as $$
 begin
     insert into wizard_display_info (wizard_name, default_sprite,  colour)
        select wizard_name,sprite,colour
-       from init_wizard_display_info_argument;
+       from unnest(a);
 end;
 $$ language plpgsql volatile;
 

@@ -38,11 +38,11 @@ in_next_phase_hack_table in the relvar list for the constraint.
 */
 select create_var('in_next_phase_hack', 'boolean');
 insert into in_next_phase_hack_table values (false);
-select set_relvar_type('in_next_phase_hack_table', 'stack');
+select set_relvar_type('in_next_phase_hack_table', 'hack');
 
 select create_var('creating_new_game', 'boolean');
 insert into creating_new_game_table values (true);
-select set_relvar_type('creating_new_game_table', 'stack');
+select set_relvar_type('creating_new_game_table', 'hack');
 
 --Turn number, starts at 0 goes up 1 each full turn, just used to provide
 --info on how long the game has been going.
@@ -74,7 +74,7 @@ squares left to walk
 
 -- todo: use lag or lead window fn or something - make it a lot
 -- clearer?
-create view next_wizard as
+/*create view next_wizard as
 select wizard_name, new_wizard_name from
   (select wizard_name as new_wizard_name, place
      from live_wizards) as a inner join
@@ -83,11 +83,19 @@ select wizard_name, new_wizard_name from
        (select max(place) + 1 from live_wizards)
       as old_place from live_wizards) as b
   on (place = old_place);
-
+*/
 
 create function next_wizard(text) returns text as $$
-  select new_wizard_name from next_wizard
-    where wizard_name = $1;
+  with
+    doubled as
+      (select wizard_name,original_place from wizards where not expired
+       union select wizard_name,original_place + 10 from wizards where not expired)
+   ,nexts as
+       (select wizard_name, lead(wizard_name)
+                            over(order by original_place) as n
+          from doubled)
+  select n from nexts where wizard_name = $1 limit 1;
+
 $$ language sql stable;
 
 /*select next_wizard('Buddha');
@@ -241,15 +249,16 @@ We could do it properly with multiple updates, so simulate this by
 writing out the fk by hand and adding the in next phase hack.
 
 */
-select create_var('spell_choice_hack', 'boolean');
-insert into spell_choice_hack_table values (false);
-select set_relvar_type('spell_choice_hack_table', 'stack');
+--select create_var('spell_choice_hack', 'boolean');
+--insert into spell_choice_hack_table values (false);
+--select set_relvar_type('spell_choice_hack_table', 'hack');
 
-select create_assertion('wizard_spell_choices_wizard_name_spell_name_fkey',
+/*select create_assertion('wizard_spell_choices_wizard_name_spell_name_fkey',
 $$((select spell_choice_hack from spell_choice_hack_table) or
 not exists(select wizard_name, spell_name from wizard_spell_choices
   except
 select wizard_name, spell_name from spell_books))$$);
+*/
 
 /*
 if choose phase: only current and previous wizards may have a row
@@ -257,7 +266,7 @@ if cast phase: only current and subsequent wizards may have a row
 this constraint really needs multiple updates.
 maybe using ctes or window fns would make this clearer?
 */
-
+/*
 select create_assertion('chosen_spell_phase_valid',
 $$
 ((select in_next_phase_hack from in_next_phase_hack_table) or
@@ -276,7 +285,7 @@ or
       on wizard_name = current_wizard))
 or not exists(select 1 from wizard_spell_choices)
 ))$$);
-
+*/
 /*select create_update_transition_tuple_constraint(
   'wizard_spell_choices_mr',
   'update_spell_choice_restricted',
@@ -365,7 +374,7 @@ quickly will change the balance of things totally.
 
 */
 select create_var('cast_alignment', 'integer');
-select set_relvar_type('cast_alignment_table', 'stack');
+select set_relvar_type('cast_alignment_table', 'data');
 
 select create_assertion('cast_alignment_empty',
   $$((get_turn_phase() = 'cast') or
@@ -442,21 +451,19 @@ diagonal moves.
 select create_var('remaining_walk', 'int');
 select set_relvar_type('remaining_walk_table', 'data');
 select create_var('remaining_walk_hack', 'boolean');
-select set_relvar_type('remaining_walk_hack_table', 'stack');
+select set_relvar_type('remaining_walk_hack_table', 'hack');
 insert into remaining_walk_hack_table values (false);
 
-select create_assertion('remaining_walk_only_motion',
+/*select create_assertion('remaining_walk_only_motion',
 $$ ((not exists(select 1 from remaining_walk_table)) or
-   exists(select 1 from creating_new_game_table
-      where creating_new_game = true) or
-   (select remaining_walk_hack
-     from remaining_walk_hack_table) or
-   (exists(select 1 from selected_piece)
-      and (select move_phase = 'motion' from selected_piece)
-      and exists (select 1 from creature_pieces
-                  natural inner join selected_piece)
-      and (select not flying from creature_pieces
-           natural inner join selected_piece))) $$);
+   ((select creating_new_game from creating_new_game_table)
+    or (select remaining_walk_hack from remaining_walk_hack_table)
+    or (exists(select 1 from selected_piece)
+        and (select move_phase = 'motion' from selected_piece)
+        and exists (select 1 from creature_pieces
+                    natural inner join selected_piece)
+        and (select not flying from creature_pieces
+             natural inner join selected_piece))) $$);*/
 
 --this function is used to initialise the turn phase data.
 create function init_turn_stuff() returns void as $$
@@ -470,8 +477,8 @@ begin
   insert into turn_phase_table
     values ('choose');
   insert into current_wizard_table
-    select wizard_name from live_wizards
-    order by place limit 1;
+    select wizard_name from wizards where not expired -- not sure why this is needed
+    order by original_place limit 1;
 end;
 $$ language plpgsql volatile;
 
@@ -485,9 +492,9 @@ remaining.)
 
 select create_var('game_completed', 'boolean');
 select set_relvar_type('game_completed_table', 'data');
-select create_assertion('game_completed_wizards',
+/*select create_assertion('game_completed_wizards',
        $$(not exists(select 1 from game_completed_table)
-           or (select count(1) <= 1 from live_wizards))$$);
+           or (select count(1) <= 1 from live_wizards))$$);*/
 
 create function game_completed() returns void as $$
 begin

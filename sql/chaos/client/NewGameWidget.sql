@@ -79,15 +79,19 @@ $$ language plpgsql volatile;
 create function action_client_new_game_using_new_game_widget_state()
   returns void as $$
 begin
-  delete from action_client_new_game_argument;
+  /*delete from action_client_new_game_argument;
   insert into action_client_new_game_argument
     (place, wizard_name, sprite, colour, computer_controlled)
     select line, wizard_name, sprite, colour,
       case when state = 'computer' then true
            else false end
       from new_game_widget_state
-      where state != 'none';
-  perform action_client_new_game();
+      where state != 'none';*/
+
+  perform action_client_new_game(
+    (select array_agg((line,wizard_name,sprite,colour,
+                      case when state = 'computer' then true
+                        else false end)::client_new_game_t)));
 end
 $$ language plpgsql volatile;
 

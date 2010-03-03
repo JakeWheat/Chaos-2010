@@ -17,7 +17,7 @@ create language plpgsql;
 
 create table base_relvar_metadata (
   relvar_name text unique, -- references base_relvars, fk to view
-  type text check (type in('readonly', 'data', 'stack'))
+  type text check (type in('readonly', 'data','hack'))
 );
 
 create function set_relvar_type(vname text, vtype text) returns void as $$
@@ -64,7 +64,7 @@ begin
     except select relvar_name from base_relvar_metadata loop
     success := false;
       raise notice
-        'table % is not tagged with one of readonly, data, stack',
+        'table % is not tagged with one of readonly, data, hack',
         r.object_name;
   end loop;
   return success;
@@ -103,12 +103,6 @@ begin
   end loop;
 end;
 $$ language plpgsql volatile;
-*/
-/*
-
-todo: find way to enforce stack tables empty outside transaction, or
-some sort of partial tests on this
-
 */
 
 /*

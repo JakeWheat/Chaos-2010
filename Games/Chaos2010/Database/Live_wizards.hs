@@ -1,6 +1,7 @@
 {-# LANGUAGE EmptyDataDecls, TypeSynonymInstances #-}
-{-# OPTIONS_GHC -fcontext-stack52  #-}
+{-# OPTIONS_GHC -fcontext-stack52   #-}
 module Games.Chaos2010.Database.Live_wizards where
+import Games.Chaos2010.Database.Fields
 import Games.Chaos2010.Database.Fields
 import Database.HaskellDB.DBLayout
  

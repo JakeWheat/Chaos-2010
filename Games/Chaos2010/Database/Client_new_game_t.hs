@@ -1,12 +1,10 @@
 {-# LANGUAGE EmptyDataDecls, TypeSynonymInstances #-}
-{-# OPTIONS_GHC -fcontext-stack45   #-}
-module Games.Chaos2010.Database.Action_client_new_game_argument
-       where
-import Games.Chaos2010.Database.Fields
+{-# OPTIONS_GHC -fcontext-stack45  #-}
+module Games.Chaos2010.Database.Client_new_game_t where
 import Games.Chaos2010.Database.Fields
 import Database.HaskellDB.DBLayout
  
-type Action_client_new_game_argument =
+type Client_new_game_t =
      Record
        (HCons (LVPair Place (Expr Int))
           (HCons (LVPair Wizard_name (Expr String))
@@ -14,7 +12,5 @@ type Action_client_new_game_argument =
                 (HCons (LVPair Colour (Expr String))
                    (HCons (LVPair Computer_controlled (Expr Bool)) HNil)))))
  
-action_client_new_game_argument ::
-                                Table Action_client_new_game_argument
-action_client_new_game_argument
-  = baseTable "action_client_new_game_argument"
+client_new_game_t :: Table Client_new_game_t
+client_new_game_t = baseTable "client_new_game_t"

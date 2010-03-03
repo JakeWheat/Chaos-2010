@@ -1,5 +1,5 @@
 {-# LANGUAGE EmptyDataDecls, TypeSynonymInstances #-}
-{-# OPTIONS_GHC -fcontext-stack76  #-}
+{-# OPTIONS_GHC -fcontext-stack75  #-}
 module Games.Chaos2010.Database.Selected_piece_details where
 import Games.Chaos2010.Database.Fields
 import Database.HaskellDB.DBLayout
@@ -79,47 +79,41 @@ type Selected_piece_details =
                                                                                                        Bool)))
                                                                                               (HCons
                                                                                                  (LVPair
-                                                                                                    Place
+                                                                                                    Sp
                                                                                                     (Expr
                                                                                                        (Maybe
                                                                                                           Int)))
                                                                                                  (HCons
                                                                                                     (LVPair
-                                                                                                       Sp
+                                                                                                       Sprite
                                                                                                        (Expr
                                                                                                           (Maybe
-                                                                                                             Int)))
+                                                                                                             String)))
                                                                                                     (HCons
                                                                                                        (LVPair
-                                                                                                          Sprite
+                                                                                                          Colour
                                                                                                           (Expr
                                                                                                              (Maybe
                                                                                                                 String)))
                                                                                                        (HCons
                                                                                                           (LVPair
-                                                                                                             Colour
+                                                                                                             Move_phase
                                                                                                              (Expr
                                                                                                                 (Maybe
                                                                                                                    String)))
                                                                                                           (HCons
                                                                                                              (LVPair
-                                                                                                                Move_phase
+                                                                                                                Engaged
                                                                                                                 (Expr
                                                                                                                    (Maybe
-                                                                                                                      String)))
+                                                                                                                      Bool)))
                                                                                                              (HCons
                                                                                                                 (LVPair
-                                                                                                                   Engaged
+                                                                                                                   Remaining_walk
                                                                                                                    (Expr
                                                                                                                       (Maybe
-                                                                                                                         Bool)))
-                                                                                                                (HCons
-                                                                                                                   (LVPair
-                                                                                                                      Remaining_walk
-                                                                                                                      (Expr
-                                                                                                                         (Maybe
-                                                                                                                            Int)))
-                                                                                                                   HNil))))))))))))))))))))))))))))))))))))
+                                                                                                                         Int)))
+                                                                                                                HNil)))))))))))))))))))))))))))))))))))
  
 selected_piece_details :: Table Selected_piece_details
 selected_piece_details = baseTable "selected_piece_details"

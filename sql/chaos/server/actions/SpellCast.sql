@@ -97,28 +97,33 @@ $$ language plpgsql volatile;
 
 */
 create function spend_current_wizard_spell() returns void as $$
+declare
+  cw text;
 begin
   --remove current wizard's spell from spell book
   --make sure we only remove one shot of the spell
   --don't remove disbelieve
-  update spell_choice_hack_table
-    set spell_choice_hack = true;
+  --update spell_choice_hack_table
+  --  set spell_choice_hack = true;
 
   delete from spell_parts_to_cast_table;
   delete from cast_success_checked_table;
-
+  select into cw current_wizard
+    from current_wizard_table;
   delete from spell_books where id =
-    (select id from spell_books
-       natural inner join wizard_spell_choices
-       where wizard_name = get_current_wizard()
-         and spell_name != 'disbelieve'
-         limit 1);
+    (with
+      w as
+        (select * from wizard_spell_choices
+         where wizard_name = cw and spell_name != 'disbelieve')
+      select id from w
+       natural inner join spell_books
+       limit 1);
   -- and wipe it from the wizard_spell_choices_table
   delete from wizard_spell_choices_mr
-    where wizard_name = get_current_wizard();
+    where wizard_name = cw;
 
-  update spell_choice_hack_table
-    set spell_choice_hack = false;
+  --update spell_choice_hack_table
+  --  set spell_choice_hack = false;
 
   --auto move to next wizard
   perform action_next_phase();
@@ -308,18 +313,20 @@ $$ language plpgsql volatile;
 create function cast_raise_dead(px int, py int) returns void as $$
 declare
   r piece_key;
+  cw text;
 begin
+  select into cw current_wizard from current_wizard_table;
   --turn dead creature on square to live undead
   select into r ptype,allegiance,tag
     from pieces_on_top
     where (x,y) = (px,py);
   update pieces
     set allegiance = get_current_wizard(),
-        tag = get_next_tag(r.ptype,get_current_wizard())
+        tag = get_next_tag(r.ptype,cw)
     where (ptype,allegiance,tag)::piece_key = r
     returning tag into r.tag;
   insert into crimes_against_nature (ptype,allegiance,tag)
-    values (r.ptype,get_current_wizard(),r.tag);
+    values (r.ptype,cw,r.tag);
   perform add_history_spell_succeeded();
 end;
 $$ language plpgsql volatile;
@@ -338,9 +345,10 @@ begin
   end if;
   select into r ptype,allegiance,tag from pieces_on_top
     where (x,y) = (px, py);
-  update pieces
-    set allegiance = get_current_wizard(),
-        tag = get_next_tag(r.ptype,get_current_wizard())
+ update pieces
+    set allegiance = current_wizard
+       ,tag = get_next_tag(r.ptype,current_wizard)
+    from current_wizard_table
     where (ptype,allegiance,tag)::piece_key = r;
   perform add_chinned_history(px, py);
   perform add_history_spell_succeeded();
@@ -379,14 +387,18 @@ $$ language plpgsql volatile;
 
 
 create function cast_monster_spell(x int, y int) returns void as $$
+declare
+  cw text;
 begin
+  select into cw current_wizard
+    from current_wizard_table;
   perform create_monster(
     (select ptype from current_wizard_spell
       natural inner join summon_spells),
-    get_current_wizard(), x, y, coalesce((
+    cw, x, y, coalesce((
       select imaginary
       from wizard_spell_choices_imaginary
-      where wizard_name = get_current_wizard()),false), false);
+      where wizard_name = cw),false), false);
   perform add_history_spell_succeeded();
 end;
 $$ language plpgsql volatile;
@@ -437,69 +449,6 @@ begin
 end;
 $$ language plpgsql volatile;
 
-
-create table cast_magic_wood_squares (
-  x int,
-  y int,
-  unique (x,y)
-);
-select set_relvar_type('cast_magic_wood_squares', 'stack');
-
---take into account range, line of sight,
---atm only takes into account empty squares
---and trees cannot be next to each other
-create view cast_magic_wood_available_squares as
-with adjacent_to_new_tree_squares as
-  (select tx as x, ty as y from
-    board_ranges natural inner join
-    cast_magic_wood_squares
-    where range = 1)
-select x,y from spell_valid_squares
-         where valid_square_category = 'empty_and_not_adjacent_to_tree'
-except select * from adjacent_to_new_tree_squares;
-
-create type ipos as (
-  index int,
-  x int,
-  y int
-);
-create function get_square_range(x int, y int, range int)
-  returns setof ipos as $$
-declare
-  p ipos;
-begin
-  p.index := 0;
-  if range < 1 then
-    return;
-  end if;
-  --top row
-  p.y = y - range;
-  for i in 0 .. (range * 2) loop
-    p.x = x - range + i;
-    return next p;
-    p.index := p.index + 1;
-  end loop;
-  --sides
-  for i in 1 .. (range * 2 + 1) - 2 loop
-    p.x = x - range;
-    p.y = y - range + i;
-    return next p;
-    p.index := p.index + 1;
-    p.x = x + range;
-    return next p;
-    p.index := p.index + 1;
-  end loop;
-  --bottom row
-    p.y = y + range;
-  for i in 0 .. (range * 2) loop
-    p.x = x - range + i;
-    return next p;
-    p.index := p.index + 1;
-  end loop;
-end;
-$$ language plpgsql immutable;
-
-
   /*
   idea is to create a view with all the valid squares in it
   and to start with a square series of squares 1 square away from
@@ -532,52 +481,101 @@ $$ language plpgsql immutable;
      represent 10,11,12,13,14,15,16
   */
 
-create function cast_magic_wood() returns void as $$
-declare
-  casted int;
-  range int;
-  pos_in_square int;
-  max_pos_in_square int;
-  wx int;
-  wy int;
-  r record;
-  s text;
-begin
-  casted := 0;
-  range := 1;
-  pos_in_square := 0;
-  max_pos_in_square := 7;
-  wx := (select x from pieces
-     where ptype = 'wizard'
-     and allegiance = get_current_wizard());
-  wy := (select y from pieces
-     where ptype = 'wizard'
-     and allegiance = get_current_wizard());
+create or replace function get_square_range(x int, y int, range int)
+  returns setof pos as $$
+    select x, y from
+    (select generate_series($1 - $3, $1 + $3) as x,$2 - $3 as y
+     union select $1 - $3,generate_series($2 - $3 + 1, $2 + $3 - 1)
+     union select $1 + $3,generate_series($2 - $3 + 1, $2 + $3 - 1)
+     union select  generate_series($1 - $3, $1 + $3),$2 + $3) as a
+$$ language sql immutable;
 
-  while (casted < 8 and range <= 15) loop
-    select into r * from get_square_range(wx, wy, range)
-      where index = pos_in_square;
---    s := 'checking ' || ip.x || ',' || ip.y;
-    if exists(select 1 from cast_magic_wood_available_squares
-       where (x,y) = (r.x, r.y)) then
-       insert into cast_magic_wood_squares(x,y) values (r.x, r.y);
-       casted := casted + 1;
-    else
-      null;
-    end if;
-    if pos_in_square = max_pos_in_square then
-      range := range + 1;
-      pos_in_square = 0;
-      max_pos_in_square = (select max(index) from get_square_range(0,0,range));
-    else
-      pos_in_square := pos_in_square + 1;
-    end if;
+--take into account range, line of sight,
+--atm only takes into account empty squares
+--and trees cannot be next to each other
+
+/*
+for some reason when this is set to return pos and not an array,
+when there are no results in the final
+  select (x,y)::pos from sqs order by y,x limit 1;
+the return pos return some weird '(,)' which I don't know how to
+test for instead of returning null?
+it isn't null, and you can't do r.x on it if you assign it to a record
+  since it doesn't have a field called x, and it won't assign to a var
+  of type pos
+
+*/
+create or replace function next_tree_square(available pos[], added pos[]) returns pos[] as $$
+  with
+           av as
+             (select (p1).x,(p1).y from unnest($1) as p1)
+          ,ad as
+             (select (p2).x,(p2).y from unnest($2) as p2)
+          ,adj_ad as
+             (select (p3).x,(p3).y
+                from (select one_square_away((x,y)) as p3 from ad) as p4)
+          ,sqs as
+            (select x,y from av
+             except (select x,y from adj_ad
+                     union select x,y from ad))
+  select array_agg((x,y)::pos) from sqs group by y,x order by y,x limit 1;
+$$ language sql immutable;
+
+create or replace function cast_magic_wood() returns void as $$
+declare
+  range int;
+  wpos pos;
+  cw text;
+  added pos[];
+  bavail pos[] := (select array_agg((x,y)::pos)
+                    from squares_valid_categories
+                    where category = 'empty_and_not_adjacent_to_tree');
+  avail pos[];
+  npos pos;
+  npos1 pos[];
+begin
+  select into cw current_wizard
+    from current_wizard_table;
+   wpos := (select (x,y)::pos from pieces
+            where ptype='wizard' and allegiance=cw);
+  range := 1;
+  --raise notice 'here % % %', range, array_length(added,1), bavail;
+  -- get the list of squares to cast on
+  -- basically, we find the closest next available square
+  -- then loop until we have got 8 or run out of range
+  -- i'm sure this can be done with one 'with recursive' query.
+  <<next_range>>
+  while range <= 15 and coalesce(array_length(added,1),0) < 8 loop
+    --raise notice 'do range %', range;
+    -- fix the range, get the set of available squares at that range
+    avail := (select array_agg(((a).x,(a).y)::pos)
+              from (select * from unnest(bavail)
+                    intersect
+                    select *
+                    from get_square_range(wpos.x, wpos.y, range)) as a);
+    --raise notice 'avail: %', avail;
+    <<this_range>>
+    loop
+      --raise notice 'do another sq %', array_length(added,1);
+      -- loop adding one square at a time until there are no available suares at this range
+      npos1 := (select * from (select * from next_tree_square(avail, added)) a);
+      --raise notice 'next square %', npos1;
+      if coalesce(array_length(npos1,1),0) = 0 then
+        range := range + 1;
+        continue next_range;
+      end if;
+      --raise notice 'addinf %', npos1[1];
+      added := added || (npos1[1].x,npos1[1].y)::pos;
+      if coalesce(array_length(added,1),0) >= 8 then
+        exit next_range;
+      end if;
+    end loop;
   end loop;
-  for r in select * from cast_magic_wood_squares loop
-    perform create_object(
-      'magic_tree', get_current_wizard(), r.x, r.y);
+  -- got the cast positions, create the trees
+  for npos in select (p).x,(p).y from unnest(added) as p loop
+    perform create_object('magic_tree', cw, npos.x, npos.y);
   end loop;
-  delete from cast_magic_wood_squares;
+
   perform add_history_spell_succeeded();
 end;
 $$ language plpgsql volatile;

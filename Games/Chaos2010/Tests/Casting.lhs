@@ -70,7 +70,7 @@ check the squares we can cast goblin onto
 cast it and check the resulting board
 
 >   rigActionSuccess conn "cast" True
->   goSquare db conn 1 0
+>   castTargetSpell db conn 1 0
 >   assertPiecesEquals db ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -93,7 +93,7 @@ cast it and check the resulting board
 
 >   --newGameReadyToCast db conn "goblin" (Just False) defaultGameState
 >   rigActionSuccess conn "cast" False
->   goSquare db conn 1 0
+>   castTargetSpell db conn 1 0
 >   assertPiecesEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -109,22 +109,36 @@ cast it and check the resulting board
 
 > testCastMagicWood :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastMagicWood db = tctor "testCastMagicWood" $ \conn -> do
->   setupGame db conn $ readyToCast "magic_wood"
->   rigActionSuccess conn "cast" True
->   castActivateSpell db conn -- sendKeyPress conn "Return"
->   assertPiecesEquals db ("\n\
->                   \1W W W 2      3\n\
+>   setupGame db conn $ readyToCast "magic_wood" ++
+>                     [useBoard ("\n\
+>                   \1      2      3\n\
+>                   \ S             \n\
 >                   \               \n\
->                   \W W W          \n\
 >                   \               \n\
->                   \4W W          5\n\
+>                   \4             5\n\
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
 >                   \               \n\
 >                   \6      7      8",
 >                   (wizardPiecesList ++
->                   [('W', [makePD "magic_tree" "Buddha"])]))
+>                   [('S', [makePD "shadow_tree" "Buddha"])]))]
+>   rigActionSuccess conn "cast" True
+>   castActivateSpell db conn -- sendKeyPress conn "Return"
+>   assertPiecesEquals db ("\n\
+>                   \1  W W 2      3\n\
+>                   \ S             \n\
+>                   \   W W         \n\
+>                   \W              \n\
+>                   \4 W W         5\n\
+>                   \W              \n\
+>                   \               \n\
+>                   \               \n\
+>                   \               \n\
+>                   \6      7      8",
+>                   (wizardPiecesList ++
+>                   [('W', [makePD "magic_tree" "Buddha"])
+>                   ,('S', [makePD "shadow_tree" "Buddha"])]))
 
 > testCastShadowWood :: IConnection conn => Database -> conn -> Test.Framework.Test
 > testCastShadowWood db = tctor "testCastShadowWood" $ \conn -> do
@@ -141,7 +155,7 @@ cast it and check the resulting board
 >                          \XXX            \n\
 >                          \6      7      8"
 >   rigActionSuccess conn "cast" True
->   mapM_ (uncurry $ goSquare db conn)
+>   mapM_ (uncurry $ castTargetSpell db conn)
 >         [(1,0),(3,0),(5,0),(0,2),(2,2),(4,2),(1,4),(3,4)]
 >   assertPiecesEquals db ("\n\
 >                   \1W W W 2      3\n\
@@ -173,7 +187,7 @@ cast it and check the resulting board
 >                          \6      7      8"
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" False
->   goSquare db conn 0 4
+>   castTargetSpell db conn 0 4
 >   assertPiecesEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -203,7 +217,7 @@ cast it and check the resulting board
 >                          \6      7      8"
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" True
->   goSquare db conn 0 4
+>   castTargetSpell db conn 0 4
 >   assertPiecesEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -246,7 +260,7 @@ cast it and check the resulting board
 >                          \X      X      X"
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" False
->   goSquare db conn 7 0
+>   castTargetSpell db conn 7 0
 >   assertPiecesEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -289,7 +303,7 @@ cast it and check the resulting board
 >                          \X      X      X"
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" False
->   goSquare db conn 1 0
+>   castTargetSpell db conn 1 0
 >   assertPiecesEquals db ("\n\
 >                   \1      2      3\n\
 >                   \G              \n\
@@ -334,7 +348,7 @@ cast it and check the resulting board
 >                          \X      X      X"
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" True
->   goSquare db conn 1 0
+>   castTargetSpell db conn 1 0
 >   assertPiecesEquals db ("\n\
 >                   \1G     2      3\n\
 >                   \G              \n\
@@ -378,7 +392,7 @@ cast it and check the resulting board
 >                          \6      7      8"
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" False
->   goSquare db conn 1 0
+>   castTargetSpell db conn 1 0
 >   assertPiecesEquals db ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -422,7 +436,7 @@ cast it and check the resulting board
 >                          \6      7      8"
 >   rigActionSuccess conn "cast" True
 >   rigActionSuccess conn "resist" True
->   goSquare db conn 1 0
+>   castTargetSpell db conn 1 0
 >   assertPiecesEquals db ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -464,7 +478,7 @@ cast it and check the resulting board
 >                          \               \n\
 >                          \               \n\
 >                          \6      7      8"
->   goSquare db conn 1 0
+>   castTargetSpell db conn 1 0
 >   assertPiecesEquals db ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -506,7 +520,7 @@ cast it and check the resulting board
 >                          \               \n\
 >                          \               \n\
 >                          \6      7      8"
->   goSquare db conn 1 0
+>   castTargetSpell db conn 1 0
 >   assertPiecesEquals db ("\n\
 >                   \1      2      3\n\
 >                   \               \n\
@@ -549,7 +563,7 @@ cast it and check the resulting board
 >                          \               \n\
 >                          \6      7      8"
 >   rigActionSuccess conn "cast" True
->   goSquare db conn 1 0
+>   castTargetSpell db conn 1 0
 >   assertPiecesEquals db ("\n\
 >                   \1G     2      3\n\
 >                   \               \n\
@@ -569,7 +583,7 @@ cast it and check the resulting board
 > testCastLaw db = tctor "testCastLaw" $ \conn -> do
 >   setupGame db conn $ readyToCast "law"
 >   rigActionSuccess conn "cast" True
->   actionGo db conn --sendKeyPress conn "Return"
+>   castActivateSpell db conn --sendKeyPress conn "Return"
 >   align <- getWorldAlignment db
 >   assertEqual "world alignment not law after casting law" 1 align
 
@@ -584,7 +598,7 @@ cast it and check the resulting board
 >   let setStuffUp2 = do
 >                     skipToPhase db conn "cast"
 >                     rigActionSuccess conn "cast" True
->                     goSquare db conn 1 0
+>                     castTargetSpell db conn 1 0
 >   let sv c = let t = do
 >                       t1 <- table monster_pieces
 >                       restrict ((t1 .!. x) .==. constJust 1)

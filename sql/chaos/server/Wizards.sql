@@ -33,10 +33,11 @@ with temporal database support.
 
 */
 
-create view live_wizards as
+/*create view live_wizards as
   select *,
          row_number() over(order by original_place) - 1 as place
   from wizards where not expired;
+*/
 
 /*
 == spell books

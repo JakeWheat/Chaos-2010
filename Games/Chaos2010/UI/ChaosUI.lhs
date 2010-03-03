@@ -74,5 +74,5 @@ list of windows.
 >   case e of
 >     Key k -> do
 >              putStrLn $ "key press: " ++ k
->              --sendKeyPress conn k
+>              sendKeyPress conn k
 >     Callback c -> c
