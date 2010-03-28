@@ -6,8 +6,8 @@ import Database.HaskellDB.DBLayout
  
 type Views =
      Record
-       (HCons (LVPair View_name (Expr (Maybe String)))
-          (HCons (LVPair Table_catalog (Expr (Maybe String)))
+       (HCons (LVPair Table_catalog (Expr (Maybe String)))
+          (HCons (LVPair View_name (Expr (Maybe String)))
              (HCons (LVPair Definition (Expr (Maybe String)))
                 (HCons (LVPair Table_schema (Expr (Maybe String)))
                    (HCons (LVPair Table_name (Expr (Maybe String)))

@@ -57,7 +57,7 @@ select set_relvar_type('init_wizard_display_info_argument', 'stack');*/
 create function init_wizard_display_info(a wizard_display_info[]) returns void as $$
 begin
     insert into wizard_display_info (wizard_name, default_sprite,  colour)
-       select wizard_name,sprite,colour
+       select wizard_name,default_sprite,colour
        from unnest(a);
 end;
 $$ language plpgsql volatile;

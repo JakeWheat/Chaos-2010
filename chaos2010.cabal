@@ -8,250 +8,6 @@ Maintainer:          jakewheatblog@gmail.com
 Build-Type:          Simple
 Cabal-Version:       >=1.2
 
-data-files:          data/sprites/objects/magic_fire.3.png,
-                     data/sprites/objects/shadow_tree.4.png,
-                     data/sprites/objects/gooey_blob.2.png,
-                     data/sprites/objects/magic_fire.0.png,
-                     data/sprites/objects/magic_tree.2.png,
-                     data/sprites/objects/gooey_blob.0.png,
-                     data/sprites/objects/dark_citadel.0.png,
-                     data/sprites/objects/magic_tree.0.png,
-                     data/sprites/objects/magic_tree.3.png,
-                     data/sprites/objects/magic_castle.1.png,
-                     data/sprites/objects/magic_tree.4.png,
-                     data/sprites/objects/magic_tree.1.png,
-                     data/sprites/objects/shadow_tree.1.png,
-                     data/sprites/objects/dark_citadel.1.png,
-                     data/sprites/objects/shadow_tree.3.png,
-                     data/sprites/objects/gooey_blob.1.png,
-                     data/sprites/objects/shadow_tree.2.png,
-                     data/sprites/objects/magic_fire.1.png,
-                     data/sprites/objects/magic_castle.0.png,
-                     data/sprites/objects/magic_fire.2.png,
-                     data/sprites/objects/shadow_tree.0.png,
-                     data/sprites/objects/wall.0.png,
-                     data/sprites/spells/chaos.0.png,
-                     data/sprites/spells/law.0.png,
-                     data/sprites/spells/vengeance.0.png,
-                     data/sprites/spells/justice.0.png,
-                     data/sprites/spells/turmoil.0.png,
-                     data/sprites/spells/disbelieve.0.png,
-                     data/sprites/spells/large_chaos.0.png,
-                     data/sprites/spells/large_law.0.png,
-                     data/sprites/spells/raise_dead.0.png,
-                     data/sprites/spells/subversion.0.png,
-                     data/sprites/spells/dark_power.0.png,
-                     data/sprites/spells/lightning.0.png,
-                     data/sprites/spells/magic_bolt.0.png,
-                     data/sprites/spells/decree.0.png,
-                     data/sprites/cursors/select_cursor.0.png,
-                     data/sprites/cursors/cursor.0.png,
-                     data/sprites/cursors/fly_cursor.0.png,
-                     data/sprites/creatures/goblin.2.png,
-                     data/sprites/creatures/hydra.0.png,
-                     data/sprites/creatures/hydra.1.png,
-                     data/sprites/creatures/dead_gryphon.0.png,
-                     data/sprites/creatures/giant_rat.1.png,
-                     data/sprites/creatures/harpy.2.png,
-                     data/sprites/creatures/dead_lion.0.png,
-                     data/sprites/creatures/faun.1.png,
-                     data/sprites/creatures/king_cobra.2.png,
-                     data/sprites/creatures/dire_wolf.1.png,
-                     data/sprites/creatures/wraith.0.png,
-                     data/sprites/creatures/ghost.1.png,
-                     data/sprites/creatures/elf.2.png,
-                     data/sprites/creatures/ogre.1.png,
-                     data/sprites/creatures/dead_giant.0.png,
-                     data/sprites/creatures/giant_rat.0.png,
-                     data/sprites/creatures/dead_harpy.0.png,
-                     data/sprites/creatures/bear.1.png,
-                     data/sprites/creatures/dead_crocodile.0.png,
-                     data/sprites/creatures/dead_horse.0.png,
-                     data/sprites/creatures/gryphon.2.png,
-                     data/sprites/creatures/dead_manticore.0.png,
-                     data/sprites/creatures/goblin.1.png,
-                     data/sprites/creatures/dead_faun.0.png,
-                     data/sprites/creatures/horse.0.png,
-                     data/sprites/creatures/pegasus.0.png,
-                     data/sprites/creatures/dead_hydra.0.png,
-                     data/sprites/creatures/dead_pegasus.0.png,
-                     data/sprites/creatures/spectre.0.png,
-                     data/sprites/creatures/king_cobra.0.png,
-                     data/sprites/creatures/skeleton.1.png,
-                     data/sprites/creatures/golden_dragon.2.png,
-                     data/sprites/creatures/dead_orc.0.png,
-                     data/sprites/creatures/red_dragon.0.png,
-                     data/sprites/creatures/ghost.0.png,
-                     data/sprites/creatures/crocodile.0.png,
-                     data/sprites/creatures/pegasus.1.png,
-                     data/sprites/creatures/ghost.2.png,
-                     data/sprites/creatures/orc.1.png,
-                     data/sprites/creatures/gorilla.0.png,
-                     data/sprites/creatures/zombie.1.png,
-                     data/sprites/creatures/giant.0.png,
-                     data/sprites/creatures/centaur.1.png,
-                     data/sprites/creatures/centaur.2.png,
-                     data/sprites/creatures/centaur.0.png,
-                     data/sprites/creatures/dead_ogre.0.png,
-                     data/sprites/creatures/crocodile.2.png,
-                     data/sprites/creatures/dead_bat.0.png,
-                     data/sprites/creatures/zombie.0.png,
-                     data/sprites/creatures/green_dragon.1.png,
-                     data/sprites/creatures/dead_king_cobra.0.png,
-                     data/sprites/creatures/dead_golden_dragon.0.png,
-                     data/sprites/creatures/gryphon.1.png,
-                     data/sprites/creatures/eagle.2.png,
-                     data/sprites/creatures/dire_wolf.0.png,
-                     data/sprites/creatures/spectre.2.png,
-                     data/sprites/creatures/wraith.1.png,
-                     data/sprites/creatures/gryphon.0.png,
-                     data/sprites/creatures/golden_dragon.0.png,
-                     data/sprites/creatures/red_dragon.2.png,
-                     data/sprites/creatures/bat.2.png,
-                     data/sprites/creatures/ogre.0.png,
-                     data/sprites/creatures/hydra.2.png,
-                     data/sprites/creatures/vampire.1.png,
-                     data/sprites/creatures/horse.1.png,
-                     data/sprites/creatures/bear.0.png,
-                     data/sprites/creatures/bear.2.png,
-                     data/sprites/creatures/dead_centaur.0.png,
-                     data/sprites/creatures/harpy.1.png,
-                     data/sprites/creatures/zombie.3.png,
-                     data/sprites/creatures/unicorn.2.png,
-                     data/sprites/creatures/elf.3.png,
-                     data/sprites/creatures/manticore.1.png,
-                     data/sprites/creatures/wraith.3.png,
-                     data/sprites/creatures/eagle.1.png,
-                     data/sprites/creatures/manticore.0.png,
-                     data/sprites/creatures/goblin.0.png,
-                     data/sprites/creatures/giant.1.png,
-                     data/sprites/creatures/dead_unicorn.0.png,
-                     data/sprites/creatures/skeleton.0.png,
-                     data/sprites/creatures/faun.0.png,
-                     data/sprites/creatures/dead_elf.0.png,
-                     data/sprites/creatures/bat.1.png,
-                     data/sprites/creatures/spectre.1.png,
-                     data/sprites/creatures/vampire.0.png,
-                     data/sprites/creatures/wraith.2.png,
-                     data/sprites/creatures/crocodile.1.png,
-                     data/sprites/creatures/faun.2.png,
-                     data/sprites/creatures/eagle.0.png,
-                     data/sprites/creatures/lion.0.png,
-                     data/sprites/creatures/unicorn.0.png,
-                     data/sprites/creatures/elf.0.png,
-                     data/sprites/creatures/bat.0.png,
-                     data/sprites/creatures/ogre.2.png,
-                     data/sprites/creatures/orc.0.png,
-                     data/sprites/creatures/golden_dragon.1.png,
-                     data/sprites/creatures/elf.1.png,
-                     data/sprites/creatures/dead_dire_wolf.0.png,
-                     data/sprites/creatures/pegasus.2.png,
-                     data/sprites/creatures/dead_gorilla.0.png,
-                     data/sprites/creatures/orc.2.png,
-                     data/sprites/creatures/lion.2.png,
-                     data/sprites/creatures/red_dragon.1.png,
-                     data/sprites/creatures/gorilla.2.png,
-                     data/sprites/creatures/vampire.2.png,
-                     data/sprites/creatures/giant_rat.2.png,
-                     data/sprites/creatures/spectre.3.png,
-                     data/sprites/creatures/green_dragon.0.png,
-                     data/sprites/creatures/ghost.3.png,
-                     data/sprites/creatures/king_cobra.1.png,
-                     data/sprites/creatures/dead_bear.0.png,
-                     data/sprites/creatures/skeleton.2.png,
-                     data/sprites/creatures/manticore.2.png,
-                     data/sprites/creatures/harpy.0.png,
-                     data/sprites/creatures/zombie.2.png,
-                     data/sprites/creatures/green_dragon.2.png,
-                     data/sprites/creatures/dead_green_dragon.0.png,
-                     data/sprites/creatures/horse.2.png,
-                     data/sprites/creatures/giant.2.png,
-                     data/sprites/creatures/dead_goblin.0.png,
-                     data/sprites/creatures/dead_eagle.0.png,
-                     data/sprites/creatures/unicorn.1.png,
-                     data/sprites/creatures/lion.1.png,
-                     data/sprites/creatures/dead_red_dragon.0.png,
-                     data/sprites/creatures/gorilla.1.png,
-                     data/sprites/creatures/dire_wolf.2.png,
-                     data/sprites/creatures/dead_giant_rat.0.png,
-                     data/sprites/effects/effect_attack.0.png,
-                     data/sprites/highlights/highlight_attack.0.png,
-                     data/sprites/highlights/highlight_select_piece_at_position.0.png,
-                     data/sprites/highlights/highlight_walk.0.png,
-                     data/sprites/highlights/highlight_fly.0.png,
-                     data/sprites/highlights/highlight_ranged_attack.0.png,
-                     data/sprites/highlights/highlight_cast_target_spell.0.png,
-                     data/sprites/wizards/wizard_magic_wings_shadow.1.png,
-                     data/sprites/wizards/wizard_magic_wings_shadow.3.png,
-                     data/sprites/wizards/wizard_magic_shield_shadow.1.png,
-                     data/sprites/wizards/wizard_magic_bow_shadow.2.png,
-                     data/sprites/wizards/wizard_magic_shield.0.png,
-                     data/sprites/wizards/wizard_magic_sword.0.png,
-                     data/sprites/wizards/wizard_magic_bow.0.png,
-                     data/sprites/wizards/wizard_magic_sword_shadow.3.png,
-                     data/sprites/wizards/wizard_magic_sword.2.png,
-                     data/sprites/wizards/wizard_magic_bow_shadow.7.png,
-                     data/sprites/wizards/wizard_magic_wings.0.png,
-                     data/sprites/wizards/wizard_magic_bow.2.png,
-                     data/sprites/wizards/wizard_magic_knife.0.png,
-                     data/sprites/wizards/wizard_magic_bow_shadow.0.png,
-                     data/sprites/wizards/wizard_magic_sword.1.png,
-                     data/sprites/wizards/wizard_magic_knife_shadow.0.png,
-                     data/sprites/wizards/wizard5_shadow.1.png,
-                     data/sprites/wizards/wizard3_shadow.0.png,
-                     data/sprites/wizards/wizard3.0.png,
-                     data/sprites/wizards/wizard4_shadow.1.png,
-                     data/sprites/wizards/wizard_magic_sword_shadow.1.png,
-                     data/sprites/wizards/wizard_magic_sword_shadow.5.png,
-                     data/sprites/wizards/wizard_magic_wings.2.png,
-                     data/sprites/wizards/wizard_magic_bow_shadow.5.png,
-                     data/sprites/wizards/wizard_magic_bow_shadow.3.png,
-                     data/sprites/wizards/wizard0_shadow.1.png,
-                     data/sprites/wizards/wizard1_shadow.1.png,
-                     data/sprites/wizards/wizard_magic_armour_shadow.0.png,
-                     data/sprites/wizards/wizard_magic_sword_shadow.0.png,
-                     data/sprites/wizards/wizard_magic_wings_shadow.5.png,
-                     data/sprites/wizards/wizard_magic_knife.2.png,
-                     data/sprites/wizards/wizard_magic_knife_shadow.5.png,
-                     data/sprites/wizards/wizard1.0.png,
-                     data/sprites/wizards/wizard4.0.png,
-                     data/sprites/wizards/wizard7.0.png,
-                     data/sprites/wizards/wizard_magic_sword_shadow.2.png,
-                     data/sprites/wizards/wizard_magic_shield_shadow.0.png,
-                     data/sprites/wizards/wizard7_shadow.0.png,
-                     data/sprites/wizards/wizard_magic_bow_shadow.1.png,
-                     data/sprites/wizards/wizard5_shadow.0.png,
-                     data/sprites/wizards/wizard_magic_bow.3.png,
-                     data/sprites/wizards/wizard1_shadow.0.png,
-                     data/sprites/wizards/wizard5.0.png,
-                     data/sprites/wizards/wizard_magic_knife.1.png,
-                     data/sprites/wizards/wizard0.0.png,
-                     data/sprites/wizards/wizard6_shadow.0.png,
-                     data/sprites/wizards/wizard_magic_knife_shadow.4.png,
-                     data/sprites/wizards/wizard0_shadow.0.png,
-                     data/sprites/wizards/wizard_magic_bow_shadow.4.png,
-                     data/sprites/wizards/wizard2.0.png,
-                     data/sprites/wizards/wizard_magic_armour.0.png,
-                     data/sprites/wizards/wizard_magic_wings.1.png,
-                     data/sprites/wizards/wizard6.0.png,
-                     data/sprites/wizards/wizard7_shadow.1.png,
-                     data/sprites/wizards/wizard4_shadow.0.png,
-                     data/sprites/wizards/wizard_magic_wings_shadow.0.png,
-                     data/sprites/wizards/wizard_magic_knife_shadow.1.png,
-                     data/sprites/wizards/wizard_magic_knife_shadow.2.png,
-                     data/sprites/wizards/wizard_magic_bow.1.png,
-                     data/sprites/wizards/wizard_magic_knife_shadow.3.png,
-                     data/sprites/wizards/wizard_magic_wings_shadow.2.png,
-                     data/sprites/wizards/wizard_magic_bow_shadow.6.png,
-                     data/sprites/wizards/wizard2_shadow.0.png,
-                     data/sprites/wizards/wizard_magic_wings_shadow.4.png,
-                     data/sprites/wizards/wizard_magic_armour_shadow.1.png,
-                     data/sprites/wizards/wizard6_shadow.1.png,
-                     data/sprites/wizards/wizard2_shadow.1.png,
-                     data/sprites/wizards/wizard_magic_sword_shadow.4.png,
-                     data/sprites/wizards/wizard3_shadow.1.png,
-                     data/sounds/*.ogg
-
 extra-source-files:  README,
                      LICENSE,
                      docs/playing_guide
@@ -270,23 +26,37 @@ Executable chaos2010
                      haskelldb >= 1.0 && <= 1.1,
                      HDBC,
                      HDBC-postgresql,
-                     haskelldb-hdbc-postgresql
-  Buildable:         False
+                     haskelldb-hdbc-postgresql,
+                     uniplate,
+                     template-haskell,
+                     HUnit,
+                     old-time,
+                     FileManip,
+                     filepath,
+                     SDL-image,
+                     SDL-gfx,
+                     SDL
 
-  Other-Modules:     Games.Chaos2010.UI.NewGameWidget
+  Buildable:         True
+
+  Other-Modules:     Games.Chaos2010.Utils
+                     Games.Chaos2010.UI.NewGameWidget
                      Games.Chaos2010.UI.ActionHistoryWidget
                      Games.Chaos2010.UI.BoardWidget
                      Games.Chaos2010.UI.SpellBookWidget
-                     Games.Chaos2010.UI.HdbUtils
                      Games.Chaos2010.UI.InfoWidget
                      Games.Chaos2010.UI.ChaosUI
                      Games.Chaos2010.UI.UITypes
-                     Games.Chaos2010.GtkUI.GtkUtils
-                     Games.Chaos2010.GtkUI.GtkGUI
-                     Games.Chaos2010.GtkUI.TextWidget
+                     Games.Chaos2010.HaskellDBUtils
+                     Games.Chaos2010.ConcreteUI.CUI
+                     Games.Chaos2010.ConcreteUI.SDL.BoardWindow
+                     Games.Chaos2010.ConcreteUI.SDL.SDLGui
+                     Games.Chaos2010.ConcreteUI.Gtk.GtkUtils
+                     Games.Chaos2010.ConcreteUI.Gtk.GtkGUI
+                     Games.Chaos2010.ConcreteUI.Gtk.Types
+                     Games.Chaos2010.ConcreteUI.Gtk.TextWidget
                      Games.Chaos2010.Database.Attacking_prototypes
                      Games.Chaos2010.Database.Pieces
-                     Games.Chaos2010.Database.Monster_on_top_squares
                      Games.Chaos2010.Database.Cast_alignment_table
                      Games.Chaos2010.Database.Next_wizard
                      Games.Chaos2010.Database.Pieces_on_top
@@ -294,32 +64,25 @@ Executable chaos2010
                      Games.Chaos2010.Database.Crimes_against_nature
                      Games.Chaos2010.Database.Turn_number_table
                      Games.Chaos2010.Database.Spell_cast_chance
-                     Games.Chaos2010.Database.Current_board_beam_effects
                      Games.Chaos2010.Database.Attacking_pieces
-                     Games.Chaos2010.Database.Current_board_sound_effects
                      Games.Chaos2010.Database.Ai_useful_spells
                      Games.Chaos2010.Database.Base_relvar_keys
                      Games.Chaos2010.Database.Game_completed_table
                      Games.Chaos2010.Database.Cursor_piece_details
                      Games.Chaos2010.Database.Creature_pieces
                      Games.Chaos2010.Database.Closest_enemy_to_selected_piece
-                     Games.Chaos2010.Database.Empty_and_not_adjacent_to_tree_squares
                      Games.Chaos2010.Database.Action_history_num_wiz
-                     Games.Chaos2010.Database.Selected_piece_fly_squares
                      Games.Chaos2010.Database.All_module_objects
                      Games.Chaos2010.Database.Selected_piece_adjacent_attacking_squares
                      Games.Chaos2010.Database.Colours
                      Games.Chaos2010.Database.Magic_attackable_pieces
                      Games.Chaos2010.Database.Prefered_targets
                      Games.Chaos2010.Database.Ranged_weapon_pieces
-                     Games.Chaos2010.Database.Current_wizard_spell_type_squares
                      Games.Chaos2010.Database.Selected_piece_move_squares
                      Games.Chaos2010.Database.Init_wizard_display_info_argument
-                     Games.Chaos2010.Database.Selected_piece_walk_squares
                      Games.Chaos2010.Database.Public_database_objects
                      Games.Chaos2010.Database.Current_wizard
                      Games.Chaos2010.Database.Action_new_game_argument
-                     Games.Chaos2010.Database.Selectable_pieces_with_priorities
                      Games.Chaos2010.Database.Spells_mr
                      Games.Chaos2010.Database.Section_orderv
                      Games.Chaos2010.Database.Action_client_new_game_argument
@@ -331,46 +94,40 @@ Executable chaos2010
                      Games.Chaos2010.Database.Wizard_spell_choices_mr
                      Games.Chaos2010.Database.Selected_piece
                      Games.Chaos2010.Database.Database_constraints
-                     Games.Chaos2010.Database.Selected_piece_in_range_squares
                      Games.Chaos2010.Database.Wizard_display_info
-                     Games.Chaos2010.Database.Adjacent_to_tree_squares
                      Games.Chaos2010.Database.System_implementation_objects
                      Games.Chaos2010.Database.All_database_objects
                      Games.Chaos2010.Database.Magic_attackable_prototypes
                      Games.Chaos2010.Database.Piece_sprite
                      Games.Chaos2010.Database.Spell_colours
                      Games.Chaos2010.Database.Spell_book_show_all_table
-                     Games.Chaos2010.Database.Board_square_effects
                      Games.Chaos2010.Database.Ai_filtered_target_spells
                      Games.Chaos2010.Database.Spell_sprites
                      Games.Chaos2010.Database.Current_wizard_table
+                     Games.Chaos2010.Database.Client_new_game_t
                      Games.Chaos2010.Database.Selected_piece_attackable_squares
                      Games.Chaos2010.Database.Live_wizards
                      Games.Chaos2010.Database.Spells_mr_base
                      Games.Chaos2010.Database.Target_spells
                      Games.Chaos2010.Database.Action_history_source
-                     Games.Chaos2010.Database.Attackable_squares
                      Games.Chaos2010.Database.In_next_phase_hack_table
                      Games.Chaos2010.Database.Action_history_piece
                      Games.Chaos2010.Database.Action_history_mr_base
                      Games.Chaos2010.Database.Base_relvar_metadata
                      Games.Chaos2010.Database.Turn_phase_table
                      Games.Chaos2010.Database.Key_control_settings
-                     Games.Chaos2010.Database.Board_sound_effects
                      Games.Chaos2010.Database.Spells_with_order
-                     Games.Chaos2010.Database.Selected_piece_fly_attack_squares
                      Games.Chaos2010.Database.Disable_spreading_table
                      Games.Chaos2010.Database.Spell_choice_hack_table
                      Games.Chaos2010.Database.Spell_details
-                     Games.Chaos2010.Database.Last_history_effect_id_table
                      Games.Chaos2010.Database.Scalars
                      Games.Chaos2010.Database.Action_history_colour_mr
                      Games.Chaos2010.Database.Pieces_on_top_view
                      Games.Chaos2010.Database.Piece_starting_ticks
                      Games.Chaos2010.Database.Imaginary_pieces
+                     Games.Chaos2010.Database.Fields
                      Games.Chaos2010.Database.Operator_source
                      Games.Chaos2010.Database.Creature_prototypes
-                     Games.Chaos2010.Database.Board_sprites1_cache
                      Games.Chaos2010.Database.Piece_prototypes_mr
                      Games.Chaos2010.Database.Wizard_sprites
                      Games.Chaos2010.Database.Cast_magic_wood_available_squares
@@ -383,38 +140,30 @@ Executable chaos2010
                      Games.Chaos2010.Database.Action_history_piece_source
                      Games.Chaos2010.Database.Spell_indexes_no_dis_turm
                      Games.Chaos2010.Database.Pieces_with_priorities
-                     Games.Chaos2010.Database.Board_sprites
                      Games.Chaos2010.Database.Current_wizard_spell
-                     Games.Chaos2010.Database.Current_board_square_effects
                      Games.Chaos2010.Database.Enterable_piece_types
                      Games.Chaos2010.Database.Dont_nest_ai_next_phase_table
                      Games.Chaos2010.Database.Current_wizard_square
                      Games.Chaos2010.Database.Creating_new_game_table
-                     Games.Chaos2010.Database.Squares_within_selected_piece_flight_range
-                     Games.Chaos2010.Database.Empty_or_corpse_only_squares
                      Games.Chaos2010.Database.Valid_target_actions
                      Games.Chaos2010.Database.Prompt
                      Games.Chaos2010.Database.Operators
                      Games.Chaos2010.Database.Spell_book_table
                      Games.Chaos2010.Database.Action_instructions
-                     Games.Chaos2010.Database.Creature_on_top_squares
                      Games.Chaos2010.Database.Modules
-                     Games.Chaos2010.Database.Moving_pieces
                      Games.Chaos2010.Database.Client_valid_target_actions
                      Games.Chaos2010.Database.Activate_spells
                      Games.Chaos2010.Database.Ai_selected_piece_actions
-                     Games.Chaos2010.Database.Current_effects
                      Games.Chaos2010.Database.Views
                      Games.Chaos2010.Database.Allegiances
                      Games.Chaos2010.Database.Sprites
-                     Games.Chaos2010.Database.History_no_visuals
-                     Games.Chaos2010.Database.History_sounds
                      Games.Chaos2010.Database.Adjacent_to_new_tree_squares
                      Games.Chaos2010.Database.Cast_magic_wood_squares
                      Games.Chaos2010.Database.Dead_monster_pieces
                      Games.Chaos2010.Database.Action_history_turn_num
                      Games.Chaos2010.Database.Object_orders
                      Games.Chaos2010.Database.Action_history_target
+                     Games.Chaos2010.Database.Squares_valid_categories
                      Games.Chaos2010.Database.Base_relvar_attributes
                      Games.Chaos2010.Database.Board_size
                      Games.Chaos2010.Database.Board_highlights
@@ -423,22 +172,17 @@ Executable chaos2010
                      Games.Chaos2010.Database.Select_best_move
                      Games.Chaos2010.Database.Spell_books
                      Games.Chaos2010.Database.Monster_prototypes
+                     Games.Chaos2010.Database.Pieces_moved
                      Games.Chaos2010.Database.Monster_pieces
                      Games.Chaos2010.Database.Action_history_spell_source
-                     Games.Chaos2010.Database.Selected_piecexy
-                     Games.Chaos2010.Database.Pieces_to_move
                      Games.Chaos2010.Database.Spreadable_squares
                      Games.Chaos2010.Database.Action_history_turn_phase
                      Games.Chaos2010.Database.Piece_prototypes_mr_base
                      Games.Chaos2010.Database.Attackable_prototypes
-                     Games.Chaos2010.Database.Selected_piece_walk_attack_squares
-                     Games.Chaos2010.Database.Windows
                      Games.Chaos2010.Database.Triggers
                      Games.Chaos2010.Database.Current_wizard_spell_counts
-                     Games.Chaos2010.Database.Selected_piece_ranged_attackable_squares
                      Games.Chaos2010.Database.Board_sprites1_view
                      Games.Chaos2010.Database.Action_history_mr
-                     Games.Chaos2010.Database.Board_beam_effects
                      Games.Chaos2010.Database.Spell_parts_to_cast_table
                      Games.Chaos2010.Database.Base_relvars
                      Games.Chaos2010.Database.Spell_keys
@@ -461,16 +205,31 @@ Executable chaos2010
                      Games.Chaos2010.Database.Current_wizard_selected_spell_details
                      Games.Chaos2010.Database.Remaining_walk_hack_table
                      Games.Chaos2010.Database.Test_action_overrides
-                     Games.Chaos2010.Database.Current_wizard_spell_range_squares
-                     Games.Chaos2010.Database.Corpse_only_squares
                      Games.Chaos2010.Database.Wizards_in_trees
                      Games.Chaos2010.Database.Castable_target_spells
                      Games.Chaos2010.Database.Wizard_upgrade_stats
                      Games.Chaos2010.Database.Board_ranges
-                     Games.Chaos2010.Database.Empty_squares
+                     Games.Chaos2010.Database.Selected_piece_move_squares_2
                      Games.Chaos2010.Database.Piece_details
                      Games.Chaos2010.Database.Cursor_position
+                     Games.Chaos2010.Tests.BoardUtils
+                     Games.Chaos2010.Tests.Casting
+                     Games.Chaos2010.Tests.SetupGameState
+                     Games.Chaos2010.Tests.AllTests
+                     Games.Chaos2010.Tests.Upgrades
+                     Games.Chaos2010.Tests.Basics
+                     Games.Chaos2010.Tests.MoveMisc
+                     Games.Chaos2010.Tests.Complete
+                     Games.Chaos2010.Tests.Autonomous
+                     Games.Chaos2010.Tests.TestUtils
+                     Games.Chaos2010.Tests.TableValueTypes
+                     Games.Chaos2010.Tests.RelationalAlgebra
+                     Games.Chaos2010.Tests.Subphases
+                     Games.Chaos2010.Tests.Phases
+                     Games.Chaos2010.Tests.SquaresValid
                      Games.Chaos2010.Database
+                     Games.Chaos2010.ThHdb
+                     Games.Chaos2010.DBUpdates
 
 Executable tests
    Main-is:          Tests.lhs
@@ -484,20 +243,24 @@ Executable tests
      Buildable:      True
    else
      Buildable:      False
-   Other-Modules:    Games.Chaos2010.UI.NewGameWidget
+  Other-Modules:     Games.Chaos2010.Utils
+                     Games.Chaos2010.UI.NewGameWidget
                      Games.Chaos2010.UI.ActionHistoryWidget
                      Games.Chaos2010.UI.BoardWidget
                      Games.Chaos2010.UI.SpellBookWidget
-                     Games.Chaos2010.UI.HdbUtils
                      Games.Chaos2010.UI.InfoWidget
                      Games.Chaos2010.UI.ChaosUI
                      Games.Chaos2010.UI.UITypes
-                     Games.Chaos2010.GtkUI.GtkUtils
-                     Games.Chaos2010.GtkUI.GtkGUI
-                     Games.Chaos2010.GtkUI.TextWidget
+                     Games.Chaos2010.HaskellDBUtils
+                     Games.Chaos2010.ConcreteUI.CUI
+                     Games.Chaos2010.ConcreteUI.SDL.BoardWindow
+                     Games.Chaos2010.ConcreteUI.SDL.SDLGui
+                     Games.Chaos2010.ConcreteUI.Gtk.GtkUtils
+                     Games.Chaos2010.ConcreteUI.Gtk.GtkGUI
+                     Games.Chaos2010.ConcreteUI.Gtk.Types
+                     Games.Chaos2010.ConcreteUI.Gtk.TextWidget
                      Games.Chaos2010.Database.Attacking_prototypes
                      Games.Chaos2010.Database.Pieces
-                     Games.Chaos2010.Database.Monster_on_top_squares
                      Games.Chaos2010.Database.Cast_alignment_table
                      Games.Chaos2010.Database.Next_wizard
                      Games.Chaos2010.Database.Pieces_on_top
@@ -505,32 +268,25 @@ Executable tests
                      Games.Chaos2010.Database.Crimes_against_nature
                      Games.Chaos2010.Database.Turn_number_table
                      Games.Chaos2010.Database.Spell_cast_chance
-                     Games.Chaos2010.Database.Current_board_beam_effects
                      Games.Chaos2010.Database.Attacking_pieces
-                     Games.Chaos2010.Database.Current_board_sound_effects
                      Games.Chaos2010.Database.Ai_useful_spells
                      Games.Chaos2010.Database.Base_relvar_keys
                      Games.Chaos2010.Database.Game_completed_table
                      Games.Chaos2010.Database.Cursor_piece_details
                      Games.Chaos2010.Database.Creature_pieces
                      Games.Chaos2010.Database.Closest_enemy_to_selected_piece
-                     Games.Chaos2010.Database.Empty_and_not_adjacent_to_tree_squares
                      Games.Chaos2010.Database.Action_history_num_wiz
-                     Games.Chaos2010.Database.Selected_piece_fly_squares
                      Games.Chaos2010.Database.All_module_objects
                      Games.Chaos2010.Database.Selected_piece_adjacent_attacking_squares
                      Games.Chaos2010.Database.Colours
                      Games.Chaos2010.Database.Magic_attackable_pieces
                      Games.Chaos2010.Database.Prefered_targets
                      Games.Chaos2010.Database.Ranged_weapon_pieces
-                     Games.Chaos2010.Database.Current_wizard_spell_type_squares
                      Games.Chaos2010.Database.Selected_piece_move_squares
                      Games.Chaos2010.Database.Init_wizard_display_info_argument
-                     Games.Chaos2010.Database.Selected_piece_walk_squares
                      Games.Chaos2010.Database.Public_database_objects
                      Games.Chaos2010.Database.Current_wizard
                      Games.Chaos2010.Database.Action_new_game_argument
-                     Games.Chaos2010.Database.Selectable_pieces_with_priorities
                      Games.Chaos2010.Database.Spells_mr
                      Games.Chaos2010.Database.Section_orderv
                      Games.Chaos2010.Database.Action_client_new_game_argument
@@ -542,46 +298,40 @@ Executable tests
                      Games.Chaos2010.Database.Wizard_spell_choices_mr
                      Games.Chaos2010.Database.Selected_piece
                      Games.Chaos2010.Database.Database_constraints
-                     Games.Chaos2010.Database.Selected_piece_in_range_squares
                      Games.Chaos2010.Database.Wizard_display_info
-                     Games.Chaos2010.Database.Adjacent_to_tree_squares
                      Games.Chaos2010.Database.System_implementation_objects
                      Games.Chaos2010.Database.All_database_objects
                      Games.Chaos2010.Database.Magic_attackable_prototypes
                      Games.Chaos2010.Database.Piece_sprite
                      Games.Chaos2010.Database.Spell_colours
                      Games.Chaos2010.Database.Spell_book_show_all_table
-                     Games.Chaos2010.Database.Board_square_effects
                      Games.Chaos2010.Database.Ai_filtered_target_spells
                      Games.Chaos2010.Database.Spell_sprites
                      Games.Chaos2010.Database.Current_wizard_table
+                     Games.Chaos2010.Database.Client_new_game_t
                      Games.Chaos2010.Database.Selected_piece_attackable_squares
                      Games.Chaos2010.Database.Live_wizards
                      Games.Chaos2010.Database.Spells_mr_base
                      Games.Chaos2010.Database.Target_spells
                      Games.Chaos2010.Database.Action_history_source
-                     Games.Chaos2010.Database.Attackable_squares
                      Games.Chaos2010.Database.In_next_phase_hack_table
                      Games.Chaos2010.Database.Action_history_piece
                      Games.Chaos2010.Database.Action_history_mr_base
                      Games.Chaos2010.Database.Base_relvar_metadata
                      Games.Chaos2010.Database.Turn_phase_table
                      Games.Chaos2010.Database.Key_control_settings
-                     Games.Chaos2010.Database.Board_sound_effects
                      Games.Chaos2010.Database.Spells_with_order
-                     Games.Chaos2010.Database.Selected_piece_fly_attack_squares
                      Games.Chaos2010.Database.Disable_spreading_table
                      Games.Chaos2010.Database.Spell_choice_hack_table
                      Games.Chaos2010.Database.Spell_details
-                     Games.Chaos2010.Database.Last_history_effect_id_table
                      Games.Chaos2010.Database.Scalars
                      Games.Chaos2010.Database.Action_history_colour_mr
                      Games.Chaos2010.Database.Pieces_on_top_view
                      Games.Chaos2010.Database.Piece_starting_ticks
                      Games.Chaos2010.Database.Imaginary_pieces
+                     Games.Chaos2010.Database.Fields
                      Games.Chaos2010.Database.Operator_source
                      Games.Chaos2010.Database.Creature_prototypes
-                     Games.Chaos2010.Database.Board_sprites1_cache
                      Games.Chaos2010.Database.Piece_prototypes_mr
                      Games.Chaos2010.Database.Wizard_sprites
                      Games.Chaos2010.Database.Cast_magic_wood_available_squares
@@ -594,38 +344,30 @@ Executable tests
                      Games.Chaos2010.Database.Action_history_piece_source
                      Games.Chaos2010.Database.Spell_indexes_no_dis_turm
                      Games.Chaos2010.Database.Pieces_with_priorities
-                     Games.Chaos2010.Database.Board_sprites
                      Games.Chaos2010.Database.Current_wizard_spell
-                     Games.Chaos2010.Database.Current_board_square_effects
                      Games.Chaos2010.Database.Enterable_piece_types
                      Games.Chaos2010.Database.Dont_nest_ai_next_phase_table
                      Games.Chaos2010.Database.Current_wizard_square
                      Games.Chaos2010.Database.Creating_new_game_table
-                     Games.Chaos2010.Database.Squares_within_selected_piece_flight_range
-                     Games.Chaos2010.Database.Empty_or_corpse_only_squares
                      Games.Chaos2010.Database.Valid_target_actions
                      Games.Chaos2010.Database.Prompt
                      Games.Chaos2010.Database.Operators
                      Games.Chaos2010.Database.Spell_book_table
                      Games.Chaos2010.Database.Action_instructions
-                     Games.Chaos2010.Database.Creature_on_top_squares
                      Games.Chaos2010.Database.Modules
-                     Games.Chaos2010.Database.Moving_pieces
                      Games.Chaos2010.Database.Client_valid_target_actions
                      Games.Chaos2010.Database.Activate_spells
                      Games.Chaos2010.Database.Ai_selected_piece_actions
-                     Games.Chaos2010.Database.Current_effects
                      Games.Chaos2010.Database.Views
                      Games.Chaos2010.Database.Allegiances
                      Games.Chaos2010.Database.Sprites
-                     Games.Chaos2010.Database.History_no_visuals
-                     Games.Chaos2010.Database.History_sounds
                      Games.Chaos2010.Database.Adjacent_to_new_tree_squares
                      Games.Chaos2010.Database.Cast_magic_wood_squares
                      Games.Chaos2010.Database.Dead_monster_pieces
                      Games.Chaos2010.Database.Action_history_turn_num
                      Games.Chaos2010.Database.Object_orders
                      Games.Chaos2010.Database.Action_history_target
+                     Games.Chaos2010.Database.Squares_valid_categories
                      Games.Chaos2010.Database.Base_relvar_attributes
                      Games.Chaos2010.Database.Board_size
                      Games.Chaos2010.Database.Board_highlights
@@ -634,22 +376,17 @@ Executable tests
                      Games.Chaos2010.Database.Select_best_move
                      Games.Chaos2010.Database.Spell_books
                      Games.Chaos2010.Database.Monster_prototypes
+                     Games.Chaos2010.Database.Pieces_moved
                      Games.Chaos2010.Database.Monster_pieces
                      Games.Chaos2010.Database.Action_history_spell_source
-                     Games.Chaos2010.Database.Selected_piecexy
-                     Games.Chaos2010.Database.Pieces_to_move
                      Games.Chaos2010.Database.Spreadable_squares
                      Games.Chaos2010.Database.Action_history_turn_phase
                      Games.Chaos2010.Database.Piece_prototypes_mr_base
                      Games.Chaos2010.Database.Attackable_prototypes
-                     Games.Chaos2010.Database.Selected_piece_walk_attack_squares
-                     Games.Chaos2010.Database.Windows
                      Games.Chaos2010.Database.Triggers
                      Games.Chaos2010.Database.Current_wizard_spell_counts
-                     Games.Chaos2010.Database.Selected_piece_ranged_attackable_squares
                      Games.Chaos2010.Database.Board_sprites1_view
                      Games.Chaos2010.Database.Action_history_mr
-                     Games.Chaos2010.Database.Board_beam_effects
                      Games.Chaos2010.Database.Spell_parts_to_cast_table
                      Games.Chaos2010.Database.Base_relvars
                      Games.Chaos2010.Database.Spell_keys
@@ -672,13 +409,28 @@ Executable tests
                      Games.Chaos2010.Database.Current_wizard_selected_spell_details
                      Games.Chaos2010.Database.Remaining_walk_hack_table
                      Games.Chaos2010.Database.Test_action_overrides
-                     Games.Chaos2010.Database.Current_wizard_spell_range_squares
-                     Games.Chaos2010.Database.Corpse_only_squares
                      Games.Chaos2010.Database.Wizards_in_trees
                      Games.Chaos2010.Database.Castable_target_spells
                      Games.Chaos2010.Database.Wizard_upgrade_stats
                      Games.Chaos2010.Database.Board_ranges
-                     Games.Chaos2010.Database.Empty_squares
+                     Games.Chaos2010.Database.Selected_piece_move_squares_2
                      Games.Chaos2010.Database.Piece_details
                      Games.Chaos2010.Database.Cursor_position
+                     Games.Chaos2010.Tests.BoardUtils
+                     Games.Chaos2010.Tests.Casting
+                     Games.Chaos2010.Tests.SetupGameState
+                     Games.Chaos2010.Tests.AllTests
+                     Games.Chaos2010.Tests.Upgrades
+                     Games.Chaos2010.Tests.Basics
+                     Games.Chaos2010.Tests.MoveMisc
+                     Games.Chaos2010.Tests.Complete
+                     Games.Chaos2010.Tests.Autonomous
+                     Games.Chaos2010.Tests.TestUtils
+                     Games.Chaos2010.Tests.TableValueTypes
+                     Games.Chaos2010.Tests.RelationalAlgebra
+                     Games.Chaos2010.Tests.Subphases
+                     Games.Chaos2010.Tests.Phases
+                     Games.Chaos2010.Tests.SquaresValid
                      Games.Chaos2010.Database
+                     Games.Chaos2010.ThHdb
+                     Games.Chaos2010.DBUpdates

@@ -1,7 +1,9 @@
 {-# LANGUAGE EmptyDataDecls, TypeSynonymInstances #-}
-{-# OPTIONS_GHC -fcontext-stack45   #-}
+{-# OPTIONS_GHC -fcontext-stack45     #-}
 module Games.Chaos2010.Database.Action_client_new_game_argument
        where
+import Games.Chaos2010.Database.Fields
+import Games.Chaos2010.Database.Fields
 import Games.Chaos2010.Database.Fields
 import Games.Chaos2010.Database.Fields
 import Database.HaskellDB.DBLayout

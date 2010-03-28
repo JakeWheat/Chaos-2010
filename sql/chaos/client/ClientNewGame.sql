@@ -46,20 +46,12 @@ begin
   --delete from board_sound_effects;
   --delete from current_effects;
 
-  -- don't reset windows, see below
-  --call server new_game
-  --populate argument first
-  --delete from action_new_game_argument;
-  /*insert into action_new_game_argument
-    (wizard_name, computer_controlled, place)
-    select wizard_name, computer_controlled, place
-      from unnest(a);*/
   perform action_new_game(
           (with
             s as
-              (select wizard_name, computer_controlled, place
+              (select place,wizard_name, computer_controlled
                from unnest(a))
-           select array_agg((wizard_name,computer_controlled,place)::new_game_t)
+           select array_agg((place,wizard_name,computer_controlled)::new_game_t)
              from s));
 
   --wizard display_info
@@ -69,8 +61,8 @@ begin
     select wizard_name, sprite, colour
     from unnest(a);*/
   perform init_wizard_display_info(
-    (with s as (select wizard_name,sprite,colour from unnest(a))
-     select array_agg((wizard_name,sprite,colour)::wizard_display_info)
+    (with s as (select wizard_name,sprite as default_sprite,colour from unnest(a))
+     select array_agg((wizard_name,default_sprite,colour)::wizard_display_info)
      from s));
 
   if not exists(select 1 from spell_book_show_all_table) then

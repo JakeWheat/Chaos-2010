@@ -105,7 +105,7 @@ begin
 end;
 $$ language plpgsql volatile;
 
-create or replace function add_history_wizard_up() returns void as $$
+create function add_history_wizard_up() returns void as $$
 declare
   w pos;
 begin

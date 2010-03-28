@@ -91,7 +91,8 @@ begin
   perform action_client_new_game(
     (select array_agg((line,wizard_name,sprite,colour,
                       case when state = 'computer' then true
-                        else false end)::client_new_game_t)));
+                        else false end)::client_new_game_t)
+     from new_game_widget_state));
 end
 $$ language plpgsql volatile;
 

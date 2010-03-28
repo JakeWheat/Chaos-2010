@@ -166,7 +166,7 @@ $$ language plpgsql volatile;
 /*
 === attacking
 */
-create or replace function action_attack(px int, py int) returns void as $$
+create function action_attack(px int, py int) returns void as $$
 declare
   ap piece_key;
   r piece_key;

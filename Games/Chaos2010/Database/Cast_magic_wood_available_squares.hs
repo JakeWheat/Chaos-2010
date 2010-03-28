@@ -1,7 +1,9 @@
 {-# LANGUAGE EmptyDataDecls, TypeSynonymInstances #-}
-{-# OPTIONS_GHC -fcontext-stack42  #-}
+{-# OPTIONS_GHC -fcontext-stack42    #-}
 module Games.Chaos2010.Database.Cast_magic_wood_available_squares
        where
+import Games.Chaos2010.Database.Fields
+import Games.Chaos2010.Database.Fields
 import Games.Chaos2010.Database.Fields
 import Database.HaskellDB.DBLayout
  

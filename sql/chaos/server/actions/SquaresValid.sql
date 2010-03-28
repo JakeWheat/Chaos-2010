@@ -170,9 +170,8 @@ include corpses in the attackable on top category, and filter corpses
 where neccessary using the allegiance info.
 
   */
-/*
--- hssqlppp can't handle $1.x
-create or replace function one_square_away(pos) returns setof pos as $$
+
+create function one_square_away(pos) returns setof pos as $$
                select $1.x-1 as x,$1.y-1 as y
      union all select $1.x-1,$1.y
      union all select $1.x-1,$1.y+1
@@ -182,22 +181,8 @@ create or replace function one_square_away(pos) returns setof pos as $$
      union all select $1.x+1,$1.y
      union all select $1.x+1,$1.y+1
 $$ language sql immutable;
-*/
-create function one_square_away(p pos) returns setof pos as $$
-begin
-     return query
-       select p.x-1 as x,p.y-1 as y
-       union all select p.x-1,p.y
-       union all select p.x-1,p.y+1
-       union all select p.x,p.y-1
-       union all select p.x,p.y+1
-       union all select p.x+1,p.y-1
-       union all select p.x+1,p.y
-       union all select p.x+1,p.y+1;
-end;
-$$ language plpgsql immutable;
 
-create or replace view squares_valid_categories as
+create view squares_valid_categories as
   with
     squares as (select x,y from generate_series(0, 14) as x
                       cross join generate_series(0, 9) as y)

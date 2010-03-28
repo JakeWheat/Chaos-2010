@@ -481,7 +481,7 @@ $$ language plpgsql volatile;
      represent 10,11,12,13,14,15,16
   */
 
-create or replace function get_square_range(x int, y int, range int)
+create function get_square_range(x int, y int, range int)
   returns setof pos as $$
     select x, y from
     (select generate_series($1 - $3, $1 + $3) as x,$2 - $3 as y
@@ -505,7 +505,7 @@ it isn't null, and you can't do r.x on it if you assign it to a record
   of type pos
 
 */
-create or replace function next_tree_square(available pos[], added pos[]) returns pos[] as $$
+create function next_tree_square(available pos[], added pos[]) returns pos[] as $$
   with
            av as
              (select (p1).x,(p1).y from unnest($1) as p1)
@@ -521,7 +521,7 @@ create or replace function next_tree_square(available pos[], added pos[]) return
   select array_agg((x,y)::pos) from sqs group by y,x order by y,x limit 1;
 $$ language sql immutable;
 
-create or replace function cast_magic_wood() returns void as $$
+create function cast_magic_wood() returns void as $$
 declare
   range int;
   wpos pos;

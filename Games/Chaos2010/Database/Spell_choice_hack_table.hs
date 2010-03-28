@@ -1,6 +1,8 @@
 {-# LANGUAGE EmptyDataDecls, TypeSynonymInstances #-}
-{-# OPTIONS_GHC -fcontext-stack41   #-}
+{-# OPTIONS_GHC -fcontext-stack41     #-}
 module Games.Chaos2010.Database.Spell_choice_hack_table where
+import Games.Chaos2010.Database.Fields
+import Games.Chaos2010.Database.Fields
 import Games.Chaos2010.Database.Fields
 import Games.Chaos2010.Database.Fields
 import Database.HaskellDB.DBLayout

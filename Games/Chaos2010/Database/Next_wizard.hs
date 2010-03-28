@@ -1,6 +1,8 @@
 {-# LANGUAGE EmptyDataDecls, TypeSynonymInstances #-}
-{-# OPTIONS_GHC -fcontext-stack42   #-}
+{-# OPTIONS_GHC -fcontext-stack42     #-}
 module Games.Chaos2010.Database.Next_wizard where
+import Games.Chaos2010.Database.Fields
+import Games.Chaos2010.Database.Fields
 import Games.Chaos2010.Database.Fields
 import Games.Chaos2010.Database.Fields
 import Database.HaskellDB.DBLayout

@@ -5,13 +5,13 @@ module Games.Chaos2010.Database where
 
 import Database.HaskellDB.DBLayout
 
-import qualified Games.Chaos2010.Database.All_module_objects
 import qualified Games.Chaos2010.Database.System_implementation_objects
 import qualified Games.Chaos2010.Database.Base_relvars
 import qualified Games.Chaos2010.Database.Base_relvar_attributes
 import qualified Games.Chaos2010.Database.Scalars
-import qualified Games.Chaos2010.Database.Modules
 import qualified Games.Chaos2010.Database.Base_relvar_keys
+import qualified Games.Chaos2010.Database.Modules
+import qualified Games.Chaos2010.Database.All_module_objects
 import qualified Games.Chaos2010.Database.Base_relvar_key_attributes
 import qualified Games.Chaos2010.Database.Operators
 import qualified Games.Chaos2010.Database.Operator_source
@@ -91,18 +91,16 @@ import qualified Games.Chaos2010.Database.Valid_target_actions
 import qualified Games.Chaos2010.Database.Valid_activate_actions
 import qualified Games.Chaos2010.Database.Dont_nest_ai_next_phase_table
 import qualified Games.Chaos2010.Database.Spell_cast_chance
-import qualified Games.Chaos2010.Database.Cast_magic_wood_squares
-import qualified Games.Chaos2010.Database.Cast_magic_wood_available_squares
 import qualified Games.Chaos2010.Database.Selected_piece_adjacent_attacking_squares
 import qualified Games.Chaos2010.Database.Wizards_in_trees
 import qualified Games.Chaos2010.Database.Spreadable_squares
 import qualified Games.Chaos2010.Database.Disable_spreading_table
-import qualified Games.Chaos2010.Database.Action_history_source
+import qualified Games.Chaos2010.Database.Action_history_piece
 import qualified Games.Chaos2010.Database.Action_history_mr
 import qualified Games.Chaos2010.Database.Action_history_mr_base
 import qualified Games.Chaos2010.Database.Action_history_allegiance
+import qualified Games.Chaos2010.Database.Action_history_source
 import qualified Games.Chaos2010.Database.Action_history_target
-import qualified Games.Chaos2010.Database.Action_history_piece
 import qualified Games.Chaos2010.Database.Action_history_piece_source
 import qualified Games.Chaos2010.Database.Action_history_piece_target
 import qualified Games.Chaos2010.Database.Action_history_spell
@@ -113,6 +111,7 @@ import qualified Games.Chaos2010.Database.Action_history_turn_num
 import qualified Games.Chaos2010.Database.Action_history_turn_phase
 import qualified Games.Chaos2010.Database.Wizard_starting_positions
 import qualified Games.Chaos2010.Database.Spell_indexes_no_dis_turm
+import qualified Games.Chaos2010.Database.Test_spell_books
 import qualified Games.Chaos2010.Database.Current_wizard_target_spells
 import qualified Games.Chaos2010.Database.Current_wizard_square
 import qualified Games.Chaos2010.Database.Castable_target_spells
@@ -123,30 +122,30 @@ import qualified Games.Chaos2010.Database.Prefered_targets
 import qualified Games.Chaos2010.Database.Closest_enemy_to_selected_piece
 import qualified Games.Chaos2010.Database.Select_best_move
 import qualified Games.Chaos2010.Database.Colours
-import qualified Games.Chaos2010.Database.Spell_book_show_all_table
-import qualified Games.Chaos2010.Database.Wizards
-import qualified Games.Chaos2010.Database.Piece_starting_ticks
-import qualified Games.Chaos2010.Database.Wizard_display_info
 import qualified Games.Chaos2010.Database.Section_orderv
+import qualified Games.Chaos2010.Database.Piece_starting_ticks
+import qualified Games.Chaos2010.Database.Wizards
+import qualified Games.Chaos2010.Database.Board_sprites1_view
+import qualified Games.Chaos2010.Database.Wizard_display_info
 import qualified Games.Chaos2010.Database.Allegiance_colours
 import qualified Games.Chaos2010.Database.Action_history_colour_mr
 import qualified Games.Chaos2010.Database.Cursor_position
 import qualified Games.Chaos2010.Database.Wizard_sprites
 import qualified Games.Chaos2010.Database.Piece_sprite
 import qualified Games.Chaos2010.Database.Board_highlights
-import qualified Games.Chaos2010.Database.Board_sprites1_view
+import qualified Games.Chaos2010.Database.Spell_sprites
 import qualified Games.Chaos2010.Database.Piece_details
 import qualified Games.Chaos2010.Database.Cursor_piece_details
 import qualified Games.Chaos2010.Database.Selected_piece_details
 import qualified Games.Chaos2010.Database.Spells_with_order
-import qualified Games.Chaos2010.Database.Spell_sprites
 import qualified Games.Chaos2010.Database.Current_wizard_spell_counts
+import qualified Games.Chaos2010.Database.Spell_book_show_all_table
 import qualified Games.Chaos2010.Database.Spell_colours
-import qualified Games.Chaos2010.Database.Sprites
-import qualified Games.Chaos2010.Database.Spell_keys
 import qualified Games.Chaos2010.Database.Spell_book_table
+import qualified Games.Chaos2010.Database.Spell_keys
 import qualified Games.Chaos2010.Database.Spell_details
 import qualified Games.Chaos2010.Database.Current_wizard_selected_spell_details
+import qualified Games.Chaos2010.Database.Sprites
 import qualified Games.Chaos2010.Database.New_game_widget_state
 import qualified Games.Chaos2010.Database.Client_valid_target_actions
 import qualified Games.Chaos2010.Database.Client_valid_activate_actions
@@ -158,14 +157,7 @@ import qualified Games.Chaos2010.Database.Client_new_game_t
 games.Chaos2010.Database :: DBInfo
 games.Chaos2010.Database = DBInfo {dbname = "Games.Chaos2010.Database",
                                    opts = DBOptions {useBString = False},
-                                   tbls = [TInfo {tname = "all_module_objects",
-                                                  cols = [CInfo {cname = "object_name",
-                                                                 descr = (StringT, True)},
-                                                          CInfo {cname = "object_type",
-                                                                 descr = (StringT, True)},
-                                                          CInfo {cname = "module_name",
-                                                                 descr = (StringT, True)}]},
-                                           TInfo {tname = "system_implementation_objects",
+                                   tbls = [TInfo {tname = "system_implementation_objects",
                                                   cols = [CInfo {cname = "object_name",
                                                                  descr = (StringT, False)},
                                                           CInfo {cname = "object_type",
@@ -183,15 +175,22 @@ games.Chaos2010.Database = DBInfo {dbname = "Games.Chaos2010.Database",
                                            TInfo {tname = "scalars",
                                                   cols = [CInfo {cname = "scalar_name",
                                                                  descr = (StringT, True)}]},
+                                           TInfo {tname = "base_relvar_keys",
+                                                  cols = [CInfo {cname = "constraint_name",
+                                                                 descr = (StringT, True)},
+                                                          CInfo {cname = "relvar_name",
+                                                                 descr = (StringT, True)}]},
                                            TInfo {tname = "modules",
                                                   cols = [CInfo {cname = "module_name",
                                                                  descr = (StringT, True)},
                                                           CInfo {cname = "module_order",
                                                                  descr = (IntT, False)}]},
-                                           TInfo {tname = "base_relvar_keys",
-                                                  cols = [CInfo {cname = "constraint_name",
+                                           TInfo {tname = "all_module_objects",
+                                                  cols = [CInfo {cname = "object_name",
                                                                  descr = (StringT, True)},
-                                                          CInfo {cname = "relvar_name",
+                                                          CInfo {cname = "object_type",
+                                                                 descr = (StringT, True)},
+                                                          CInfo {cname = "module_name",
                                                                  descr = (StringT, True)}]},
                                            TInfo {tname = "base_relvar_key_attributes",
                                                   cols = [CInfo {cname = "constraint_name",
@@ -211,13 +210,13 @@ games.Chaos2010.Database = DBInfo {dbname = "Games.Chaos2010.Database",
                                                                  descr = (StringT, True)},
                                                           CInfo {cname = "trigger_catalog",
                                                                  descr = (StringT, True)},
+                                                          CInfo {cname = "trigger_name",
+                                                                 descr = (StringT, True)},
                                                           CInfo {cname = "trigger_schema",
                                                                  descr = (StringT, True)},
-                                                          CInfo {cname = "trigger_name",
-                                                                 descr = (StringT, True)},
-                                                          CInfo {cname = "trigger_name",
-                                                                 descr = (StringT, True)},
                                                           CInfo {cname = "operator_name",
+                                                                 descr = (StringT, True)},
+                                                          CInfo {cname = "trigger_name",
                                                                  descr = (StringT, True)},
                                                           CInfo {cname = "event_manipulation",
                                                                  descr = (StringT, True)},
@@ -248,9 +247,9 @@ games.Chaos2010.Database = DBInfo {dbname = "Games.Chaos2010.Database",
                                                           CInfo {cname = "created",
                                                                  descr = (StringT, True)}]},
                                            TInfo {tname = "views",
-                                                  cols = [CInfo {cname = "view_name",
+                                                  cols = [CInfo {cname = "table_catalog",
                                                                  descr = (StringT, True)},
-                                                          CInfo {cname = "table_catalog",
+                                                          CInfo {cname = "view_name",
                                                                  descr = (StringT, True)},
                                                           CInfo {cname = "definition",
                                                                  descr = (StringT, True)},
@@ -960,16 +959,6 @@ games.Chaos2010.Database = DBInfo {dbname = "Games.Chaos2010.Database",
                                                                  descr = (StringT, True)},
                                                           CInfo {cname = "chance",
                                                                  descr = (IntT, True)}]},
-                                           TInfo {tname = "cast_magic_wood_squares",
-                                                  cols = [CInfo {cname = "x",
-                                                                 descr = (IntT, False)},
-                                                          CInfo {cname = "y",
-                                                                 descr = (IntT, False)}]},
-                                           TInfo {tname = "cast_magic_wood_available_squares",
-                                                  cols = [CInfo {cname = "x",
-                                                                 descr = (IntT, True)},
-                                                          CInfo {cname = "y",
-                                                                 descr = (IntT, True)}]},
                                            TInfo {tname = "selected_piece_adjacent_attacking_squares",
                                                   cols = [CInfo {cname = "x",
                                                                  descr = (IntT, True)},
@@ -990,16 +979,16 @@ games.Chaos2010.Database = DBInfo {dbname = "Games.Chaos2010.Database",
                                            TInfo {tname = "disable_spreading_table",
                                                   cols = [CInfo {cname = "disable_spreading",
                                                                  descr = (BoolT, False)}]},
-                                           TInfo {tname = "action_history_source",
+                                           TInfo {tname = "action_history_piece",
                                                   cols = [CInfo {cname = "id",
                                                                  descr = (IntT, True)},
                                                           CInfo {cname = "history_name",
                                                                  descr = (StringT, True)},
                                                           CInfo {cname = "allegiance",
                                                                  descr = (StringT, True)},
-                                                          CInfo {cname = "x",
-                                                                 descr = (IntT, True)},
-                                                          CInfo {cname = "y",
+                                                          CInfo {cname = "ptype",
+                                                                 descr = (StringT, True)},
+                                                          CInfo {cname = "tag",
                                                                  descr = (IntT, True)}]},
                                            TInfo {tname = "action_history_mr",
                                                   cols = [CInfo {cname = "id",
@@ -1040,6 +1029,17 @@ games.Chaos2010.Database = DBInfo {dbname = "Games.Chaos2010.Database",
                                                                  descr = (StringT, True)},
                                                           CInfo {cname = "allegiance",
                                                                  descr = (StringT, True)}]},
+                                           TInfo {tname = "action_history_source",
+                                                  cols = [CInfo {cname = "id",
+                                                                 descr = (IntT, True)},
+                                                          CInfo {cname = "history_name",
+                                                                 descr = (StringT, True)},
+                                                          CInfo {cname = "allegiance",
+                                                                 descr = (StringT, True)},
+                                                          CInfo {cname = "x",
+                                                                 descr = (IntT, True)},
+                                                          CInfo {cname = "y",
+                                                                 descr = (IntT, True)}]},
                                            TInfo {tname = "action_history_target",
                                                   cols = [CInfo {cname = "id",
                                                                  descr = (IntT, True)},
@@ -1054,17 +1054,6 @@ games.Chaos2010.Database = DBInfo {dbname = "Games.Chaos2010.Database",
                                                           CInfo {cname = "tx",
                                                                  descr = (IntT, True)},
                                                           CInfo {cname = "ty",
-                                                                 descr = (IntT, True)}]},
-                                           TInfo {tname = "action_history_piece",
-                                                  cols = [CInfo {cname = "id",
-                                                                 descr = (IntT, True)},
-                                                          CInfo {cname = "history_name",
-                                                                 descr = (StringT, True)},
-                                                          CInfo {cname = "allegiance",
-                                                                 descr = (StringT, True)},
-                                                          CInfo {cname = "ptype",
-                                                                 descr = (StringT, True)},
-                                                          CInfo {cname = "tag",
                                                                  descr = (IntT, True)}]},
                                            TInfo {tname = "action_history_piece_source",
                                                   cols = [CInfo {cname = "id",
@@ -1180,6 +1169,11 @@ games.Chaos2010.Database = DBInfo {dbname = "Games.Chaos2010.Database",
                                                                  descr = (IntT, True)},
                                                           CInfo {cname = "spell_name",
                                                                  descr = (StringT, True)}]},
+                                           TInfo {tname = "test_spell_books",
+                                                  cols = [CInfo {cname = "wizard_name",
+                                                                 descr = (StringT, False)},
+                                                          CInfo {cname = "spell_name",
+                                                                 descr = (StringT, False)}]},
                                            TInfo {tname = "current_wizard_target_spells",
                                                   cols = [CInfo {cname = "spell_name",
                                                                  descr = (StringT, True)},
@@ -1244,9 +1238,20 @@ games.Chaos2010.Database = DBInfo {dbname = "Games.Chaos2010.Database",
                                                                  descr = (IntT, False)},
                                                           CInfo {cname = "blue",
                                                                  descr = (IntT, False)}]},
-                                           TInfo {tname = "spell_book_show_all_table",
-                                                  cols = [CInfo {cname = "spell_book_show_all",
-                                                                 descr = (BoolT, False)}]},
+                                           TInfo {tname = "section_orderv",
+                                                  cols = [CInfo {cname = "section_order",
+                                                                 descr = (IntT, True)},
+                                                          CInfo {cname = "spell_category",
+                                                                 descr = (StringT, True)}]},
+                                           TInfo {tname = "piece_starting_ticks",
+                                                  cols = [CInfo {cname = "ptype",
+                                                                 descr = (StringT, False)},
+                                                          CInfo {cname = "allegiance",
+                                                                 descr = (StringT, False)},
+                                                          CInfo {cname = "tag",
+                                                                 descr = (IntT, False)},
+                                                          CInfo {cname = "start_tick",
+                                                                 descr = (IntT, False)}]},
                                            TInfo {tname = "wizards",
                                                   cols = [CInfo {cname = "wizard_name",
                                                                  descr = (StringT, False)},
@@ -1270,15 +1275,29 @@ games.Chaos2010.Database = DBInfo {dbname = "Games.Chaos2010.Database",
                                                                  descr = (IntT, False)},
                                                           CInfo {cname = "expired",
                                                                  descr = (BoolT, False)}]},
-                                           TInfo {tname = "piece_starting_ticks",
-                                                  cols = [CInfo {cname = "ptype",
-                                                                 descr = (StringT, False)},
+                                           TInfo {tname = "board_sprites1_view",
+                                                  cols = [CInfo {cname = "x",
+                                                                 descr = (IntT, True)},
+                                                          CInfo {cname = "y",
+                                                                 descr = (IntT, True)},
+                                                          CInfo {cname = "ptype",
+                                                                 descr = (StringT, True)},
                                                           CInfo {cname = "allegiance",
-                                                                 descr = (StringT, False)},
+                                                                 descr = (StringT, True)},
                                                           CInfo {cname = "tag",
-                                                                 descr = (IntT, False)},
+                                                                 descr = (IntT, True)},
+                                                          CInfo {cname = "sprite",
+                                                                 descr = (StringT, True)},
+                                                          CInfo {cname = "colour",
+                                                                 descr = (StringT, True)},
+                                                          CInfo {cname = "sp",
+                                                                 descr = (IntT, True)},
                                                           CInfo {cname = "start_tick",
-                                                                 descr = (IntT, False)}]},
+                                                                 descr = (IntT, True)},
+                                                          CInfo {cname = "animation_speed",
+                                                                 descr = (IntT, True)},
+                                                          CInfo {cname = "selected",
+                                                                 descr = (BoolT, True)}]},
                                            TInfo {tname = "wizard_display_info",
                                                   cols = [CInfo {cname = "wizard_name",
                                                                  descr = (StringT, False)},
@@ -1286,11 +1305,6 @@ games.Chaos2010.Database = DBInfo {dbname = "Games.Chaos2010.Database",
                                                                  descr = (StringT, False)},
                                                           CInfo {cname = "colour",
                                                                  descr = (StringT, False)}]},
-                                           TInfo {tname = "section_orderv",
-                                                  cols = [CInfo {cname = "section_order",
-                                                                 descr = (IntT, True)},
-                                                          CInfo {cname = "spell_category",
-                                                                 descr = (StringT, True)}]},
                                            TInfo {tname = "allegiance_colours",
                                                   cols = [CInfo {cname = "allegiance",
                                                                  descr = (StringT, True)},
@@ -1359,29 +1373,11 @@ games.Chaos2010.Database = DBInfo {dbname = "Games.Chaos2010.Database",
                                                                  descr = (IntT, True)},
                                                           CInfo {cname = "sprite",
                                                                  descr = (StringT, True)}]},
-                                           TInfo {tname = "board_sprites1_view",
-                                                  cols = [CInfo {cname = "x",
-                                                                 descr = (IntT, True)},
-                                                          CInfo {cname = "y",
-                                                                 descr = (IntT, True)},
-                                                          CInfo {cname = "ptype",
-                                                                 descr = (StringT, True)},
-                                                          CInfo {cname = "allegiance",
-                                                                 descr = (StringT, True)},
-                                                          CInfo {cname = "tag",
-                                                                 descr = (IntT, True)},
+                                           TInfo {tname = "spell_sprites",
+                                                  cols = [CInfo {cname = "spell_name",
+                                                                 descr = (StringT, False)},
                                                           CInfo {cname = "sprite",
-                                                                 descr = (StringT, True)},
-                                                          CInfo {cname = "colour",
-                                                                 descr = (StringT, True)},
-                                                          CInfo {cname = "sp",
-                                                                 descr = (IntT, True)},
-                                                          CInfo {cname = "start_tick",
-                                                                 descr = (IntT, True)},
-                                                          CInfo {cname = "animation_speed",
-                                                                 descr = (IntT, True)},
-                                                          CInfo {cname = "selected",
-                                                                 descr = (BoolT, True)}]},
+                                                                 descr = (StringT, False)}]},
                                            TInfo {tname = "piece_details",
                                                   cols = [CInfo {cname = "ptype",
                                                                  descr = (StringT, True)},
@@ -1598,31 +1594,19 @@ games.Chaos2010.Database = DBInfo {dbname = "Games.Chaos2010.Database",
                                                                  descr = (IntT, True)},
                                                           CInfo {cname = "alignment_order",
                                                                  descr = (IntT, True)}]},
-                                           TInfo {tname = "spell_sprites",
-                                                  cols = [CInfo {cname = "spell_name",
-                                                                 descr = (StringT, False)},
-                                                          CInfo {cname = "sprite",
-                                                                 descr = (StringT, False)}]},
                                            TInfo {tname = "current_wizard_spell_counts",
                                                   cols = [CInfo {cname = "spell_name",
                                                                  descr = (StringT, True)},
                                                           CInfo {cname = "count",
                                                                  descr = (IntT, True)}]},
+                                           TInfo {tname = "spell_book_show_all_table",
+                                                  cols = [CInfo {cname = "spell_book_show_all",
+                                                                 descr = (BoolT, False)}]},
                                            TInfo {tname = "spell_colours",
                                                   cols = [CInfo {cname = "spell_name",
                                                                  descr = (StringT, True)},
                                                           CInfo {cname = "colour",
                                                                  descr = (StringT, True)}]},
-                                           TInfo {tname = "sprites",
-                                                  cols = [CInfo {cname = "sprite",
-                                                                 descr = (StringT, False)},
-                                                          CInfo {cname = "animation_speed",
-                                                                 descr = (IntT, False)}]},
-                                           TInfo {tname = "spell_keys",
-                                                  cols = [CInfo {cname = "spell_name",
-                                                                 descr = (StringT, False)},
-                                                          CInfo {cname = "key",
-                                                                 descr = (StringT, False)}]},
                                            TInfo {tname = "spell_book_table",
                                                   cols = [CInfo {cname = "spell_category",
                                                                  descr = (StringT, True)},
@@ -1652,6 +1636,11 @@ games.Chaos2010.Database = DBInfo {dbname = "Games.Chaos2010.Database",
                                                                  descr = (StringT, True)},
                                                           CInfo {cname = "colour",
                                                                  descr = (StringT, True)}]},
+                                           TInfo {tname = "spell_keys",
+                                                  cols = [CInfo {cname = "spell_name",
+                                                                 descr = (StringT, False)},
+                                                          CInfo {cname = "key",
+                                                                 descr = (StringT, False)}]},
                                            TInfo {tname = "spell_details",
                                                   cols = [CInfo {cname = "spell_name",
                                                                  descr = (StringT, True)},
@@ -1712,6 +1701,11 @@ games.Chaos2010.Database = DBInfo {dbname = "Games.Chaos2010.Database",
                                                                  descr = (IntT, True)},
                                                           CInfo {cname = "alignment_string",
                                                                  descr = (StringT, True)}]},
+                                           TInfo {tname = "sprites",
+                                                  cols = [CInfo {cname = "sprite",
+                                                                 descr = (StringT, False)},
+                                                          CInfo {cname = "animation_speed",
+                                                                 descr = (IntT, False)}]},
                                            TInfo {tname = "new_game_widget_state",
                                                   cols = [CInfo {cname = "line",
                                                                  descr = (IntT, False)},

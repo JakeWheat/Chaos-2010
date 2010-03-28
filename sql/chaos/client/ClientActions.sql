@@ -225,7 +225,7 @@ end;
 $$ language plpgsql volatile;
 
 
-create or replace function action_go() returns void as $$
+create function action_go() returns void as $$
 declare
   r record;
 begin

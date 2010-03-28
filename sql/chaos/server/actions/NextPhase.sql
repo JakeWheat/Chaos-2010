@@ -158,22 +158,22 @@ $$ language plpgsql volatile;
 /*
 === internals
 */
-create or replace function is_last_wizard() returns boolean as $$
-  return (with
+create function is_last_wizard() returns boolean as $$
+  with
             uw as (select wizard_name,original_place
                    from wizards
                    where not expired)
   select original_place = (select max(original_place) from uw)
             from current_wizard
-            natural inner join uw);
-$$ language plpgsql stable;
+            natural inner join uw
+$$ language sql stable;
 
-create or replace function is_first_wizard() returns boolean as $$
+create function is_first_wizard() returns boolean as $$
   with
     uw as (select wizard_name,original_place
                    from wizards
                    where not expired)
   select original_place = (select min(original_place) from uw)
             from current_wizard
-            natural inner join uw)
+            natural inner join uw
 $$ language sql stable;

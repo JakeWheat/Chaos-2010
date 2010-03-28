@@ -187,7 +187,7 @@ end;
 $$ language plpgsql volatile;
 
 
-create or replace function action_skip_to_phase(phase text) returns void as $$
+create function action_skip_to_phase(phase text) returns void as $$
 declare
   p text;
 begin
@@ -203,3 +203,173 @@ begin
   end loop;
 end;
 $$ language plpgsql volatile;
+
+create table test_spell_books (
+  wizard_name text
+ ,spell_name text
+);
+
+copy test_spell_books(wizard_name,spell_name) from stdin;
+Buddha	disbelieve
+Kong Fuzi	disbelieve
+Laozi	disbelieve
+Moshe	disbelieve
+Muhammad	disbelieve
+Shiva	disbelieve
+Yeshua	disbelieve
+Zarathushthra	disbelieve
+Buddha	unicorn
+Buddha	lightning
+Buddha	ogre
+Buddha	vengeance
+Buddha	unicorn
+Buddha	ogre
+Buddha	raise_dead
+Buddha	giant
+Buddha	king_cobra
+Buddha	elf
+Buddha	giant_rat
+Buddha	harpy
+Buddha	magic_castle
+Buddha	large_chaos
+Buddha	orc
+Buddha	magic_wings
+Buddha	magic_shield
+Buddha	giant
+Buddha	gryphon
+Kong Fuzi	zombie
+Kong Fuzi	magic_bolt
+Kong Fuzi	dark_citadel
+Kong Fuzi	ogre
+Kong Fuzi	wall
+Kong Fuzi	unicorn
+Kong Fuzi	law
+Kong Fuzi	dark_citadel
+Kong Fuzi	lion
+Kong Fuzi	faun
+Kong Fuzi	decree
+Kong Fuzi	magic_wings
+Kong Fuzi	dark_citadel
+Kong Fuzi	magic_armour
+Kong Fuzi	hydra
+Kong Fuzi	vengeance
+Kong Fuzi	justice
+Kong Fuzi	eagle
+Kong Fuzi	ogre
+Laozi	magic_bow
+Laozi	lightning
+Laozi	shadow_form
+Laozi	orc
+Laozi	shadow_form
+Laozi	horse
+Laozi	ghost
+Laozi	magic_bow
+Laozi	zombie
+Laozi	pegasus
+Laozi	manticore
+Laozi	gryphon
+Laozi	pegasus
+Laozi	goblin
+Laozi	harpy
+Laozi	lightning
+Laozi	giant
+Laozi	law
+Laozi	manticore
+Moshe	giant
+Moshe	orc
+Moshe	shadow_wood
+Moshe	golden_dragon
+Moshe	hydra
+Moshe	shadow_wood
+Moshe	ogre
+Moshe	orc
+Moshe	raise_dead
+Moshe	chaos
+Moshe	shadow_form
+Moshe	lion
+Moshe	magic_wings
+Moshe	gorilla
+Moshe	gorilla
+Moshe	hydra
+Moshe	elf
+Moshe	magic_shield
+Moshe	magic_bolt
+Muhammad	magic_shield
+Muhammad	magic_shield
+Muhammad	gorilla
+Muhammad	green_dragon
+Muhammad	vengeance
+Muhammad	dark_citadel
+Muhammad	magic_armour
+Muhammad	gooey_blob
+Muhammad	lion
+Muhammad	magic_wood
+Muhammad	magic_armour
+Muhammad	giant_rat
+Muhammad	skeleton
+Muhammad	golden_dragon
+Muhammad	zombie
+Muhammad	decree
+Muhammad	magic_fire
+Muhammad	shadow_wood
+Muhammad	raise_dead
+Shiva	gryphon
+Shiva	magic_knife
+Shiva	spectre
+Shiva	chaos
+Shiva	eagle
+Shiva	magic_armour
+Shiva	justice
+Shiva	harpy
+Shiva	subversion
+Shiva	lightning
+Shiva	wall
+Shiva	justice
+Shiva	eagle
+Shiva	magic_castle
+Shiva	magic_wings
+Shiva	hydra
+Shiva	magic_armour
+Shiva	magic_wood
+Shiva	subversion
+Yeshua	pegasus
+Yeshua	ghost
+Yeshua	magic_bow
+Yeshua	law
+Yeshua	gryphon
+Yeshua	hydra
+Yeshua	large_law
+Yeshua	green_dragon
+Yeshua	large_chaos
+Yeshua	dark_power
+Yeshua	faun
+Yeshua	giant_rat
+Yeshua	harpy
+Yeshua	ogre
+Yeshua	decree
+Yeshua	large_law
+Yeshua	raise_dead
+Yeshua	magic_bow
+Yeshua	shadow_wood
+Zarathushthra	chaos
+Zarathushthra	king_cobra
+Zarathushthra	gorilla
+Zarathushthra	decree
+Zarathushthra	shadow_form
+Zarathushthra	horse
+Zarathushthra	magic_knife
+Zarathushthra	large_law
+Zarathushthra	orc
+Zarathushthra	elf
+Zarathushthra	chaos
+Zarathushthra	magic_knife
+Zarathushthra	skeleton
+Zarathushthra	law
+Zarathushthra	ghost
+Zarathushthra	elf
+Zarathushthra	magic_castle
+Zarathushthra	magic_armour
+Zarathushthra	magic_bow
+\.
+
+
