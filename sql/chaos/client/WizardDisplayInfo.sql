@@ -42,7 +42,7 @@ coloured 'colour'.
 
 create table wizard_display_info (
   wizard_name text unique references wizards,
-  default_sprite text unique references sprites, -- and matches /wizard.*/
+  default_sprite text unique references sprites, -- and matches /wizard.* /
   colour text unique
 );
 select set_relvar_type('wizard_display_info','data');

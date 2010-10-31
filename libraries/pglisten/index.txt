@@ -1,0 +1,10 @@
+tiny library to support listen for postgresql from haskell code
+
+the planned api is something like
+
+connect :: String -> IO LConn
+disconnect :: LConn -> IO ()
+
+listen :: LConn -> String -> IO ()
+unlisten :: LConn -> String -> IO ()
+read :: LConn -> IO String -- this blocks until a notify is available

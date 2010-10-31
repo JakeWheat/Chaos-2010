@@ -7,23 +7,12 @@
 > import Database.HDBC
 > import Control.Exception
 >
-> import Games.Chaos2010.ConcreteUI.CUI
+> --import Games.Chaos2010.ConcreteUI.CUI
 > import Games.Chaos2010.UI.ChaosUI
 >
 > main :: IO ()
 > main =
->    postgresqlConnect [("dbname", "chaos")] $ \db ->
->    withConn ("dbname=chaos") $ \conn -> do
->    keyPressChan <- newChan
->    guiUpdateChan <- newChan
->    _ <- forkIO $ chaosServer db conn keyPressChan guiUpdateChan
->    startGUI keyPressChan guiUpdateChan chaosUI
->    return ()
->
-> withConn :: String -> (Connection -> IO c) -> IO c
-> withConn cs f = bracket (connectPostgreSQL cs)
->                         disconnect
->                         f
+>    startGui "chaos" chaosWindows
 
 to regenerate the haskelldb code use:
 
