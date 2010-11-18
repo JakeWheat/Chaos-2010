@@ -1,0 +1,85 @@
+Idea is to use chaos to help develop the relational algebra system
+
+want to support running purely in memory using haskell storage, with
+conventional load and save, using haskell (disk) persistent storage,
+and running on postgresql.
+
+Write fast game processing code to develop ai.
+
+Initial steps:
+
+Sketch out structure of code and runtime.
+
+Find out the major areas of relational algebra system that need work
+to support this.
+
+Design how the ui will work: animation, steps, etc.: maybe create a
+list of states in the database, then the ui can run through these
+catching up as needed.
+
+Plan for tests, based on current stuff.
+
+-> design ui code first, then check animation and progression, then
+   build around this
+
+basic idea is that the engine produces a list of sprites: sprite, x, y
+and some effects (which have an effect name, and possibly one or more
+x,y positions).
+
+as the game progresses, the in memory copy of this view is atomically
+updated by the engine. For series of sprite moves and effects, all of
+the boards in sequence are created and queued in the database, then
+the client removes them from the queue as they are played in sequence
+on screen. This is how a single database update which can cause a
+sequence of sprite position changes and effects is realised on screen.
+
+the actual drawing is in it's own separate thread. Every 10/50 times a
+second or whatever, the abstract current board as read from the
+database is converted to a concrete list of ordered drawing
+instructions. This is where the sprites and effects get animated. The
+concrete drawing instructions are used to draw the new board to a
+backbuffer, and instructions to update the screen with this back
+buffer are inserted into the appropriate gui event loop.
+
+what kind of things are drawn on screen?
+
+Split into two main groups:
+sprites and effects
+sprites are drawn in a single square, and can animate
+effects can cover more than one square or the whole board
+
+sprites cover more than just the pieces: the cursor, plus valid action
+square highlights use sprites
+
+need a list of what kind of effects there are - linked to actions
+
+spell casting: casting target effect, casting square effect, casted effect
+summon monster
+citadel, blob, wall
+magic wood
+shadow wood
+dark power
+disbelieve
+chaos
+lightning, magic bolt
+magic armour, etc.
+shadow form
+raise dead
+subversion
+turmoil
+
+autonomous:
+castle disappear
+fire spread
+fire disappear
+blob spread
+blob disappear
+get new spell from magic wood
+
+move phase
+walking, flying, walk attack, fly attack, ranged attack (2 types:
+fireball and arrow): attacks have success and failed, possibly the
+attack attempt, then the attack result are separate effects?
+
+monster die: number of ways - regular die, disintegrate
+wizard die: effects on all pieces, then effect on wizard
