@@ -1,45 +1,6 @@
-get start new game working
-get board widget displaying sprites
-get them animating
-get all ai battles going
-fix action history to be append
-make renders more abstract so can analyze and optimise updates
-get notify hooked up
-figure out how to do effects
-get tests running again, use haskelldb?
-get back the tupleif, onne tuple and onne tuple-onne attr shortcuts
-  with error handling
-move the callbacks into the abstract widgets, with routing and stuff
+see new/
 
-rewrite tests from scratch, make the bits into utils, reuse the ascii
-  art stuff to redo the setup test board in the sql code, start adding
-  tests for each constraint - want to give hssqlppp a bit of exercise
-
-plan to try and speed things up:
-profiling: not sure how to do this properly
-want: to run tests, or play back game, and collect timing information
--> responsiveness measurement - how quickly cursor update is on screen
-   after pressing key, also, how quickly sprites, text widgets,
-   etc. are updated after keypress that triggers update
--> speed measurement: speed of regenerating the board cache
-   speed of each action being processed
--> time spread: want to know how much time is spent in gtk, sdl,
-   haskell code, database code, break down by event causing. Want to
-   collect full stats on database queries and updates, so can count
-   how many - see if being called too many times, see the progression
-   of updates and selects for thinking about, and get stats on the
-   average and total time spent in each select or funtion call.
-
-optimize:
-squares valid:
-  check for distinct, union all
-  try to fold the views together a bit more
-  check board_range usage - avoid using for 1 square range and for
-    fly/range attack targets
-  when can profile better, investigate turning board ranges into a
-    function
-do new documentation/overview for squares valid
-look over files for dogdy bits: particularly actions, board widget,
-  ai, turn sequence
-
-check out forkOS
+plan is to hook up the new ui approach with the existing sql code, to
+allow computer only battles so that you can see the code doing
+something. After this, redevelop the entire app using new relational
+algebra dbms library.

@@ -4,7 +4,7 @@ want to support running purely in memory using haskell storage, with
 conventional load and save, using haskell (disk) persistent storage,
 and running on postgresql.
 
-Write fast game processing code to develop ai.
+Write fast game running code to develop ai.
 
 Initial steps:
 
